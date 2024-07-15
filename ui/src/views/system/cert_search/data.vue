@@ -80,7 +80,7 @@
 
     </el-table>
 
-    <el-divider />
+    <!-- <el-divider />
 
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
@@ -94,7 +94,7 @@
       <el-col :xs="24" :sm="24" :md="24" :lg="24">
         <h2>证书吊销状态</h2>
       </el-col>
-    </el-row>
+    </el-row> -->
   </div>
 
 </template>

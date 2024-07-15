@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div ref="chartContainer" class="chart-container"></div>
 </template>
 
@@ -56,4 +56,4 @@ export default {
   /* 添加样式以适应你的需要 */
 }
 </style>
-
+ -->
