@@ -1,7 +1,7 @@
 
 
 import sys
-sys.path.append(r"E:\global_ca_monitor")
+sys.path.append(r"/root/global_ca_monitor")
 
 from app import app, db
 from app.manager import g_manager
