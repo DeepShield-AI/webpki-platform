@@ -16,7 +16,7 @@ with app.app_context():
         # 'SCAN_ID' : '95dc7748-7490-4d84-8d67-4b2193953ffb',
         'SCAN_ID' : "0",
         'SUBTASK_FLAG' : 0b0010,
-        'SAVE_CHUNK_SIZE' : 10000,
+        'THREAD_WORKLOAD' : 10000,
         'MAX_THREADS_ALLOC' : 5
     }
     analyze_task = TaskBatchTemplate.create_analysis_task(CaAnalysisConfig(**analyze_args))

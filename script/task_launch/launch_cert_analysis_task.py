@@ -28,7 +28,7 @@ if __name__ == "__main__":
             # 'SCAN_ID' : '94904b17-8b2a-436c-a83e-f4fbb75b0de7',
             # 'SCAN_ID' : '2846a9c8-5b6e-486c-8974-97b8f5ed85f6',
             'SUBTASK_FLAG': 0b0001,
-            'SAVE_CHUNK_SIZE': 20000,
+            'THREAD_WORKLOAD': 20000,
             'MAX_THREADS_ALLOC': 50
         }
         analyze_task = TaskBatchTemplate.create_analysis_task(CertAnalysisConfig(**analyze_args))

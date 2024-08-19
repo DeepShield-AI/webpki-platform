@@ -37,7 +37,7 @@ with app.app_context():
         'MAX_RETRY' : 10,
         'CT_LOG_ADDRESS' : log_address,
         'WINDOW_SIZE' : 20,
-        'SAVE_CHUNK_SIZE' : 20000,
+        'THREAD_WORKLOAD' : 20000,
         'ENTRY_START' : 60000000,
         'ENTRY_END' : 70000000
         #'ENTRY_END' : size

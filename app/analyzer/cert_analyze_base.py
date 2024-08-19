@@ -31,7 +31,7 @@ class CertScanAnalyzer():
             self.scan_input_table = reflected_tables[scan_input_table_name]
         else:
             raise UnknownTableError(scan_input_table_name)
-        self.save_scan_chunk_size = analysis_config.SAVE_CHUNK_SIZE
+        self.save_scan_chunk_size = analysis_config.THREAD_WORKLOAD
         self.max_threads = analysis_config.MAX_THREADS_ALLOC
 
         # Parse analysis flag to choose to build analyzer

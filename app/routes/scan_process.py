@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 
 import threading
-from ..config.scan_config import create_scan_config
+from ..config.scan_config import create_scan_config_from_frontend_request
 from ..utils.type import ScanType
 
 
@@ -54,7 +54,7 @@ def scan_process_list():
 def scan_process_start():
 
     scan_type = ScanType(int(request.json['scanType']))
-    config = create_scan_config(request, scan_type)
+    config = create_scan_config_from_frontend_request(request, scan_type)
     # task_id = manager.register(config)
     # threading.Thread(target=manager.start, args=(task_id,)).start()
     return jsonify({'code': 200, 'msg': '操作成功'})

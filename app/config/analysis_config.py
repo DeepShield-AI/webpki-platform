@@ -20,7 +20,7 @@ class CertAnalysisConfig:
             we can OR the class constants above to catch the flag
         '''
         self.SUBTASK_FLAG = kwargs.get('SUBTASK_FLAG', 0b0001)
-        self.SAVE_CHUNK_SIZE = kwargs.get('SAVE_CHUNK_SIZE', 2000)
+        self.THREAD_WORKLOAD = kwargs.get('THREAD_WORKLOAD', 2000)
         self.MAX_THREADS_ALLOC = kwargs.get('MAX_THREADS_ALLOC', 100)
 
 
@@ -33,7 +33,7 @@ class CaAnalysisConfig:
 
         self.SCAN_ID  = kwargs.get('SCAN_ID', None)
         self.SUBTASK_FLAG = kwargs.get('SUBTASK_FLAG', 0b0001)
-        self.SAVE_CHUNK_SIZE = kwargs.get('SAVE_CHUNK_SIZE', 2000)
+        self.THREAD_WORKLOAD = kwargs.get('THREAD_WORKLOAD', 2000)
         self.MAX_THREADS_ALLOC = kwargs.get('MAX_THREADS_ALLOC', 100)
 
 
@@ -42,7 +42,7 @@ def create_analyze_config(request : Request, analyze_type : int):
     common_args = {
         'SCAN_ID': request.json.get('scanId'),
         'SUBTASK_FLAG': int(request.json.get('flag')),
-        'SAVE_CHUNK_SIZE': int(request.json.get('saveChunkSize')),
+        'THREAD_WORKLOAD': int(request.json.get('saveChunkSize')),
         'MAX_THREADS_ALLOC': int(request.json.get('scanThreadNum')),
     }
 

@@ -76,10 +76,10 @@ class CertParseAnalyzer():
     def __init__(
             self,
             scan_id : str,
-            save_chunk_size : int = 10000
+            THREAD_WORKLOAD : int = 10000
         ) -> None:
 
-        self.save_chunk_size = save_chunk_size
+        self.THREAD_WORKLOAD = THREAD_WORKLOAD
         self.cert_result_list_lock = Lock()
         self.cert_result_list = []
         self.ca_result_dict_lock = Lock()
@@ -147,7 +147,7 @@ class CertParseAnalyzer():
                 fp = self.build_cert_fp_all(cert_parse_result)
                 with self.cert_result_list_lock:
                     self.cert_result_list.append((cert_parse_result, fp))
-                if len(self.cert_result_list) > self.save_chunk_size:
+                if len(self.cert_result_list) > self.THREAD_WORKLOAD:
                     self.sync_update_cert_info()
 
                 # Part 2

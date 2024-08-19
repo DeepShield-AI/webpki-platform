@@ -27,7 +27,7 @@ class CaMetricAnalyzer():
             raise UnknownTableError(scan_input_table_name)
         
         self.cert_store_content_table = reflected_tables["cert_store_content"]
-        self.save_scan_chunk_size = analysis_config.SAVE_CHUNK_SIZE
+        self.save_scan_chunk_size = analysis_config.THREAD_WORKLOAD
         self.max_threads = analysis_config.MAX_THREADS_ALLOC
         self.parse_analyzer = CaParseAnalyzer(analysis_config.SCAN_ID) if analysis_config.SUBTASK_FLAG & CaAnalysisConfig.PARSE_SUBTASK else None
         self.profiling_analyzer = CaSignedCertProfilingAnalyzer() if analysis_config.SUBTASK_FLAG & CaAnalysisConfig.CLUSTERING_SUBTASK else None

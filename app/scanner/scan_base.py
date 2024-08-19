@@ -63,7 +63,7 @@ class Scanner(ABC):
         # scan settings from scan config
         self.scan_id = scan_id
         self.max_threads = scan_config.MAX_THREADS_ALLOC
-        self.save_threshold = scan_config.SAVE_CHUNK_SIZE
+        self.save_threshold = scan_config.THREAD_WORKLOAD
 
         self.proxy_host = scan_config.PROXY_HOST
         self.proxy_port = scan_config.PROXY_PORT
