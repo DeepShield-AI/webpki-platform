@@ -57,21 +57,23 @@ class Scanner(ABC):
             scan_id : str,
             start_time : datetime,
             scan_config : ScanConfig,
-            cert_data_table_name : str,
         ) -> None:
 
         # scan settings from scan config
         self.scan_id = scan_id
-        self.max_threads = scan_config.MAX_THREADS_ALLOC
-        self.save_threshold = scan_config.THREAD_WORKLOAD
+        self.scan_start_time = start_time
+
+        self.storage_dir = scan_config.STORAGE_DIR
+        self.max_threads_alloc = scan_config.MAX_THREADS_ALLOC
+        self.thread_workload = scan_config.THREAD_WORKLOAD
 
         self.proxy_host = scan_config.PROXY_HOST
         self.proxy_port = scan_config.PROXY_PORT
-        self.timeout = scan_config.SCAN_TIMEOUT
-        self.max_retries = scan_config.MAX_RETRY
+        self.scan_timeout = scan_config.SCAN_TIMEOUT
+        self.max_retry = scan_config.MAX_RETRY
 
-        self.cached_results_lock = Lock()
-        self.cached_results = []
+        # self.cached_results_lock = Lock()
+        # self.cached_results = []
 
         self.scan_status_data_lock = Lock()
         self.scan_status_data = ScanStatusData(start_time=start_time)
@@ -83,11 +85,6 @@ class Scanner(ABC):
         self.progress_task = TaskID(-1)
         self.console = Console()
 
-        # Create Tables
-        self.cert_data_table_name = cert_data_table_name
-        self.cert_data_table = generate_cert_data_table(cert_data_table_name)
-
-        self.analyze_cert = scan_config.IS_ANALYZE
 
     '''
         @Methods used for IP and Domain scan
@@ -154,10 +151,10 @@ class Scanner(ABC):
                     "Host" : f"{host_ip}:443",
                     "Authorization": "Bearer YourAccessToken",  # 如果需要认证的话
                 }
-                proxy_conn = http.client.HTTPConnection(proxy_host, proxy_port, timeout=self.timeout)
+                proxy_conn = http.client.HTTPConnection(proxy_host, proxy_port, timeout=self.scan_timeout)
                 proxy_conn.set_tunnel(host, port, headers=headers)
             else:
-                proxy_conn = http.client.HTTPConnection(host, port, timeout=self.timeout)
+                proxy_conn = http.client.HTTPConnection(host, port, timeout=self.scan_timeout)
 
             proxy_conn.connect()
             proxy_socket = proxy_conn.sock
@@ -181,14 +178,14 @@ class Scanner(ABC):
             retry_count = 0
             last_error = None
             while True:
-                if retry_count >= self.max_retries:
+                if retry_count >= self.max_retry:
                     raise RetriveError
                 try:
                     sock_ssl.do_handshake()
                     break
                 except SSL.WantReadError as e:
                     # 等待套接字可读
-                    readable, _, _ = select.select([sock_ssl], [], [], self.timeout)
+                    readable, _, _ = select.select([sock_ssl], [], [], self.scan_timeout)
                     # Timeout occurs
                     if not readable:
                         last_error = e
@@ -252,6 +249,8 @@ class Scanner(ABC):
     @abstractmethod
     def sync_update_scan_process_info(self):
         pass
+
+    # The scan data needs to be stored in files now
     @abstractmethod
-    def save_results(self):
+    def save_results(self, file_name, cert_result):
         pass

@@ -9,7 +9,7 @@ class ScanConfig:
         # name of scan process
         self.SCAN_PROCESS_NAME = kwargs.get('SCAN_PROCESS_NAME', '')
         # scan data output directory (raw data)
-        self.STORAGE_DIR = kwargs.get('STORAGE_DIR', os.path.join(os.path.dirname(__file__), r"../data/ct_scan"))
+        self.STORAGE_DIR = kwargs.get('STORAGE_DIR', os.path.join(os.path.dirname(__file__), r"../data/raw_cert_data/ct_scan"))
         # scan concurrency level
         self.MAX_THREADS_ALLOC = kwargs.get('MAX_THREADS_ALLOC', 100)
         self.THREAD_WORKLOAD = kwargs.get('THREAD_WORKLOAD', 2000)

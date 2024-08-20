@@ -27,10 +27,9 @@ class DomainScanner(Scanner):
             scan_id : str,
             start_time : datetime,
             scan_config : DomainScanConfig,
-            cert_data_table_name : str,
         ) -> None:
 
-        super().__init__(scan_id, start_time, scan_config, cert_data_table_name)
+        super().__init__(scan_id, start_time, scan_config)
 
         # scan settings from scan config
         self.input_csv_file = scan_config.INPUT_DOMAIN_LIST_FILE
@@ -99,7 +98,7 @@ class DomainScanner(Scanner):
 
         with self.cached_results_lock:
             self.cached_results.append(result)
-        if len(self.cached_results) >= self.save_threshold:
+        if len(self.cached_results) >= self.thread_workload:
             self.save_results()
 
         self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
@@ -122,7 +121,7 @@ class DomainScanner(Scanner):
             timer_thread.start()
 
             my_logger.info(f"Scanning...")
-            with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
                 while not self.task_queue.empty():
                     index, host = self.task_queue.get()
                     executor.submit(self.scan_thread, index, host)
@@ -215,11 +214,6 @@ class DomainScanner(Scanner):
                     cert_data_to_insert = [{'CERT_ID' : key, 'CERT_RAW' : value} for key, value in cert_data_to_insert.items()]
                     db.session.expunge_all()
                     db.session.add_all(scan_status_data_to_insert)
-                    db.session.commit()
-
-                    # only template model, can not use insert(Model) here
-                    insert_cert_data_statement = insert(self.cert_data_table).values(cert_data_to_insert).prefix_with('IGNORE')
-                    db.session.execute(insert_cert_data_statement)
                     db.session.commit()
 
                     # many many primary key dupliates...
