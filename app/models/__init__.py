@@ -15,3 +15,4 @@ from .CertStatResult import CertAnalysisStats, CertChainRelation
 from .CaData import generate_ca_analysis_table
 from .CertRevocation import CertRevocationStatusOCSP, CertRevocationStatusCRL, CRLArchive
 from .CaProfiling import generate_ca_fp_table
+from .CertificateReplicaEntry import CertificateReplicaEntry
