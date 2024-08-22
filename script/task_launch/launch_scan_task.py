@@ -29,3 +29,11 @@ if __name__ == "__main__":
         # scan_task = TaskBatchTemplate.create_scan_task(DomainScanConfig(**scan_args))
         # g_manager.submit_task([scan_task])
         # g_manager.start_submitted_tasks()
+
+	# https://yeti2023.ct.digicert.com/log
+	# https://yeti2024.ct.digicert.com/log
+	# https://yeti2025.ct.digicert.com/log
+	# https://sabre2024h1.ct.sectigo.com
+    # https://sabre2024h2.ct.sectigo.com
+	# https://sabre2025h1.ct.sectigo.com
+	# https://sabre2025h2.ct.sectigo.com
