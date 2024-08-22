@@ -60,12 +60,11 @@ class CTScanner(Scanner):
         while loop_start < end_entry:
 
             received_entries = []
-            if loop_end < end_entry:
-                params = {'start': loop_start, 'end': loop_end - 1}
-            else:
-                params = {'start': loop_start, 'end': end_entry - 1}
+            if loop_end >= end_entry:
+                loop_end = end_entry
 
             retry_times = 0
+            params = {'start': loop_start, 'end': loop_end - 1}
             while retry_times < self.max_retry:
                 try:
                     response = requests.get(log_server_request, params=params, verify=True, timeout=self.scan_timeout)
@@ -75,13 +74,17 @@ class CTScanner(Scanner):
                     continue
 
                 if response.status_code == 200:
-                    received_entries = json.loads(response.text)['entries']
+                    received_entries += json.loads(response.text)['entries']
 
-                    if len(received_entries) != self.window_size:
+                    if (len(received_entries) < self.window_size) and (loop_end != end_entry):
                         print(f"Length of response: {len(received_entries)}, expected {self.window_size}")
+
+                        # This case, we try to get the remain entries
+                        params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
                         retry_times += 1
                         continue
                     else:
+                        print(f"Get all {loop_end - loop_start} entries")
                         break
                 else:
                     # my_logger.warning(f"Requesting CT entries from {start} to {end} failed.")
@@ -212,8 +215,9 @@ class CTScanner(Scanner):
 
     def save_results(self, file_name, cert_result : Dict):
 
-            my_logger.info(f"Saving {len(cert_result.keys())} results...")
-            with open(os.path.join(self.storage_dir, file_name), 'w') as f:
+            file_path = os.path.join(self.storage_dir, file_name)
+            my_logger.info(f"Saving {len(cert_result.keys())} results to {file_path}")
+            with open(file_path, 'w') as f:
                 json.dump(cert_result, f, indent=4)
 
         # with app.app_context():

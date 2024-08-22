@@ -12,14 +12,15 @@ log_address = "oak.ct.letsencrypt.org/2024h2"
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "oak 2024h2 1000-2000",
-            'THREAD_WORKLOAD' : 100,
+            'SCAN_PROCESS_NAME': "oak 2024h2 10k-15k",
+            'MAX_THREADS_ALLOC' : 200,
+            'THREAD_WORKLOAD' : 1000,
             'SCAN_TIMEOUT' : 2,
-            'MAX_RETRY' : 5,
+            'MAX_RETRY' : 10,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 1000,
-            'ENTRY_END' : 2000,
-            'WINDOW_SIZE' : 10,
+            'ENTRY_START' : 10000,
+            'ENTRY_END' : 15000,
+            'WINDOW_SIZE' : 100,
         }
         config = CTScanConfig(**scan_args)
         task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])
