@@ -1,6 +1,6 @@
 
 import sys
-sys.path.append(r"E:\global_ca_monitor")
+sys.path.append(r"D:\global_ca_monitor")
 
 import json
 from app.analyzer.certificate_replicas.replica_counting import ReplicaCounting

@@ -1,26 +1,30 @@
 
 import sys
-sys.path.append(r"E:\global_ca_monitor")
+sys.path.append(r"D:\global_ca_monitor")
 
 from app import app, db
 from app.manager import g_manager
 from app.manager.task import TaskBatchTemplate
 from app.config.scan_config import DomainScanConfig, CTScanConfig
 
-log_address = "oak.ct.letsencrypt.org/2024h2"
+# log_address = "oak.ct.letsencrypt.org/2024h2"
+log_address = "sabre2024h1.ct.sectigo.com"
+log_name = "sabre2024h1"
 
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "oak 2024h2 10k-15k",
+            'SCAN_PROCESS_NAME': "sabre2024h1 0-20M",
+            'STORAGE_DIR' : r"H:/sabre2024h1",
             'MAX_THREADS_ALLOC' : 200,
             'THREAD_WORKLOAD' : 1000,
             'SCAN_TIMEOUT' : 2,
             'MAX_RETRY' : 10,
+            'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 10000,
-            'ENTRY_END' : 15000,
-            'WINDOW_SIZE' : 100,
+            'ENTRY_START' : 0,
+            'ENTRY_END' : 20000000,
+            'WINDOW_SIZE' : 200,
         }
         config = CTScanConfig(**scan_args)
         task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])

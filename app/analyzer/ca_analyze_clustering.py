@@ -26,7 +26,7 @@ from sklearn.preprocessing import LabelEncoder
 
 ca_org_list = []
 # Read CA Org Name from file
-with open(r"E:/global_ca_monitor/tool/domain_collector/data/seed_ca_org_name", "r", encoding='utf-8') as file:
+with open(r"D:/global_ca_monitor/tool/domain_collector/data/seed_ca_org_name", "r", encoding='utf-8') as file:
     for line in file:
         ca_org_list.append(line.strip())
 print(ca_org_list)

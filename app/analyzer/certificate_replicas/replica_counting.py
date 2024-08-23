@@ -141,7 +141,7 @@ class ReplicaCounting():
                             self.counting_dict[subject] = ReplicaGroup(subject)
 
             i += 1
-            if i > 0:
+            if i >= 25:
                 break
 
 
@@ -184,7 +184,7 @@ class ReplicaCounting():
             # 限制层级的正则表达式，匹配最多 4 层域名
             # 要不然域名数量太多了，电脑承受不了
             pattern = r"^([a-zA-Z0-9-]+\.){0,3}[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"
-            if not re.match(pattern, domain):
+            if (not domain) or (not re.match(pattern, domain)):
                 continue
 
             # 检查是否是通配符域名

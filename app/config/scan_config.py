@@ -41,6 +41,7 @@ class CTScanConfig(ScanConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # CT log request url construction
+        self.CT_LOG_NAME = kwargs.get('CT_LOG_NAME', "")
         self.CT_LOG_ADDRESS = kwargs.get('CT_LOG_ADDRESS', "")
         self.ENTRY_START = kwargs.get('ENTRY_START', 0)
         self.ENTRY_END = kwargs.get('ENTRY_END', 1000)
@@ -84,6 +85,8 @@ def create_scan_config_from_frontend_request(request : Request, scan_type : Scan
         return IPScanConfig(**common_args)
 
     if scan_type == ScanType.SCAN_BY_CT:
+        if request.json.get('ct_log_name'):
+            common_args['CT_LOG_NAME'] = request.json.get('ct_log_name')
         if request.json.get('ct_log_address'):
             common_args['CT_LOG_ADDRESS'] = request.json.get('ct_log_address')
         if request.json.get('entry_start'):

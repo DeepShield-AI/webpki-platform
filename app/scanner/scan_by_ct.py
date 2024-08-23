@@ -7,6 +7,7 @@
 import os
 import json
 import time
+import math
 import base64
 import requests
 import threading
@@ -40,6 +41,7 @@ class CTScanner(Scanner):
         super().__init__(scan_id, start_time, scan_config)
 
         # scan settings from scan config
+        self.ct_log_name = scan_config.CT_LOG_NAME
         self.ct_log_address = scan_config.CT_LOG_ADDRESS
         self.entry_start = scan_config.ENTRY_START
         self.entry_end = scan_config.ENTRY_END
@@ -50,7 +52,7 @@ class CTScanner(Scanner):
     def scan_thread(self, start_entry, end_entry):
         
         # check window_size fits the start and the end range
-        assert((end_entry - start_entry) >= self.window_size)
+        # assert((end_entry - start_entry) >= self.window_size)
 
         thread_result = {}
         loop_start = start_entry
@@ -76,8 +78,8 @@ class CTScanner(Scanner):
                 if response.status_code == 200:
                     received_entries += json.loads(response.text)['entries']
 
-                    if (len(received_entries) < self.window_size) and (loop_end != end_entry):
-                        print(f"Length of response: {len(received_entries)}, expected {self.window_size}")
+                    if (len(received_entries) < (loop_end - loop_start)):
+                        print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
 
                         # This case, we try to get the remain entries
                         params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
@@ -131,7 +133,7 @@ class CTScanner(Scanner):
             loop_end = loop_start + self.window_size
 
         # store the result into the file indicated by the storage_directory
-        file_name = self.ct_log_address.replace('/', '-') + f"_{start_entry}" + f"_{end_entry}"
+        file_name = self.ct_log_name + f"_{start_entry}" + f"_{end_entry}"
         self.save_results(file_name, thread_result)
         self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
         self.progress.advance(self.progress_task)
@@ -146,7 +148,7 @@ class CTScanner(Scanner):
             transient=True  # 进度条完成后隐藏
         ) as self.progress:
             
-            total = int((self.entry_end - self.entry_start) / self.thread_workload)
+            total = math.ceil((self.entry_end - self.entry_start) / self.thread_workload)
             self.progress_task = self.progress.add_task("[Waiting]", total=total)
 
             timer_thread = threading.Thread(target=self.async_update_scan_process_info)
@@ -186,7 +188,7 @@ class CTScanner(Scanner):
     def async_update_scan_process_info(self):
         while not self.progress.finished:
             self.sync_update_scan_process_info()
-            time.sleep(5)
+            time.sleep(15)
 
 
     def sync_update_scan_process_info(self):
