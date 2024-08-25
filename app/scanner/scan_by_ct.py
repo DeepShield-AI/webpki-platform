@@ -101,6 +101,9 @@ class CTScanner(Scanner):
                 thread_result[entry_number] = {}
 
                 leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
+                ct_timestamp = leaf_cert.Timestamp
+                thread_result[entry_number]['timestamp'] = ct_timestamp
+
                 if leaf_cert.LogEntryType == "X509LogEntryType":
                     # We have a normal x509 entry
                     thread_result[entry_number]['type'] = "Cert"
