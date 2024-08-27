@@ -10,3 +10,4 @@ uwsgi.pid
 # Large data files
 cert_pem_data.csv
 cert_content.csv
+data/top10milliondomains
