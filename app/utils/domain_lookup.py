@@ -17,6 +17,17 @@
 import os
 import csv
 
+class DomainRank():
+
+    def __init__(self) -> None:
+        self.rank_dict = {}
+
+        with open(os.path.join(os.path.dirname(__file__), r"../data/top-1m.csv"), 'r') as file:
+            csv_reader = csv.reader(file)
+            for row in csv_reader:
+                self.rank_dict[row[1]] = row[0]
+
+
 class DomainLookup():
 
     def __init__(self) -> None:
@@ -48,15 +59,16 @@ class DomainLookup():
     
     def lookup(self, target_domain : str):
 
+        if not target_domain: return []
         is_wildcard = target_domain.startswith("*.")
         is_hit = target_domain in self.domain_set
 
         if is_hit and is_wildcard:
             return self.wildcard_dict[target_domain]
         elif is_hit and (not is_wildcard):
-            return target_domain
+            return [target_domain]
         else:
-            return None
+            return []
 
 
 # @deprecated

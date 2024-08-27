@@ -1,6 +1,5 @@
 
 from datetime import datetime
-from .replica_counting import ReplicaGroup
 
 
 class OverlapAnalysis():
