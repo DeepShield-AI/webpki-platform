@@ -2,23 +2,53 @@
 # 在贡献 Contribution 里面可以写的点：
 
 ## 总体
+### 有什么东西是之前没有注意到发现的？
 
-1.
+1. Overview-50M 证书数据中：
+    (1) Total amount of sites: 99329
+    (1) Total amount of certs in top-1m: 346235
+    (2) Total amount of sites with certificate replicas: 32837
+    证书的有效期开始范围在 2023 年 11 月 ☞ 2024 年 2 月
 
-2. 同时出现 EV 和 DV 的证书？
+2. Certificate Replicas 和 网站的 site rank 没有太大的关系
+（这个确实没有想到，只有个别的网站在短时间内拥有大量的证书副本）
 
-## 时间
+3. 大部分的网站的证书副本较少，都在 10 个以下，但是有部分的网站证书副本非常多，都具有以下特点：
+    *.mongodb.net
+    *.usatoday.com
+    *.gannettdigital.com
+    *.gannett-cdn.com
 
-1. 
+## 时间变化维度
+### 什么东西应该随着时间变化而变化，却没有变化，或者变化的趋势不对？
+### 反之亦然
+
+1. Domain add and remove
+
+2. Reissuance and Replacement
+
+3. 同一天签发了 EV 和 DV 的证书？
+
+既有短的证书，又有长时间的证书
+
+5. 
+    5.1 有部分网站在 2024 年之后立刻加大了证书当中的 SAN list 长度
+    5.2 这些加长的网站的特点是 xxx
+        并且有很多网站的 SAN 始终不变
+    5.3 
 
 
-## 空间
 
-1.
+## 空间变化维度
+### 什么东西应该随着空间变化而变化，却没有变化，或者变化的趋势不对？
+### 反之亦然
+
+1. 不同的 SAN 使用相同的密钥？
 
 2. 
 
 3. 不同站点的特点 （CDN） 就只有一个关于地区的域名不同，其他的域名，包括根域名在内，都是含有的，就很奇怪，没有意义
+就是 intersection 没有变化
 
 
 ### MISC

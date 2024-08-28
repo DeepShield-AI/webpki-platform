@@ -44,6 +44,33 @@ with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') 
         if data["num"] >= 100:
             _4_many_replica_domains.append(domain)
 
+
+
+
+    type_counting_data = {}
+
+    both_ev_and_others = 0
+
+    for domain, data in json_data.items():
+        rank = rank_dict[domain]
+
+        if len(data['type'].keys()) > 1:
+            both_ev_and_others += 1
+
+        for type, num in data['type'].items():
+            if type not in type_counting_data:
+                type_counting_data[type] = 0
+
+            type_counting_data[type] += num
+
+print(type_counting_data)
+print(both_ev_and_others)
+
+
+
+
+
+
 print(f"(1) Total amount of certs in top-1m: {_1_total_certs}")
 print(f"(2) Total amount of sites with certificate replicas: {_2_cert_replica_data_count}")
 
@@ -113,4 +140,5 @@ plt.show()
 
 with open("1-4.txt", "w") as file:
     json.dump(_4_many_replica_domains, file, indent=4)
+
 
