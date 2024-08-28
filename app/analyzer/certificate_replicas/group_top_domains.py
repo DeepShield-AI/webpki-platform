@@ -1,4 +1,9 @@
 
+'''
+    First step after ct data collection:
+    Find all certs for Top-1M domains, and store them into separate files
+'''
+
 import os
 import json
 from ...parser.pem_parser import PEMParser, PEMResult
@@ -70,7 +75,7 @@ class DataParser():
             self.total = sum(1 for filename in os.listdir(self.load_dir) if os.path.isfile(os.path.join(self.load_dir, filename)))
             self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
-            with ThreadPoolExecutor(max_workers=100) as executor:
+            with ThreadPoolExecutor(max_workers=200) as executor:
 
                 for filename in os.listdir(self.load_dir):
                     file_path = os.path.join(self.load_dir, filename)
@@ -104,6 +109,6 @@ class DataParser():
             # 加锁写入文件
             with self.file_locks[target_file_name]:
                 with open(target_file_name, 'a') as file:
-                    json.dump(ct_entry, file, indent=4)
+                    json.dump(ct_entry, file)
                     file.write('\n')  # 换行符用于分隔每个 JSON 对象
 

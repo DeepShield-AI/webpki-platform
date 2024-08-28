@@ -1,16 +1,22 @@
 
+'''
+    Third step, read those merged large files and analyze data,
+    output json data as we want
+'''
+
 import re
 import os
 import json
+import base64
+import hashlib
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 from rich.console import Console
 from threading import Lock
-from ...parser.pem_parser import PEMParser, PEMResult
-
+from ...utils.json import custom_serializer
 
 @dataclass
 class CertEntry():
@@ -27,9 +33,14 @@ class CertEntry():
 
 class ReplicaCounting():
 
-    def __init__(self) -> None:
-        self.load_dir = r'H:/top_1m_collected'
-        self.save_dir = r'H:/'
+    def  __init__(
+            self,
+            load_dir = r'D:/global_ca_monitor/data/cert_replica',
+            save_dir = r'D:/global_ca_monitor/data/cert_replica'
+        ) -> None:
+
+        self.load_dir = load_dir
+        self.save_dir = save_dir
         self.counting_dict = {}
 
         # @Debug only
@@ -43,66 +54,143 @@ class ReplicaCounting():
 
     def scan_thread(self, file_name : str):
 
-        fqdn = file_name[:-4]
         file_path = os.path.join(self.load_dir, file_name)
-        if os.path.isfile(file_path):
 
-            with open(file_path, "r") as file:
-                # print(f"Open file: {file_name}")
+        print(f"Open file: {file_name}")
+        with open(file_path, "r") as file:
+            # read data
+            data = json.load(file)
+
+            for fqdn, cert_list in data.items():
+
                 self.counting_dict[fqdn] = {}
                 self.counting_dict[fqdn]["num"] = 0
                 self.counting_dict[fqdn]["2023_num"] = 0
                 self.counting_dict[fqdn]["2024_num"] = 0
+
                 self.counting_dict[fqdn]["wildcard_num"] = 0
                 self.counting_dict[fqdn]["wildcard_others"] = []
 
+                self.counting_dict[fqdn]["cert_type"] = {}
                 self.counting_dict[fqdn]["issuer_cn"] = {}
+
+                self.counting_dict[fqdn]["gap"] = {}
+                self.counting_dict[fqdn]["overlap"] = {}
                 self.counting_dict[fqdn]["valid_period"] = {}
-                self.counting_dict[fqdn]["type"] = {}
 
-                self.counting_dict[fqdn]["not_before_to_issuer"] = {}
+                self.counting_dict[fqdn]["pub_key"] = {}
+                self.counting_dict[fqdn]["pub_key_alg"] = {}
 
-                # read data
-                data = file.read()
+                self.counting_dict[fqdn]["sig_alg"] = {}
+                self.counting_dict[fqdn]["zlint"] = {}
+
+                self.counting_dict[fqdn]["not_before_to_everything"] = {}
+                self.counting_dict[fqdn]["subject_set_to_everything"] = {}
+
 
                 # 使用函数分割并解析每个 JSON 对象
-                for json_str in self.split_json_objects(data):
+                for entry in cert_list:
+                    cert_entry = entry["tbs_certificate"]
 
                     try:
-                        entry = json.loads(json_str)
                         self.counting_dict[fqdn]["num"] += 1
 
-                        pem_parser = PEMParser()
-                        leaf_cert_raw = pem_parser.parse_pem_cert(entry['leaf'])
-
-                        if self.check_entry_time(leaf_cert_raw) == 2023:
+                        if self.check_entry_time(cert_entry) == 2023:
                             self.counting_dict[fqdn]["2023_num"] += 1
                         else:
                             self.counting_dict[fqdn]["2024_num"] += 1
 
-                        if self.compare_entry_with_fqdn(fqdn, leaf_cert_raw):
+                        if self.compare_entry_with_fqdn(fqdn, cert_entry):
                             self.counting_dict[fqdn]["wildcard_num"] += 1
-                            self.counting_dict[fqdn]["wildcard_others"] = list(set(leaf_cert_raw.subject))
+                            self.counting_dict[fqdn]["wildcard_others"] = list(self.filter_unique_domains(cert_entry))
 
-                        if leaf_cert_raw.issuer_cn not in self.counting_dict[fqdn]["issuer_cn"]:
-                            self.counting_dict[fqdn]["issuer_cn"][leaf_cert_raw.issuer_cn] = 0
-                        self.counting_dict[fqdn]["issuer_cn"][leaf_cert_raw.issuer_cn] += 1
+                        for extension in cert_entry["extensions"]:
+                            if extension["extn_id"] == "certificate_policies":
+                                policy = extension["extn_value"][0]["policy_identifier"]
+                                if policy not in self.counting_dict[fqdn]["cert_type"]:
+                                    self.counting_dict[fqdn]["cert_type"][policy] = 0
+                                self.counting_dict[fqdn]["cert_type"][policy] += 1
 
-                        valid_period = self.count_valid_period_days(leaf_cert_raw)
+                        issuer_cn = cert_entry["issuer"]["common_name"]
+                        if issuer_cn not in self.counting_dict[fqdn]["issuer_cn"]:
+                            self.counting_dict[fqdn]["issuer_cn"][issuer_cn] = 0
+                        self.counting_dict[fqdn]["issuer_cn"][issuer_cn] += 1
+
+                        # missing gap and overlap here
+
+                        valid_period = self.count_valid_period_days(cert_entry)
                         if valid_period not in self.counting_dict[fqdn]["valid_period"]:
                             self.counting_dict[fqdn]["valid_period"][valid_period] = 0
                         self.counting_dict[fqdn]["valid_period"][valid_period] += 1
 
-                        if leaf_cert_raw.policy not in self.counting_dict[fqdn]["type"]:
-                            self.counting_dict[fqdn]["type"][leaf_cert_raw.policy] = 0
-                        self.counting_dict[fqdn]["type"][leaf_cert_raw.policy] += 1
+                        pub_key_alg = cert_entry['subject_public_key_info']['algorithm']['algorithm']
+                        if pub_key_alg == 'rsa':
+                            mod = cert_entry['subject_public_key_info']['public_key']['modulus']
+                            key_length = (mod.bit_length() + 7) // 8
+                            key_id = hashlib.sha1(mod.to_bytes(key_length)).digest().hex()
 
-                        if leaf_cert_raw.not_before not in self.counting_dict[fqdn]['not_before_to_issuer']:
-                            self.counting_dict[fqdn]['not_before_to_issuer'][leaf_cert_raw.not_before] = []
-                        self.counting_dict[fqdn]['not_before_to_issuer'][leaf_cert_raw.not_before].append(leaf_cert_raw.issuer_cn)
+                        elif pub_key_alg == 'ec':
+                            key = cert_entry['subject_public_key_info']['public_key']
+                            key_length = len(key)
+                            key_id = hashlib.sha1(key.encode()).digest().hex()
+                        else:
+                            key_length = 0
+                            key_id = 'NULL'
+
+                        pub_key_alg = pub_key_alg + "_" + str(key_length)
+                        if pub_key_alg not in self.counting_dict[fqdn]["pub_key_alg"]:
+                            self.counting_dict[fqdn]["pub_key_alg"][pub_key_alg] = 0
+                        self.counting_dict[fqdn]["pub_key_alg"][pub_key_alg] += 1
+
+                        if key_id not in self.counting_dict[fqdn]["pub_key"]:
+                            self.counting_dict[fqdn]["pub_key"][key_id] = 0
+                        self.counting_dict[fqdn]["pub_key"][key_id] += 1
+
+                        # missing zlint and sig_alg here
+
+                        # must be ordered list
+                        ordered_subject_set = sorted(self.filter_unique_domains(cert_entry))
+                        not_before =  datetime.fromisoformat(cert_entry['validity']['not_before']).strftime("%Y-%m-%d")
+
+                        if not_before not in self.counting_dict[fqdn]['not_before_to_everything']:
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before] = {}
+
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["cert_type"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["issuer_cn"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_id"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_alg"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["subject_list"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["valid_period"] = []
+
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["cert_type"].append(policy)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["issuer_cn"].append(issuer_cn)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_id"].append(key_id)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_alg"].append(pub_key_alg)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["subject_list"].append(ordered_subject_set)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["valid_period"].append(valid_period)
+
+                        ordered_subject_set = str(ordered_subject_set)
+                        if ordered_subject_set not in self.counting_dict[fqdn]['subject_set_to_everything']:
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set] = {}
+
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["cert_type"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["issuer_cn"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_id"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_alg"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["valid_period"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["not_before"] = []
+
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["cert_type"].append(policy)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["issuer_cn"].append(issuer_cn)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_id"].append(key_id)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_alg"].append(pub_key_alg)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["valid_period"].append(valid_period)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["not_before"].append(not_before)
 
                     except json.JSONDecodeError as e:
                         print(f"Error decoding JSON: {e}")
+    
+        print(f"Finish file: {file_name}")
 
         with self.lock:
             self.count += 1
@@ -120,20 +208,25 @@ class ReplicaCounting():
         ) as self.progress:
 
             # how many files here?
-            self.total = sum(1 for file_name in os.listdir(self.load_dir) if os.path.isfile(os.path.join(self.load_dir, file_name)))
+            file_name_list = os.listdir(self.load_dir)
+            valid_name_list = []
+            for file_name in file_name_list:
+                if file_name.startswith("total"):
+                    valid_name_list.append(file_name)
+
+            self.total = len(valid_name_list)
             self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
+            with ThreadPoolExecutor(max_workers=10) as executor:
 
-            with ThreadPoolExecutor(max_workers=100) as executor:
+                for file_name in valid_name_list:
+                    # executor.submit(self.scan_thread, file_name)
+                    executor.submit(self.scan_thread, file_name).result()
 
-                for file_name in os.listdir(self.load_dir):
-                    executor.submit(self.scan_thread, file_name)
-                    # executor.submit(self.scan_thread, file_name).result()
- 
                 executor.shutdown(wait=True)
-                print("All threads finished.")
+                print(f"All threads finished.")
 
-            with open(os.path.join(self.save_dir, 'counting_out.json'), 'w') as f:
-                json.dump(self.counting_dict, f, indent=4)
+                with open(os.path.join(self.save_dir, f'counting_out_50M.json'), 'w') as f:
+                    json.dump(self.counting_dict, f, indent=4, default=custom_serializer)
 
 
     def split_json_objects(self, data):
@@ -158,9 +251,9 @@ class ReplicaCounting():
         return json_objects
 
 
-    def compare_entry_with_fqdn(self, fqdn : str, cert_entry : PEMResult) -> bool:
+    def compare_entry_with_fqdn(self, fqdn : str, cert_entry : str) -> bool:
 
-        for subject in cert_entry.subject:
+        for subject in self.filter_unique_domains(cert_entry):
             if subject.startswith("*."):
                 regex_pattern = re.escape(subject).replace(r"\*", r".*")
                 if re.match(regex_pattern, fqdn):
@@ -168,58 +261,41 @@ class ReplicaCounting():
         return False
 
 
-    def compare_entry_with_reg_exp(self, cert_entry : PEMResult, reg_exp : str) -> str:
+    def compare_entry_with_reg_exp(self, cert_entry : str, reg_exp : str) -> str:
 
         regex_pattern = re.escape(reg_exp).replace(r"\*", r".*")
-        for subject in cert_entry.subject:
+        for subject in self.filter_unique_domains(cert_entry):
             if re.match(regex_pattern, subject):
                 return subject
         return None
 
 
-    def check_entry_time(self, cert_entry : PEMResult) -> int:
+    def check_entry_time(self, cert_entry : str) -> int:
 
-        not_before = datetime.strptime(cert_entry.not_before, "%Y-%m-%d-%H-%M-%S")
-        not_after = datetime.strptime(cert_entry.not_after, "%Y-%m-%d-%H-%M-%S")
+        not_before = datetime.fromisoformat(cert_entry['validity']['not_before'])
+        not_after = datetime.fromisoformat(cert_entry['validity']['not_after'])
 
-        if not_before >= datetime(2024, 1, 1, 0, 0, 0):
+        if not_before >= datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc):
             return 2024
         else:
             return 2023
 
 
-    def count_valid_period_days(self, cert_entry : PEMResult) -> int:
+    def count_valid_period_days(self, cert_entry : str) -> int:
 
-        not_before = datetime.strptime(cert_entry.not_before, "%Y-%m-%d-%H-%M-%S")
-        not_after = datetime.strptime(cert_entry.not_after, "%Y-%m-%d-%H-%M-%S")
+        not_before = datetime.fromisoformat(cert_entry['validity']['not_before'])
+        not_after = datetime.fromisoformat(cert_entry['validity']['not_after'])
         
         return (not_after - not_before).days
 
 
-    # def filter_unique_domains(self, domains):
-    #     unique_domains = set()  # 用于存储有效域名
-    #     wildcard_domains = set()  # 用于存储通配符域名
-    #     fix_domains = set()
+    def filter_unique_domains(self, cert_entry : str):
 
-    #     for domain in domains:
-    #         # 限制层级的正则表达式，匹配最多 4 层域名
-    #         # 要不然域名数量太多了，电脑承受不了
-    #         pattern = r"^([a-zA-Z0-9-]+\.){0,3}[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"
-    #         if (not domain) or (not re.match(pattern, domain)):
-    #             continue
+        subject = [cert_entry['subject']['common_name']]
+        for extension in cert_entry["extensions"]:
+            if extension["extn_id"] == "subject_alt_name":
+                subject += extension["extn_value"]
 
-    #         # 检查是否是通配符域名
-    #         if domain.startswith("*."):
-    #             wildcard_domains.add(domain[2:])
-    #             unique_domains.add(domain)
-    #         else:
-    #             fix_domains.add(domain)
+        return set(subject)
+    
         
-    #     # 检查此域名是否已经被通配符域名覆盖
-    #     for domain in fix_domains:
-    #         base_domain = domain.split(".", 1)[1] if "." in domain else domain
-    #         if base_domain not in wildcard_domains:
-    #             unique_domains.add(domain)
-
-    #     return list(unique_domains)
-
