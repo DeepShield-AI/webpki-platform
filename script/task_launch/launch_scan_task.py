@@ -8,15 +8,17 @@ from app.manager.task import TaskBatchTemplate
 from app.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_address = "oak.ct.letsencrypt.org/2024h2"
-# log_address = "sabre2025h2.ct.sectigo.com"
-log_address = "yeti2023.ct.digicert.com/log"
-log_name = "yeti2023"
+# log_address = "sabre2024h2.ct.sectigo.com"
+# log_address = "yeti2024.ct.digicert.com/log"
+log_address = "ct.cloudflare.com/logs/nimbus2024"
+log_name = "nimbus2024"
+# 188918416
 
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "yeti2023 0-50M",
-            'STORAGE_DIR' : r"H:/yeti2023",
+            'SCAN_PROCESS_NAME': "nimbus2024 0M-1M",
+            'STORAGE_DIR' : r"H:/nimbus2024",
             'MAX_THREADS_ALLOC' : 200,
             'THREAD_WORKLOAD' : 1000,
             'SCAN_TIMEOUT' : 2,
@@ -24,8 +26,8 @@ if __name__ == "__main__":
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
             'ENTRY_START' : 0,
-            'ENTRY_END' : 50000000,
-            'WINDOW_SIZE' : 200,
+            'ENTRY_END' : 1000000,
+            'WINDOW_SIZE' : 100,
         }
         config = CTScanConfig(**scan_args)
         task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])
@@ -43,3 +45,9 @@ if __name__ == "__main__":
     # https://sabre2024h2.ct.sectigo.com
 	# https://sabre2025h1.ct.sectigo.com
 	# https://sabre2025h2.ct.sectigo.com
+    # https://nessie2022.ct.digicert.com/log
+    # https://nessie2023.ct.digicert.com/log
+	# https://nessie2024.ct.digicert.com/log
+    # https://nessie2025.ct.digicert.com/log
+	# https://ct.cloudflare.com/logs/nimbus2024
+	# https://ct.cloudflare.com/logs/nimbus2025

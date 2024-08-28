@@ -5,6 +5,9 @@ from app.parser.pem_parser import PEMParser
 import struct
 import binascii
 import base64
+import json
+from collections import OrderedDict
+from datetime import datetime
 
 # 解析 Signed Certificate Timestamp (SCT)
 def parse_sct(sct):
@@ -29,11 +32,24 @@ def parse_sct(sct):
     print("Timestamp:", timestamp)
 
 
+# 自定义序列化函数
+def datetime_serializer(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()  # 或者用 obj.strftime("%Y-%m-%d %H:%M:%S") 等其他格式
+    if isinstance(obj, set):
+        return list(obj)
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 with open(r'test_certs/tsinghua.edu.cn_single.pem', 'r') as f:
     data = f.read()
 
     pem_parser = PEMParser()
     cert = pem_parser.parse_native(data)
+    print(cert)
+    json_str = json.dumps(cert, default=datetime_serializer)
     extensions = cert['tbs_certificate']['extensions']
 
     for ext in extensions:

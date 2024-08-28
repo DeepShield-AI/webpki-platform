@@ -40,3 +40,9 @@ Misc:
 // 2. add several debug message
 // 4. Add exception handler inside every sync_update_info
 // 3. Change cert ext parsing results
+
+
+修改 CT 扫描逻辑，
+
+每个 window-size 中的 request 顺序要随机，免得对方给我限制 速率
+
