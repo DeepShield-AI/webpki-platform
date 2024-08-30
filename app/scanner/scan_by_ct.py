@@ -71,9 +71,9 @@ class CTScanner(Scanner):
                 try:
                     response = requests.get(log_server_request, params=params, verify=True, timeout=self.scan_timeout)
                 except Exception as e:
-                    my_logger.warning(f"Exception {e} when requesting CT entries from {loop_start} to {loop_end}")
+                    # my_logger.warning(f"Exception {e} when requesting CT entries from {loop_start} to {loop_end}")
                     retry_times += 1
-                    time.sleep(2 ** retry_times)  # 指数退避策略
+                    time.sleep(2 * retry_times)  # 指数退避策略
                     continue
 
                 if response.status_code == 200:
@@ -85,22 +85,22 @@ class CTScanner(Scanner):
                         # This case, we try to get the remain entries
                         params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
                         retry_times += 1
-                        time.sleep(2 ** retry_times)  # 指数退避策略
+                        time.sleep(2 * retry_times)  # 指数退避策略
                         continue
                     else:
-                        print(f"Get all {loop_end - loop_start} entries")
+                        # print(f"Get all {loop_end - loop_start} entries")
                         break
                 
                 # 429 -> too many requests，read Retry-After and wait
                 elif response.status_code == 429:
                     retry_after = int(response.headers.get("Retry-After", 1))
-                    my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
+                    # my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
                     time.sleep(retry_after)
                     continue
                 else:
                     my_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
                     retry_times += 1
-                    time.sleep(2 ** retry_times)  # 指数退避策略
+                    time.sleep(2 * retry_times)  # 指数退避策略
                     continue
             
             # Cache the received results
