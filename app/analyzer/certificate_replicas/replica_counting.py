@@ -77,12 +77,14 @@ class ReplicaCounting():
                 self.counting_dict[fqdn]["gap"] = {}
                 self.counting_dict[fqdn]["overlap"] = {}
                 self.counting_dict[fqdn]["valid_period"] = {}
+                self.counting_dict[fqdn]["ct_timestamp"] = []
 
                 self.counting_dict[fqdn]["pub_key"] = {}
                 self.counting_dict[fqdn]["pub_key_alg"] = {}
 
                 self.counting_dict[fqdn]["sig_alg"] = {}
                 self.counting_dict[fqdn]["zlint"] = {}
+                self.counting_dict[fqdn]["san_template"] = []
 
                 self.counting_dict[fqdn]["not_before_to_everything"] = {}
                 self.counting_dict[fqdn]["subject_set_to_everything"] = {}
@@ -90,6 +92,7 @@ class ReplicaCounting():
 
                 # 使用函数分割并解析每个 JSON 对象
                 for entry in cert_list:
+                    ct_timestamp = entry['timestamp']
                     cert_entry = entry["tbs_certificate"]
 
                     try:
@@ -122,6 +125,7 @@ class ReplicaCounting():
                         if valid_period not in self.counting_dict[fqdn]["valid_period"]:
                             self.counting_dict[fqdn]["valid_period"][valid_period] = 0
                         self.counting_dict[fqdn]["valid_period"][valid_period] += 1
+                        self.counting_dict[fqdn]["ct_timestamp"].append(ct_timestamp)
 
                         pub_key_alg = cert_entry['subject_public_key_info']['algorithm']['algorithm']
                         if pub_key_alg == 'rsa':
@@ -150,8 +154,10 @@ class ReplicaCounting():
 
                         # must be ordered list
                         ordered_subject_set = sorted(self.filter_unique_domains(cert_entry))
-                        not_before =  datetime.fromisoformat(cert_entry['validity']['not_before']).strftime("%Y-%m-%d")
+                        san_template_set = list(self.compute_san_template(fqdn, ordered_subject_set))
+                        self.counting_dict[fqdn]["san_template"].append(san_template_set)
 
+                        not_before =  datetime.fromisoformat(cert_entry['validity']['not_before']).strftime("%Y-%m-%d")
                         if not_before not in self.counting_dict[fqdn]['not_before_to_everything']:
                             self.counting_dict[fqdn]['not_before_to_everything'][not_before] = {}
 
@@ -161,6 +167,8 @@ class ReplicaCounting():
                             self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_alg"] = []
                             self.counting_dict[fqdn]['not_before_to_everything'][not_before]["subject_list"] = []
                             self.counting_dict[fqdn]['not_before_to_everything'][not_before]["valid_period"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["ct_timestamp"] = []
+                            self.counting_dict[fqdn]['not_before_to_everything'][not_before]["san_template"] = []
 
                         self.counting_dict[fqdn]['not_before_to_everything'][not_before]["cert_type"].append(policy)
                         self.counting_dict[fqdn]['not_before_to_everything'][not_before]["issuer_cn"].append(issuer_cn)
@@ -168,6 +176,8 @@ class ReplicaCounting():
                         self.counting_dict[fqdn]['not_before_to_everything'][not_before]["pub_key_alg"].append(pub_key_alg)
                         self.counting_dict[fqdn]['not_before_to_everything'][not_before]["subject_list"].append(ordered_subject_set)
                         self.counting_dict[fqdn]['not_before_to_everything'][not_before]["valid_period"].append(valid_period)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["ct_timestamp"].append(ct_timestamp)
+                        self.counting_dict[fqdn]['not_before_to_everything'][not_before]["san_template"].append(san_template_set)
 
                         ordered_subject_set = str(ordered_subject_set)
                         if ordered_subject_set not in self.counting_dict[fqdn]['subject_set_to_everything']:
@@ -179,6 +189,8 @@ class ReplicaCounting():
                             self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_alg"] = []
                             self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["valid_period"] = []
                             self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["not_before"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["ct_timestamp"] = []
+                            self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["san_template"] = []
 
                         self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["cert_type"].append(policy)
                         self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["issuer_cn"].append(issuer_cn)
@@ -186,6 +198,8 @@ class ReplicaCounting():
                         self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["pub_key_alg"].append(pub_key_alg)
                         self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["valid_period"].append(valid_period)
                         self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["not_before"].append(not_before)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["ct_timestamp"].append(ct_timestamp)
+                        self.counting_dict[fqdn]['subject_set_to_everything'][ordered_subject_set]["san_template"].append(san_template_set)
 
                     except json.JSONDecodeError as e:
                         print(f"Error decoding JSON: {e}")
@@ -298,4 +312,62 @@ class ReplicaCounting():
 
         return set(subject)
     
+
+    '''
+        The following two methods compute the SAN template of one cert entry
+        In the future, we will upgrade this to a separate class with AI algorithms
+
+        e.g. fqdn = www.example.com
+
+        subject = www.example.net -> -3
+        subject = www.taobao.com -> -2
+        subject = a.example.com -> -1
+
+        subject = com -> 1
+        subject = example.com -> 2
+        subject = www.example.com -> 3
+        subject = sub.www.example.com -> 4
         
+        subject = * -> 0*
+        subject = *.com -> 1*
+        subject = *.example.com -> 2*
+        subject = *.www.example.com -> 3*
+        subject = *.www.www.example.com -> 4*
+    '''
+    def compute_domain_match_level(self, fqdn : str, subject : str) -> str:
+
+        fqdn_split = fqdn.split('.')
+        fqdn_split.reverse()
+        subject_split = subject.split('.')
+        subject_split.reverse()
+
+        if fqdn_split == subject_split:
+            return str(len(fqdn_split))
+
+        base = len(fqdn_split) * -1
+        for i in range(len(fqdn_split)):
+            if i >= len(subject_split):
+                return str(i)
+            elif fqdn_split[i] == subject_split[i]:
+                continue
+            elif subject_split[i] == '*':
+                return str(i) + '*'
+            elif fqdn_split[i] != subject_split[i]:
+                return str(i + base)
+
+        if subject_split[len(fqdn_split)] == '*':
+            return str(len(fqdn_split)) + '*'
+        else:
+            if subject_split[-1] == '*':
+                return str(len(fqdn_split)) + '*'
+            else:
+                return str(len(fqdn_split))
+    
+
+    def compute_san_template(self, fqdn : str, subject_set : set) -> set:
+        template_set = set()
+        for subject in subject_set:
+            template_set.add(self.compute_domain_match_level(fqdn, subject))
+
+        return template_set
+

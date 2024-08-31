@@ -8,28 +8,28 @@ from app.manager.task import TaskBatchTemplate
 from app.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_address = "oak.ct.letsencrypt.org/2024h2"
-log_name = "sabre2024h2"
-log_address = "sabre2024h2.ct.sectigo.com"
+# log_name = "sabre2024h2"
+# log_address = "sabre2024h2.ct.sectigo.com"
 # log_address = "yeti2024.ct.digicert.com/log"
-# log_address = "ct.cloudflare.com/logs/nimbus2024"
-# log_name = "nimbus2024"
+log_address = "ct.cloudflare.com/logs/nimbus2024"
+log_name = "nimbus2024"
 # log_name = "yeti2024"
 # 188918416
 
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "sabre2024h2 160-210M",
-            'STORAGE_DIR' : r"H:/sabre2024h2",
-            'MAX_THREADS_ALLOC' : 200,
+            'SCAN_PROCESS_NAME': "nimbus2024 37M-60M",
+            'STORAGE_DIR' : r"H:/nimbus2024",
+            'MAX_THREADS_ALLOC' : 100,
             'THREAD_WORKLOAD' : 1000,
             'SCAN_TIMEOUT' : 2,
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 160000000,
-            'ENTRY_END' : 210000000,
-            'WINDOW_SIZE' : 200,
+            'ENTRY_START' : 37000000,
+            'ENTRY_END' : 60000000,
+            'WINDOW_SIZE' : 500,
         }
         config = CTScanConfig(**scan_args)
         task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])

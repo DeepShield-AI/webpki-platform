@@ -10,6 +10,25 @@ from app.utils.domain_lookup import DomainRank
 # from app.analyzer.certificate_replicas.pub_key_analysis import PubKeyAnalysis
 
 analyzer = ReplicaCounting()
+test_fqdn = "www.example.com"
+test_set = set([
+    "www.example.net",
+    "www.taobao.com",
+    "a.example.com",
+    "com",
+    "example.com",
+    "www.example.com",
+    "sub.www.example.com",
+    "*",
+    "*.com",
+    "*.example.com",
+    "*.www.example.com",
+    "*.www.www.example.com"
+])
+
+template_set = analyzer.compute_san_template(test_fqdn, test_set)
+print(sorted(template_set))
+
 analyzer.start()
 
 # # print result

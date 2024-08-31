@@ -34,12 +34,12 @@ class CertEntry():
     key_id : str
     
 
-class ReplicaCounting():
+class ParseAndMerge():
 
     def  __init__(
             self,
             load_dir = r'H:/top_1m_collected',
-            save_dir = r'H:'
+            save_dir = r'D:/global_ca_monitor/data/cert_replica'
         ) -> None:
 
         self.load_dir = load_dir
