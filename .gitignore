@@ -2,6 +2,8 @@
 /.idea
 /*.pyc
 *.pyc
+/.vscode
+__pycache__
 
 # Server temp files
 .DS_Store
@@ -11,3 +13,7 @@ uwsgi.pid
 cert_pem_data.csv
 cert_content.csv
 data/
+
+# txt and figs
+script/fig_generation/cert_replica/*.txt
+script/fig_generation/cert_replica/*.png

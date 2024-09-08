@@ -43,7 +43,7 @@ with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
         rank_dict[row[1]] = row[0]
 
 # 读取 JSON 数据
-with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') as f:
+with open(r'H:/cert_replica/counting_out_50M.json', 'r') as f:
     json_data = json.load(f)
 
     _1_ca_sort_by_not_before = {}
@@ -62,7 +62,6 @@ with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') 
 
             # time
             for not_before, certs in not_before_to_everything.items():
-                not_before_in_datetime = datetime.strptime(not_before, "%Y-%m-%d")
                 _1_ca_sort_by_not_before[domain][not_before] = list(set(certs["issuer_cn"]))
 
             _1_ca_sort_by_not_before[domain] = dict(sorted(_1_ca_sort_by_not_before[domain].items(), key=lambda item: item[0]))
@@ -108,36 +107,4 @@ plt.legend()
 
 plt.savefig('4-1.png', dpi=300, bbox_inches='tight')
 plt.show()
-
-
-# rows = []
-# for time_str, issuers in data["not_before_to_issuer"].items():
-#     time = datetime.strptime(time_str, "%Y-%m-%d-%H-%M-%S")
-#     for issuer in set(issuers):
-#         rows.append({
-#             "time": time,
-#             "issuer": issuer,
-#             "count": issuers.count(issuer)
-#         })
-
-# # 转换为 DataFrame
-# df = pd.DataFrame(rows)
-
-# # 绘制图表
-# plt.figure(figsize=(12, 6))
-# sns.lineplot(x="time", y="issuer", data=df, hue="issuer", marker="o", style="issuer", markers=True, legend=False)
-
-# # 添加数量标注
-# for index, row in df.iterrows():
-#     plt.text(row['time'], row['issuer'], str(row['count']), color='black', ha="center")
-
-# # 设置图表属性
-# plt.xticks(rotation=45)
-# plt.xlabel('Time')
-# plt.ylabel('CA')
-# plt.title('CA Distribution Over Time')
-# plt.legend()
-
-# plt.tight_layout()
-# plt.show()
 

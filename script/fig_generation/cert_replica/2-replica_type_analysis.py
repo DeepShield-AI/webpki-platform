@@ -1,10 +1,9 @@
 
 '''
-    1 - 只统计证书副本的数量，包括：
-    (1) 我们的数据中存在多少 Top-1M 网站
-    (2) 每个网站发现了多少证书副本，有多少网站存在证书副本的现象，这些副本的有效时间在那些范围内
-    (3) 网站的证书副本是否和 Top Rank 有关系
-    (4) 有哪些网站的证书副本额外的多，超过 100 个，从这里面能发现什么？
+    2 - Certificate Policies
+    (1) 总体上证书使用的 Policy 状态如何？
+    (2) 在同一天的证书的使用情况
+    (3) 相同的 SAN 中使用 的 情况
 '''
 
 import numpy as np
@@ -12,133 +11,150 @@ import matplotlib.pyplot as plt
 import json
 import csv
 import os
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+from datetime import datetime
+import base64
+import ast
 
-# 读取排名数据
-rank_dict = {}
-with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
+# 自定义序列化函数
+def custom_serializer(obj):
+    if isinstance(obj, datetime):
+        return obj.strftime("%Y-%m-%d")
+    if isinstance(obj, set):
+        return list(obj)
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+# 读取 Certificate policy
+policy_dict = {}
+with open(os.path.join(os.path.dirname(__file__), r"../../../app/data/certificate_policies.csv"), 'r') as file:
     csv_reader = csv.reader(file)
     for row in csv_reader:
-        rank_dict[row[1]] = row[0]
+
+        dv = row[6]
+        ov = row[7]
+        ev = row[8]
+        iv = row[9]
+
+        if dv == "TRUE" and ov == "TRUE":
+            policy_dict[row[0]] = "dov"
+        elif dv == "TRUE":
+            policy_dict[row[0]] = "dv"
+        elif ov == "TRUE":
+            policy_dict[row[0]] = "ov"
+        elif ev == "TRUE":
+            policy_dict[row[0]] = "ev"
+        elif iv == "TRUE":
+            policy_dict[row[0]] = "iv"
+        else:
+            policy_dict[row[0]] = "Unknown"
 
 # 读取 JSON 数据
-with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') as f:
+with open(r'H:/cert_replica/counting_out_50M.json', 'r') as f:
     json_data = json.load(f)
-    print(f"(1) Total amount of sites: {len(json_data.keys())}")
 
-    _1_total_certs = 0
-    _2_cert_replica_data_count = 0
-    _3_rank_compare_data = {}
-    _4_many_replica_domains = []
+    _1_policy_overview = {}
+    _2_policy_for_same_day = {}
+    _3_policy_for_same_san = {}
 
     for domain, data in json_data.items():
-
-        _1_total_certs += data['num']
-
         if data["num"] > 1:
-            # has cert replicas
-            _2_cert_replica_data_count += 1
 
-        rank = rank_dict[domain]
-        _3_rank_compare_data[int(rank)] = data["num"]
+            _1_policy_overview[domain] = data["cert_type"]
+            _2_policy_for_same_day[domain] = {}
+            _3_policy_for_same_san[domain] = {}
 
-        if data["num"] >= 100:
-            _4_many_replica_domains.append(domain)
+            not_before_to_everything = data['not_before_to_everything']
+            subject_set_to_everything = data['subject_set_to_everything']
 
+            # time
+            for not_before, certs in not_before_to_everything.items():
+                _2_policy_for_same_day[domain][not_before] = certs["cert_type"]
 
-
-
-    type_counting_data = {}
-
-    both_ev_and_others = 0
-
-    for domain, data in json_data.items():
-        rank = rank_dict[domain]
-
-        if len(data['type'].keys()) > 1:
-            both_ev_and_others += 1
-
-        for type, num in data['type'].items():
-            if type not in type_counting_data:
-                type_counting_data[type] = 0
-
-            type_counting_data[type] += num
-
-print(type_counting_data)
-print(both_ev_and_others)
+            # san
+            for san_set, certs in subject_set_to_everything.items():
+                _3_policy_for_same_san[domain][san_set] = certs["cert_type"]
 
 
+with open("2-1.txt", "w") as file:
+    json.dump(_1_policy_overview, file, indent=4, default=custom_serializer)
+
+with open("2-2.txt", "w") as file:
+    json.dump(_2_policy_for_same_day, file, indent=4, default=custom_serializer)
+
+with open("2-3.txt", "w") as file:
+    json.dump(_3_policy_for_same_san, file, indent=4, default=custom_serializer)
+
+# _1_
+more_than_one_policies = {}
+for domain, data in _1_policy_overview.items():
+
+    if len(data.keys()) > 1:
+        more_than_one_policies[domain] = {}
+
+        for policy_oid, num in data.items():
+            try:
+                policy = policy_dict[policy_oid]
+            except KeyError:
+                policy = "Unknown"
+            if policy not in more_than_one_policies[domain]:
+                more_than_one_policies[domain][policy] = 0
+            more_than_one_policies[domain][policy] += 1
+
+with open("2-1-1.txt", "w") as file:
+    json.dump(more_than_one_policies, file, indent=4, default=custom_serializer)
+
+# _2_
+more_than_one_policies = {}
+for domain, data in _2_policy_for_same_day.items():
+
+    for date, policies in data.items():
+        if len(set(policies)) > 1:
+            if date not in more_than_one_policies:
+                more_than_one_policies[date] = []
+            unique_list = list(set(policies))
+            more_than_one_policies[date].append({
+                "domain" : domain,
+                "policies" : [policy_dict[p] for p in unique_list]
+            })
+
+with open("2-2-1.txt", "w") as file:
+    json.dump(more_than_one_policies, file, indent=4, default=custom_serializer)
+
+# _3_
+more_than_one_policies = {}
+for domain, data in _3_policy_for_same_san.items():
+
+    for san, policies in data.items():
+        if len(set(policies)) > 1:
+            if san not in more_than_one_policies:
+                more_than_one_policies[san] = []
+            unique_list = list(set(policies))
+            more_than_one_policies[san].append({
+                "domain" : domain,
+                "policies" : [policy_dict[p] for p in unique_list]
+            })
+
+with open("2-3-1.txt", "w") as file:
+    json.dump(more_than_one_policies, file, indent=4, default=custom_serializer)
 
 
+# # CDF
+# sorted_y = np.sort(change_ca_times)
 
+# # 计算 CDF y 值
+# cdf_y = np.arange(1, len(sorted_y) + 1) / len(sorted_y)
 
-print(f"(1) Total amount of certs in top-1m: {_1_total_certs}")
-print(f"(2) Total amount of sites with certificate replicas: {_2_cert_replica_data_count}")
+# # 绘制 CDF 曲线图
+# plt.plot(sorted_y, cdf_y, color='b', label='CDF', marker='o')
+# plt.title('CDF of Change CA Times')
+# plt.xlabel('Value')
+# plt.ylabel('CDF')
+# plt.legend()
 
-# 对 counting_data 按 rank 排序
-_3_rank_compare_data = dict(sorted(_3_rank_compare_data.items()))
-
-# 设置 bin 大小，例如每 1000 个数据为一个 bin
-bin_size = 100
-binned_x = []
-binned_y = []
-
-# 对数据进行 binning
-for i in range(0, len(_3_rank_compare_data), bin_size):
-    # 获取当前 bin 的数据
-    bin_range = list(_3_rank_compare_data.items())[i:i+bin_size]
-    
-    # 将 bin 的 x 值设为 bin 的起始 rank
-    binned_x.append((i + 1) / bin_size)  # 或者用 (i + i + bin_size) / 2 取中值
-    
-    # 将 bin 的 y 值设为该 bin 内的平均数值
-    binned_y.append(sum(num for rank, num in bin_range) / bin_size)
-
-# 创建图形
-fig, ax1 = plt.subplots(figsize=(10, 6))
-
-# 绘制柱状图，使用左侧 y 轴
-# ax1.bar(binned_x, binned_y, width=1, color='b', label='Counting Growth')
-ax1.plot(binned_x, binned_y, color='b', label='Counting Growth')
-
-ax1.set_xlabel('Rank Index (Binned)')
-ax1.set_ylabel('Counting (Log Scale)', color='b')
-ax1.set_yscale('log')
-ax1.legend(loc='upper left')
-
-# 创建第二个 y 轴，绘制 CDF 图
-# ax2 = ax1.twinx()
-# ax2.plot(x, cdf_data, marker='o', color='r', label='CDF', linestyle='--')
-# ax2.set_ylabel('CDF', color='r')
-# ax2.set_ylim(0, 1)  # CDF 的范围为 [0, 1]
-# ax2.legend(loc='upper right')
-
-# 显示网格
-ax1.grid(True, which="both", ls="--")
-
-plt.title('Binned Counting VS Rank')
-plt.savefig('1-3-1.png', dpi=300, bbox_inches='tight')
-plt.show()
-
-
-# CDF
-# 对 binned_y 数据进行排序
-sorted_y = np.sort(binned_y)
-
-# 计算 CDF y 值
-cdf_y = np.arange(1, len(sorted_y) + 1) / len(sorted_y)
-
-# 绘制 CDF 曲线图
-plt.plot(sorted_y, cdf_y, color='b', label='CDF', marker='o')
-plt.title('CDF of binned_y')
-plt.xlabel('Value')
-plt.ylabel('CDF')
-plt.legend()
-
-plt.savefig('1-3-2.png', dpi=300, bbox_inches='tight')
-plt.show()
-
-
-with open("1-4.txt", "w") as file:
-    json.dump(_4_many_replica_domains, file, indent=4)
-
+# plt.savefig('4-1.png', dpi=300, bbox_inches='tight')
+# plt.show()
 

@@ -35,12 +35,12 @@ with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
         rank_dict[row[1]] = row[0]
 
 # 读取 JSON 数据
-with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') as f:
+with open(r'H:/cert_replica/counting_out_50M.json', 'r') as f:
     json_data = json.load(f)
 
     _1_1_san_num_sort_by_not_before = {}
     _1_2_san_content_sort_by_not_before = {}
-    _1_3_san_content_for_each_day = {}
+    _1_3_san_template_for_each_day = {}
     _2_all_san_instances = {}
     _3_domain_across_multiple_domains = {}
 
@@ -49,7 +49,7 @@ with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') 
 
             _1_1_san_num_sort_by_not_before[domain] = {}
             _1_2_san_content_sort_by_not_before[domain] = {}
-            _1_3_san_content_for_each_day[domain] = {}
+            _1_3_san_template_for_each_day[domain] = {}
             _2_all_san_instances[domain] = []
             _3_domain_across_multiple_domains[domain] = []
 
@@ -62,16 +62,18 @@ with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') 
 
                 total_subject_list_for_each_day = []
                 _1_2_san_content_sort_by_not_before[domain][not_before] = []
+                _1_3_san_template_for_each_day[domain][not_before] = []
                 for subject_list in certs["subject_list"]:
                     total_subject_list_for_each_day += subject_list
                     _1_2_san_content_sort_by_not_before[domain][not_before].append(subject_list)
 
                 total_subject_list_for_each_day = set(total_subject_list_for_each_day)
                 _1_1_san_num_sort_by_not_before[domain][not_before] = len(total_subject_list_for_each_day)
-                _1_3_san_content_for_each_day[domain][not_before] = _1_2_san_content_sort_by_not_before[domain][not_before]
+                _1_3_san_template_for_each_day[domain][not_before] += certs["san_template"]
 
             _1_1_san_num_sort_by_not_before[domain] = dict(sorted(_1_1_san_num_sort_by_not_before[domain].items(), key=lambda item: item[0]))
             _1_2_san_content_sort_by_not_before[domain] = dict(sorted(_1_2_san_content_sort_by_not_before[domain].items(), key=lambda item: item[0]))
+            _1_3_san_template_for_each_day[domain] = dict(sorted(_1_3_san_template_for_each_day[domain].items(), key=lambda item: item[0]))
 
             # san
             all_subjects = []
@@ -88,7 +90,7 @@ with open("5-1-2.txt", "w") as file:
     json.dump(_1_2_san_content_sort_by_not_before, file, indent=4, default=custom_serializer)
 
 with open("5-1-3.txt", "w") as file:
-    json.dump(_1_3_san_content_for_each_day, file, indent=4, default=custom_serializer)
+    json.dump(_1_3_san_template_for_each_day, file, indent=4, default=custom_serializer)
 
 with open("5-2.txt", "w") as file:
     json.dump(_2_all_san_instances, file, indent=4, default=custom_serializer)

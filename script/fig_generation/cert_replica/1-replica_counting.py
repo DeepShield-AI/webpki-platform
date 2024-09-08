@@ -21,7 +21,7 @@ with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
         rank_dict[row[1]] = row[0]
 
 # 读取 JSON 数据
-with open(r'D:/global_ca_monitor/data/cert_replica/counting_out_50M.json', 'r') as f:
+with open(r'H:/cert_replica/counting_out_50M.json', 'r') as f:
     json_data = json.load(f)
     print(f"(1) Total amount of sites: {len(json_data.keys())}")
 

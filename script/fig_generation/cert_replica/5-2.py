@@ -31,3 +31,4 @@ for domain, unique_lists in data.items():
             print(diff_set)
         except:
             print(set([i.encode() for i in diff_set]))
+
