@@ -1,6 +1,6 @@
 
 import time
-import hashlib
+import threading
 import select
 import socket
 import http.client
@@ -85,6 +85,8 @@ class Scanner(ABC):
         self.progress_task = TaskID(-1)
         self.console = Console()
 
+        # Crtl+C and other signals
+        self.crtl_c_event = threading.Event()
 
     '''
         @Methods used for IP and Domain scan
@@ -252,5 +254,5 @@ class Scanner(ABC):
 
     # The scan data needs to be stored in files now
     @abstractmethod
-    def save_results(self, file_name, cert_result):
+    def save_results(self):
         pass
