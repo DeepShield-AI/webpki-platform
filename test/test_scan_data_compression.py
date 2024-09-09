@@ -2,11 +2,17 @@
 import sys
 sys.path.append(r"D:\global_ca_monitor")
 
+import asyncio
 from app.utils.ct_scan_data_compression import CompressScanContent
 
-# compression = CompressScanContent(
-#     load_dir=r'H:/yeti2024',
-#     save_dir=r'H:/yeti2024_compressed'
+compressor = CompressScanContent(
+    load_dir=r'H:/sabre2024h2',
+    save_dir=r'H:/sabre2024h2_compressed'
+)
+# compressor = CompressScanContent(
+#     load_dir=r'H:/nimbus2024',
+#     save_dir=r'H:/nimbus2024_compressed'
 # )
-compression = CompressScanContent()
-# compression.start()
+
+# compressor = CompressScanContent()
+asyncio.run(compressor.start())

@@ -55,7 +55,6 @@ class CompressScanContent():
 
 
     def scan_thread(self, load_file, save_file):
-        print(f"Load file: {load_file}")
         with open(load_file, 'r') as f:
             data = json.load(f)
 
@@ -75,6 +74,7 @@ class CompressScanContent():
         with open(save_file, 'w') as f:
             json.dump(data, f, indent=4)
 
+        print(f"Load file: {load_file}")
         with self.count_lock:
             self.count += 1
         self.progress.update(self.progress_task, description=f"[green]Completed: {self.count}")
@@ -102,19 +102,38 @@ class CompressScanContent():
         ) as self.progress:
 
             # how many files here?
-            self.total = sum(1 for filename in os.listdir(self.load_dir) if os.path.isfile(os.path.join(self.load_dir, filename)))
+            print(f"Starting compression on {self.load_dir}...")
+            '''
+                Use scandir instead of listdir to save time and space
+                scandir method returns an iterator, not a list
+                so do care that after "for i in scandir()"
+                there will be no element insider the iterator
+            '''
+            file_entries = os.scandir(self.load_dir)
+            self.total = sum(1 for file_entry in file_entries if os.path.isfile(file_entry.path))
             self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
             # Start the thread that saves processed data from the queue
-            saver_thread = threading.Thread(target=self.save_ca_certs)
-            saver_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            saver_thread.start()
+            self.saver_thread = threading.Thread(target=self.save_ca_certs)
+            self.saver_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+            self.saver_thread.start()
 
-            with ThreadPoolExecutor(max_workers=100) as executor:
+            # 5 is a good number for large file IO access
+            file_entries = os.scandir(self.load_dir)
+            with ThreadPoolExecutor(max_workers=25) as executor:
+                for file_entry in file_entries:
 
-                for filename in os.listdir(self.load_dir):
-                    load_file_path = os.path.join(self.load_dir, filename)
-                    save_file_path = os.path.join(self.save_dir, filename)
+                    # @debug only
+                    if self.count < 69493:
+                    # if self.count < 1840:
+                        self.count += 1
+                        self.progress.update(self.progress_task, description=f"[green]Completed: {self.count} [red]Total: {self.total}")
+                        self.progress.advance(self.progress_task)
+                        # print(f"Skip {self.count} files~")
+                        continue
+
+                    load_file_path = file_entry.path
+                    save_file_path = os.path.join(self.save_dir, file_entry.name)
 
                     if os.path.isfile(load_file_path):
                         executor.submit(self.scan_thread, load_file_path, save_file_path)
@@ -127,4 +146,4 @@ class CompressScanContent():
 
             # Send the poison pill to stop the saver thread
             self.queue.put(None)
-            saver_thread.join()
+            self.saver_thread.join()
