@@ -19,7 +19,7 @@ log_name = "nimbus2024"
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "nimbus2024 37M-60M",
+            'SCAN_PROCESS_NAME': "nimbus2024 100M-130M",
             'STORAGE_DIR' : r"H:/nimbus2024",
             'MAX_THREADS_ALLOC' : 100,
             'THREAD_WORKLOAD' : 1000,
@@ -27,8 +27,8 @@ if __name__ == "__main__":
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 37000000,
-            'ENTRY_END' : 60000000,
+            'ENTRY_START' : 100000000,
+            'ENTRY_END' : 130000000,
             'WINDOW_SIZE' : 500,
         }
         config = CTScanConfig(**scan_args)
