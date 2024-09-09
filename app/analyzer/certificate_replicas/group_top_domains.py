@@ -4,62 +4,101 @@
     Find all certs for Top-1M domains, and store them into separate files
 '''
 
-import os
+import threading
+import asyncio
+import aiofiles
+import hashlib
 import json
-from ...parser.pem_parser import PEMParser, PEMResult
-from ...utils.domain_lookup import DomainLookup
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
-from rich.console import Console
+import os
+
+from queue import Queue
 from threading import Lock
+from aiofiles.os import listdir
+from concurrent.futures import ThreadPoolExecutor
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
+
+from ...parser.pem_parser import PEMParser
+from ...utils.domain_lookup import DomainLookup
+from ...utils.json import custom_serializer
+from ...logger.logger import my_logger
 
 
 class DataParser():
 
     def  __init__(
             self,
+            log_name = "sabre2024h1",
             load_dir = r'H:/sabre2024h1',
-            save_dir = r'H:/top_1m_collected'
+            save_dir = r'D:/data/group_top_domains_sabre'
         ) -> None:
 
+        self.log_name = log_name
         self.load_dir = load_dir
         self.save_dir = save_dir
-        self.look_up = DomainLookup()
 
-        # 锁表，用于每个文件的锁
-        self.file_dict_lock = Lock()  # 用于保护 file_locks 的锁
-        self.file_locks = {}
+        self.look_up = DomainLookup()
+        self.split_window = 100000
+        self.queue = Queue()
 
         # @Debug only
-        self.lock = Lock()
         self.count = 0
         self.total = 0
+        self.lock = Lock()
         self.progress_task = TaskID(-1)
         self.progress = Progress()
         self.console = Console()
 
+        self.saver_thread = threading.Thread(target=self.save_top_domain_certs)
+        # saver_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+        self.saver_thread.start()
 
-    def scan_thread(self, file_path : str):
-        with open(file_path, "r") as file:
-            data = json.load(file)
 
-            for entry in data.values():
-                if entry['leaf'] != None:
-                    san_list = self.fetch_san_from_raw(entry['leaf'])
+    def fetch_san_from_raw(self, cert : str):
+        pem_result = PEMParser.parse_pem_cert(cert)
+        return set(pem_result.subject)
 
-                    # Compare san_list to top-1m
-                    matched_domains = set()
-                    for subject in san_list:
-                        target_domain_list = self.look_up.lookup(subject)
-                        for target_domain in target_domain_list:
-                            matched_domains.add(target_domain)
 
-                    self.save(entry, matched_domains)
+    def scan_file(self, data: str):
+        for entry in data.values():
+            if entry['leaf'] is not None:
+                san_list = self.fetch_san_from_raw(entry['leaf'])
+
+                for subject in san_list:
+                    target_domain_list = self.look_up.lookup(subject)
+                    if len(target_domain_list) > 0:
+                        self.queue.put(entry)
+                        break
 
         with self.lock:
             self.count += 1
         self.progress.update(self.progress_task, description=f"[green]Completed: {self.count}, [red]Total: {self.total}")
         self.progress.advance(self.progress_task)
+
+
+    def save_top_domain_certs(self):
+        count = 0
+        index = 0
+
+        while True:
+            save_file = os.path.join(self.save_dir, f"top_1m_{self.log_name}_{index * self.split_window}_{(index + 1) * self.split_window}")
+            my_logger.info(f"Opening {save_file}...")
+
+            with open(save_file, 'w') as f:
+                while count <= self.split_window:
+                    top_cert_entry = self.queue.get()
+
+                    if top_cert_entry is None:  # Poison pill to shut down the thread
+                        print("Poision detected")
+                        return
+
+                    json_str = json.dumps(top_cert_entry, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
+                    f.write(json_str + '\n')
+                    self.queue.task_done()
+                    count += 1
+
+                count = 0
+                index += 1
 
 
     def start(self):
@@ -71,44 +110,26 @@ class DataParser():
             transient=True  # 进度条完成后隐藏
         ) as self.progress:
 
-            # how many files here?
-            self.total = sum(1 for filename in os.listdir(self.load_dir) if os.path.isfile(os.path.join(self.load_dir, filename)))
+            self.total = sum(1 for file_entry in os.scandir(self.load_dir) if os.path.isfile(file_entry.path))
             self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
-            with ThreadPoolExecutor(max_workers=200) as executor:
+            with ThreadPoolExecutor(max_workers=40) as executor:
 
-                for filename in os.listdir(self.load_dir):
-                    file_path = os.path.join(self.load_dir, filename)
+                for file_entry in os.scandir(self.load_dir):
+                    file_path = file_entry.path
 
                     if os.path.isfile(file_path):
-                        executor.submit(self.scan_thread, file_path)
- 
+                        with open(file_path, "r") as file:
+                            data = json.load(file)
+                            executor.submit(self.scan_file, data)
+    
                 executor.shutdown(wait=True)
-                print("All threads finished.")
-        
+                my_logger.info("All threads finished.")
 
-    def fetch_san_from_raw(self, cert : str):
-        pem_result = PEMParser.parse_pem_cert(cert)
-        return set(pem_result.subject)
+            # Wait for all elements in queue to be handled
+            self.queue.join()
 
-
-    # ct_entry is json-formatted
-    # store ct_entry to all target_domain_set files
-    def save(self, ct_entry : str, target_domain_set : set):
-
-        # if len(target_domain_set) > 0:
-        #     print(target_domain_set)
-        for domain in target_domain_set:
-            target_file_name = os.path.join(self.save_dir, domain + ".txt")
-
-            # 确保每个文件都有一个独立的锁
-            with self.file_dict_lock:
-                if target_file_name not in self.file_locks:
-                    self.file_locks[target_file_name] = Lock()
-
-            # 加锁写入文件
-            with self.file_locks[target_file_name]:
-                with open(target_file_name, 'a') as file:
-                    json.dump(ct_entry, file)
-                    file.write('\n')  # 换行符用于分隔每个 JSON 对象
+            # Send the poison pill to stop the saver thread
+            self.queue.put(None)
+            self.saver_thread.join()
 
