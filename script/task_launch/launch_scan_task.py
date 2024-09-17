@@ -21,16 +21,16 @@ log_address = "sabre2024h2.ct.sectigo.com"
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "sabre2024h2 50-100M",
+            'SCAN_PROCESS_NAME': "sabre2024h2 125-200M",
             'STORAGE_DIR' : r"H:/sabre2024h2",
-            'MAX_THREADS_ALLOC' : 100,
+            'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 100000,
             'SCAN_TIMEOUT' : 2,
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 50000000,
-            'ENTRY_END' : 100000000,
+            'ENTRY_START' : 125000000,
+            'ENTRY_END' : 200000000,
             'WINDOW_SIZE' : 200,
         }
         config = CTScanConfig(**scan_args)

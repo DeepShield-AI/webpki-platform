@@ -119,133 +119,156 @@ class CTScanner(Scanner):
     # Each scan thread needs to take the last entry into account
     # Means to add -1 at the "end"
     def scan_thread(self, start_entry, end_entry):
+
+        # Currently, there exists WHOLE thread results missing,
+        # so we need to try to catch all possible exceptions (as executor.subit() won't give any exception
+        # output if you do not add .result() at the end......)
+        try:
         
-        # check window_size fits the start and the end range
-        # assert((end_entry - start_entry) >= self.window_size)
+            # check window_size fits the start and the end range
+            # assert((end_entry - start_entry) >= self.window_size)
+            my_logger.info(f"Start thread for {start_entry} to {end_entry}")
 
-        thread_result = {}
-        loop_start = start_entry
-        loop_end = start_entry + self.window_size
-        log_server_request = f'https://{self.ct_log_address}/ct/v1/get-entries'
+            thread_result = {}
+            loop_start = start_entry
+            loop_end = start_entry + self.window_size
+            log_server_request = f'https://{self.ct_log_address}/ct/v1/get-entries'
 
-        while loop_start < end_entry:
+            while loop_start < end_entry:
 
-            # Detect signal
-            if self.crtl_c_event.is_set():
-                my_logger.info("Terminating scan thread because of Ctrl + C signal")
-                return
+                # Detect signal
+                if self.crtl_c_event.is_set():
+                    my_logger.info("Terminating scan thread because of Ctrl + C signal")
+                    return
 
-            received_entries = []
-            if loop_end >= end_entry:
-                loop_end = end_entry
+                received_entries = []
+                if loop_end >= end_entry:
+                    loop_end = end_entry
 
-            retry_times = 0
-            params = {'start': loop_start, 'end': loop_end - 1}
-            while retry_times <= self.max_retry:
-                try:
-                    response = requests.get(log_server_request, params=params, verify=True, timeout=self.scan_timeout)
-                except Exception as e:
-                    # my_logger.warning(f"Exception {e} when requesting CT entries from {loop_start} to {loop_end}")
-                    retry_times += 1
-                    time.sleep(2 * retry_times)  # 指数退避策略
-                    continue
-
-                if response.status_code == 200:
-                    received_entries += json.loads(response.text)['entries']
-
-                    if (len(received_entries) < (loop_end - loop_start)):
-                        print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
-
-                        # This case, we try to get the remain entries
-                        params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
+                retry_times = 0
+                params = {'start': loop_start, 'end': loop_end - 1}
+                while retry_times <= self.max_retry:
+                    try:
+                        response = requests.get(log_server_request, params=params, verify=True, timeout=self.scan_timeout)
+                    except Exception as e:
+                        # my_logger.warning(f"Exception {e} when requesting CT entries from {loop_start} to {loop_end}")
                         retry_times += 1
                         time.sleep(2 * retry_times)  # 指数退避策略
                         continue
+
+                    if response.status_code == 200:
+                        received_entries += json.loads(response.text)['entries']
+
+                        if (len(received_entries) < (loop_end - loop_start)):
+                            print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
+
+                            # This case, we try to get the remain entries
+                            params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
+                            retry_times += 1
+                            time.sleep(2 * retry_times)  # 指数退避策略
+                            continue
+                        else:
+                            # print(f"Get all {loop_end - loop_start} entries")
+                            break
+                    
+                    # 429 -> too many requests，read Retry-After and wait
+                    elif response.status_code == 429:
+                        retry_after = int(response.headers.get("Retry-After", 1))
+                        # my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
+                        time.sleep(retry_after)
+                        continue
                     else:
-                        # print(f"Get all {loop_end - loop_start} entries")
-                        break
+                        my_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
+                        retry_times += 1
+                        time.sleep(2 * retry_times)  # 指数退避策略
+                        continue
                 
-                # 429 -> too many requests，read Retry-After and wait
-                elif response.status_code == 429:
-                    retry_after = int(response.headers.get("Retry-After", 1))
-                    # my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
-                    time.sleep(retry_after)
-                    continue
-                else:
-                    my_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
-                    retry_times += 1
-                    time.sleep(2 * retry_times)  # 指数退避策略
-                    continue
-            
-            # If the collection fails, we log it here
-            if retry_times > self.max_retry:
-                my_logger.error(f"Requesting CT entries from {loop_start} to {loop_end} failed after {self.max_retry} times.")
+                # If the collection fails, we log it here
+                if retry_times > self.max_retry:
+                    my_logger.error(f"Requesting CT entries from {loop_start} to {loop_end} failed after {self.max_retry} times.")
 
-            # Cache the received results
-            rank = -1
-            for entry in received_entries:
-                rank += 1
-                entry_number = loop_start + rank
-                thread_result[entry_number] = {}
+                # Cache the received results
+                rank = -1
+                for entry in received_entries:
+                    rank += 1
+                    entry_number = loop_start + rank
+                    thread_result[entry_number] = {}
 
-                leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
-                ct_timestamp = leaf_cert.Timestamp
-                thread_result[entry_number]['timestamp'] = ct_timestamp
+                    leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
+                    ct_timestamp = leaf_cert.Timestamp
+                    thread_result[entry_number]['timestamp'] = ct_timestamp
 
-                if leaf_cert.LogEntryType == "X509LogEntryType":
-                    # We have a normal x509 entry
-                    thread_result[entry_number]['type'] = "Cert"
-                    cert_data_string = certificate.parse(leaf_cert.Entry).CertData
-                    thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+                    if leaf_cert.LogEntryType == "X509LogEntryType":
+                        # We have a normal x509 entry
+                        thread_result[entry_number]['type'] = "Cert"
+                        cert_data_string = certificate.parse(leaf_cert.Entry).CertData
+                        thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
 
-                    # Parse the `extra_data` structure for the rest of the chain
-                    extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
-                    thread_result[entry_number]['chain'] = []
-                    for cert in extra_data.Chain:
-                        thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+                        # Parse the `extra_data` structure for the rest of the chain
+                        extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
+                        thread_result[entry_number]['chain'] = []
+                        for cert in extra_data.Chain:
+                            thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
 
-                else:
-                    # We have a precert entry
-                    thread_result[entry_number]['type'] = "Precert"
-                    extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
-                    thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+                    else:
+                        # We have a precert entry
+                        thread_result[entry_number]['type'] = "Precert"
+                        extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
+                        thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
 
-                    thread_result[entry_number]['chain'] = []
-                    for cert in extra_data.CertChain.Chain:
-                        thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+                        thread_result[entry_number]['chain'] = []
+                        for cert in extra_data.CertChain.Chain:
+                            thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
 
-                # Compress the cert chain
-                new_chain = []
-                for cert in thread_result[entry_number]['chain']:
-                    sha256_hash = get_cert_sha256_hex_from_str(cert)
-                    new_chain.append(sha256_hash)
-                    if sha256_hash not in self.ca_sha_256_set:
-                        with self.ca_sha_256_set_lock:
-                            self.ca_sha_256_set.add(sha256_hash)
-                            self.ca_cert_queue.put(cert)
-                
-                # Replace the chain with its SHA-256 hash
-                thread_result[entry_number]['chain'] = new_chain
+                    # Compress the cert chain
+                    new_chain = []
+                    for cert in thread_result[entry_number]['chain']:
+                        sha256_hash = get_cert_sha256_hex_from_str(cert)
+                        new_chain.append(sha256_hash)
+                        if sha256_hash not in self.ca_sha_256_set:
+                            with self.ca_sha_256_set_lock:
+                                self.ca_sha_256_set.add(sha256_hash)
+                                self.ca_cert_queue.put(cert)
+                    
+                    # Replace the chain with its SHA-256 hash
+                    thread_result[entry_number]['chain'] = new_chain
 
-            # update scan_status
-            with self.scan_status_data_lock:
-                self.scan_status_data.scanned_entries += self.window_size
-                self.scan_status_data.success_count += len(received_entries)
-                self.scan_status_data.error_count += self.window_size - len(received_entries)
+                # update scan_status
+                with self.scan_status_data_lock:
+                    self.scan_status_data.scanned_entries += self.window_size
+                    self.scan_status_data.success_count += len(received_entries)
+                    self.scan_status_data.error_count += self.window_size - len(received_entries)
 
-            loop_start = loop_end
-            loop_end = loop_start + self.window_size
+                loop_start = loop_end
+                loop_end = loop_start + self.window_size
 
-        # store the result into the file indicated by the storage_directory
-        file_name = self.ct_log_name + f"_{start_entry}" + f"_{end_entry}"
-        self.data_queue.put({
-            "save_file_name" : file_name,
-            "data" : thread_result
-        })
+            # store the result into the file indicated by the storage_directory
+            file_name = self.ct_log_name + f"_{start_entry}" + f"_{end_entry}"
+            self.data_queue.put({
+                "save_file_name" : file_name,
+                "data" : thread_result
+            })
 
-        # self.save_results(file_name, thread_result)
-        self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
-        self.progress.advance(self.progress_task)
+            my_logger.info(f"Put data to {file_name} into queue")
+            self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
+            self.progress.advance(self.progress_task)
+        
+        except json.JSONDecodeError as e:
+            my_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
+            thread_result_str = json.dumps(thread_result)
+            error_position = e.pos
+
+            # 打印错误位置附近的字符（比如前后50个字符）
+            start_pos = max(0, error_position - 50)
+            end_pos = min(len(thread_result_str), error_position + 50)
+
+            my_logger.error(f"100 chars around the error position:")
+            my_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
+            my_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
+
+        except Exception as e:
+            my_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
+            pass
 
 
     def start(self):
