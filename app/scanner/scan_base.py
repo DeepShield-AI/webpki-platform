@@ -3,6 +3,9 @@ import time
 import threading
 import select
 import socket
+import socks
+import codecs
+import ipaddress
 import http.client
 
 from abc import ABC, abstractmethod
@@ -15,9 +18,11 @@ from OpenSSL import SSL
 from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
 from dataclasses import dataclass
 
+from .jarm_fp_utils import *
 from ..config.scan_config import ScanConfig
 from ..utils.type import ScanType, ScanStatusType
 from ..utils.exception import RetriveError
+from ..utils.network import resolve_host_dns
 from ..logger.logger import my_logger
 from ..models import ScanStatus, generate_cert_data_table
 
@@ -72,9 +77,6 @@ class Scanner(ABC):
         self.scan_timeout = scan_config.SCAN_TIMEOUT
         self.max_retry = scan_config.MAX_RETRY
 
-        # self.cached_results_lock = Lock()
-        # self.cached_results = []
-
         self.scan_status_data_lock = Lock()
         self.scan_status_data = ScanStatusData(start_time=start_time)
         self.scan_status_entry : ScanStatus = ScanStatus.query.filter_by(ID=scan_id).first()
@@ -87,84 +89,31 @@ class Scanner(ABC):
 
         # Crtl+C and other signals
         self.crtl_c_event = threading.Event()
+        self.is_killed = False
+
 
     '''
-        @Methods used for IP and Domain scan
-        @provide both host and ip to get the certificate
-        @as we need to deal with CDN and SNI in the future
-
-        Some server can be connected using the IP address resolved from DNS records
-        Some server cannot directly with IP, but can with Host specfied in the HTTP header
-        Some server cannot be connected with both methods
-        TODO: solve this problem
-        TODO: understand how Zmap or Masscan handle scanning and change my project directly based on that
+        @Naive function for certificate retrieve in IP and Domain scans
+        This function now do not resolve any DNS to get the IP, we pass the IP directly
     '''
-    def fetch_raw_cert_chain(self, host : str, host_ip : str, port=443, proxy_host="127.0.0.1", proxy_port=33210):
-
+    def fetch_raw_cert_chain(self, host : str, ip, port=443, proxy_host="127.0.0.1", proxy_port=33210):
         try:
-
-            # import requests
-            # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36'}
-
-            # if proxy_host and proxy_port:
-            #     proxies = {
-            #         'http': f'http://{proxy_host}:{proxy_port}',
-            #         'https': f'http://{proxy_host}:{proxy_port}'
-            #     }
-            # else:
-            #     proxies = None
-
-            # try:
-            #     url = f'https://{host}:{port}'
-            #     print(url)
-            #     response = requests.get(url, headers=headers, proxies=proxies, stream=True)
-            #     # response = requests.get(url)
-            #     response : requests.Response
-
-            #     # print(response.raw)
-            #     # print("Response:", response.headers)
-
-            #     import urllib3
-            #     raw : urllib3.response.HTTPResponse = response.raw
-
-            #     # print(raw._fp.getheaders())
-            #     raw_socket = response.raw._fp.fp.raw._sock
-            #     remote_ip = raw_socket.getpeername()[0]
-            #     print("Remote IP address:", remote_ip)
-                
-            # except requests.exceptions.RequestException as e:
-            #     print("Error:", e)
-
-
             '''
                 Well, OPENSSL.SSL.Connection only accepts socket.socket,
                 we can not use socks.socksocket() from "socks" PySocks to set up proxy
                 Instead, we use http.client.HTTPConnection and set_tunnel to
                 use the CONNECT method to initiate a tunnelled connection
-
-                TODO: better to construct raw packets for connection to avoid such restrictions
-                need to do in the future
-
-                TODO: well, now connects host with ip in the header,
-                in the future, we better do it reversely
             '''
             if proxy_host and proxy_port:
-                headers = {
-                    "Host" : f"{host_ip}:443",
-                    "Authorization": "Bearer YourAccessToken",  # 如果需要认证的话
-                }
                 proxy_conn = http.client.HTTPConnection(proxy_host, proxy_port, timeout=self.scan_timeout)
-                proxy_conn.set_tunnel(host, port, headers=headers)
+                proxy_conn.set_tunnel(ip, port)
             else:
-                proxy_conn = http.client.HTTPConnection(host, port, timeout=self.scan_timeout)
+                proxy_conn = http.client.HTTPConnection(ip, port, timeout=self.scan_timeout)
 
             proxy_conn.connect()
             proxy_socket = proxy_conn.sock
-            remote_ip = proxy_conn.sock.getpeername()[0]
 
-            '''
-                TODO: handle various SSL/TLS context types
-            '''
+            # We will construct multiple CHs in the futrue with a custom TLS library
             ctx = SSL.Context(SSL.TLS_CLIENT_METHOD)
             ctx.set_verify(SSL.VERIFY_NONE)
             ctx.set_options(SSL.OP_NO_RENEGOTIATION)
@@ -174,7 +123,7 @@ class Scanner(ABC):
 
             # my_logger.info(f"Getting certs from {host}...")
             sock_ssl = SSL.Connection(ctx, proxy_socket)
-            sock_ssl.set_tlsext_host_name(host.encode())  # 关键: 对应不同域名的证书
+            sock_ssl.set_tlsext_host_name(host.encode())  # SNI is here
             sock_ssl.set_connect_state()
 
             retry_count = 0
@@ -196,16 +145,8 @@ class Scanner(ABC):
                 except SSL.SysCallError as e:
                     last_error = e
                     retry_count += 1
-                    time.sleep(0.5)
+                    time.sleep(0.1)
                     continue
-                # except SSL.Error as e:
-                #     time.sleep(5)
-                #     if 'tlsv1 alert protocol version' in str(e):
-                #         my_logger.warning("TLS版本不兼容")
-                #         return self.tls_connection(host, proxy_socket, SSL.TLSv1_1_METHOD)
-                #     else:
-                #         my_logger.error(f"Error fetching certificate for {host}: {e} {e.__class__}")
-                #         return self.tls_connection(host, proxy_socket, SSL.TLSv1_METHOD)
 
             # Retrieve the peer certificate
             certs = sock_ssl.get_peer_cert_chain()
@@ -215,18 +156,107 @@ class Scanner(ABC):
             tls_version = tls_version_map[sock_ssl.get_protocol_version()]
             tls_cipher = sock_ssl.get_cipher_name()
             proxy_socket.close()
-            return cert_pem, None, remote_ip, tls_version, tls_cipher
+            return cert_pem, None, tls_version, tls_cipher
         
         except RetriveError as e:
             # my_logger.error(f"Error fetching certificate for {host}: {last_error} {last_error.__class__}")
             proxy_socket.close()
             # print("ERROR")
-            return [], f"{last_error} {last_error.__class__}", "", None, None
+            return [], f"{last_error} {last_error.__class__}", None, None
 
         except Exception as e:
             # my_logger.error(f"Error fetching certificate for {host}: {e} {e.__class__}")
-            # proxy_socket.close()
-            return [], f"{e} {e.__class__}", "", None, None
+            proxy_socket.close()
+            return [], f"{e} {e.__class__}", None, None
+
+
+    # Send the assembled client hello using a socket
+    # We directly connect to destination ip as the SNI extension has already added to the CH packet
+    def send_packet(self, packet, destination_ip, destination_port, proxyhost=None, proxyport=None):
+        try:
+            # Determine if the input is an IP
+            if (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv4Address) and (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv6Address):
+                my_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+                return None
+
+            if proxyhost and proxyport:
+                sock = socks.socksocket(socket.AF_INET6, socket.SOCK_STREAM)
+                sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+            else:
+                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+
+            sock.settimeout(self.scan_timeout)
+            sock.connect((destination_ip, destination_port, 0, 0))
+            sock.sendall(packet)
+
+            # Receive SH, however, this might now be complete SH
+            server_hello_data = sock.recv(1484)
+            
+            '''
+                This is where we make something new
+                Ideas:
+                    1. Receive more packets, and build FP based on that
+                    2. Try to analyze certificates from the raw packet
+            '''
+            # certifiate_data = sock.recv(10000)
+            
+            sock.shutdown(socket.SHUT_RDWR)
+            sock.close()
+            return bytearray(server_hello_data)
+
+        # Timeout errors result in an empty hash
+        except socket.timeout as e:
+            my_logger.debug(f"Timeout when connecting {destination_ip}...")
+            sock.close()
+            return "TIMEOUT"
+
+        except Exception as e:
+            my_logger.debug(f"Exception {e} happens when connecting {destination_ip}...")
+            sock.close()
+            return None
+
+
+    # If a packet is received, decipher the details
+    def read_packet(self, data):
+        try:
+            if data == None:
+                return "|||"
+            jarm = ""
+
+            # Server hello error
+            if data[0] == 21:
+                my_logger.warning("Server hello error")
+                selected_cipher = b""
+                return "|||"
+
+            # Check for server hello
+            elif (data[0] == 22) and (data[5] == 2):
+                server_hello_length = int.from_bytes(data[3:5], "big")
+                counter = data[43]
+
+                # Find server's selected cipher
+                selected_cipher = data[counter+44:counter+46]
+
+                # Find server's selected version
+                version = data[9:11]
+
+                # Format
+                jarm += codecs.encode(selected_cipher, 'hex').decode('ascii')
+                jarm += "|"
+                jarm += codecs.encode(version, 'hex').decode('ascii')
+                jarm += "|"
+
+                # Extract extensions
+                extensions = (extract_extension_info(data, counter, server_hello_length))
+                jarm += extensions
+                return jarm
+            else:
+                my_logger.warning("Packet data[0] unknown number")
+                return "|||"
+
+        except Exception as e:
+            my_logger.error(f"Exception {e} happens when reading server hello packet, probably the packet is not server hello...")
+            return "|||"
 
 
     '''

@@ -332,7 +332,7 @@ class CTScanner(Scanner):
             self.crtl_c_event.set()
             self.timer_thread.join()
 
-        if self.crtl_c_event.is_set():
+        if self.is_killed:
             my_logger.info(f"Scan Terminated")
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
@@ -348,6 +348,7 @@ class CTScanner(Scanner):
     def terminate(self):
         my_logger.info("Terminating CT scan task...")
         self.crtl_c_event.set()  # 触发退出事件
+        self.is_killed = True
 
 
     def pause(self):
