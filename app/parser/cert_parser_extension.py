@@ -407,8 +407,8 @@ for sct in sct_list:
     log_id = sct.log_id
 
     log_id = base64.b64encode(log_id).decode('utf-8')
-    print(sct.version)
-    print(log_id)
+    # print(sct.version)
+    # print(log_id)
 
 # Now I can finally get the correct sct log id ....
 '''

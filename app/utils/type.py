@@ -34,4 +34,12 @@ class TaskType(Enum):
     TASK_ANALYSIS = 1
     TASK_WRITE_SQL = 2
     TASK_READ_SQL = 3
-    
+
+def sort_dict_by_key(dict):
+    return {k: dict[k] for k in sorted(dict.keys())}
+
+def sort_dict_by_value(dict):
+    return {k: dict[k] for k in sorted(dict.values())}
+
+def sort_list_by_key(data_list, key_name):
+    return sorted(data_list, key=lambda x: x[key_name])

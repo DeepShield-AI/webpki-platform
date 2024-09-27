@@ -48,8 +48,11 @@ class PEMParser():
         if pem.detect(pem_bytes_str):
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
             cert = x509.Certificate.load(der_bytes)
-            print(cert)
-            return ordered_dict_to_dict(cert.native)
+            return cert.native
+
+    @classmethod
+    def parse_native_pretty(self, pem_str : str):
+        return ordered_dict_to_dict(self.parse_native(pem_str))
 
     @classmethod
     def parse_pem_cert(self, pem_str : str):
