@@ -28,6 +28,9 @@ class DomainScanConfig(ScanConfig):
         self.INPUT_DOMAIN_LIST_FILE = kwargs.get('INPUT_DOMAIN_LIST_FILE', os.path.join(os.path.dirname(__file__), r"../data/top-1m.csv"))
         self.DOMAIN_RANK_START = kwargs.get('DOMAIN_RANK_START', 0)
         self.NUM_DOMAIN_SCAN = kwargs.get('NUM_DOMAIN_SCAN', 100)
+        self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
+        # TLS fingerprinting config
+        self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
 
 
 class IPScanConfig(ScanConfig):
@@ -35,6 +38,9 @@ class IPScanConfig(ScanConfig):
         super().__init__(**kwargs)
         # IP range file related
         self.INPUT_IP_LIST_FILE = kwargs.get('INPUT_IP_LIST_FILE', "")
+        self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
+        # TLS fingerprinting config
+        self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
 
 
 class CTScanConfig(ScanConfig):
@@ -46,6 +52,14 @@ class CTScanConfig(ScanConfig):
         self.ENTRY_START = kwargs.get('ENTRY_START', 0)
         self.ENTRY_END = kwargs.get('ENTRY_END', 1000)
         self.WINDOW_SIZE = kwargs.get('WINDOW_SIZE', 10)
+
+
+class DNSScanConfig(ScanConfig):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # need NS and record types
+        self.NS = kwargs.get('NS', ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
+        self.RECORD_TYPES = kwargs.get("RECORD_TYPES", ["A", "AAAA", "TXT"])
 
 
 config_class_mapping = {
