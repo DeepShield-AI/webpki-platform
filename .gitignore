@@ -17,3 +17,5 @@ data/
 # txt and figs
 script/fig_generation/cert_replica/*.txt
 script/fig_generation/cert_replica/*.png
+script/fig_generation/attack_result/*.txt
+script/fig_generation/attack_result/*.png
