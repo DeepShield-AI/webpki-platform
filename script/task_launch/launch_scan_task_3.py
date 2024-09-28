@@ -21,7 +21,7 @@ log_address = "oak.ct.letsencrypt.org/2024h2"
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "oak2024h2 0-10M",
+            'SCAN_PROCESS_NAME': "oak2024h2 450-500M",
             'STORAGE_DIR' : r"H:/oak2024h2",
             'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 100000,
@@ -29,9 +29,9 @@ if __name__ == "__main__":
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 0,
-            'ENTRY_END' : 10000000,
-            'WINDOW_SIZE' : 500,
+            'ENTRY_START' : 450000000,
+            'ENTRY_END' : 500000000,
+            'WINDOW_SIZE' : 250,
         }
         config = CTScanConfig(**scan_args)
         task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])
