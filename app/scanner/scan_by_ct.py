@@ -157,10 +157,16 @@ class CTScanner(Scanner):
                         continue
 
                     if response.status_code == 200:
-                        received_entries += json.loads(response.text)['entries']
+                        try:
+                            received_entries += json.loads(response.text)['entries']
+                        except json.JSONDecodeError as e:
+                            my_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {loop_start} to {loop_end}")
+                            retry_times += 1
+                            time.sleep(2 * retry_times)  # 指数退避策略
+                            continue
 
                         if (len(received_entries) < (loop_end - loop_start)):
-                            print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
+                            # print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
 
                             # This case, we try to get the remain entries
                             params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
