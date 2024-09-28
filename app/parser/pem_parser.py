@@ -5,7 +5,7 @@ import idna
 import hashlib
 from dataclasses import dataclass, asdict
 from asn1crypto import pem, x509
-
+from ..utils.cert import ordered_dict_to_dict
 
 '''
     Keep the following infomation:
@@ -32,6 +32,7 @@ class PEMResult():
     subject : list
     pub_key_alg : str
     pub_key_id : str
+    pub_key : dict
     policy : str
 
 
@@ -48,6 +49,10 @@ class PEMParser():
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
             cert = x509.Certificate.load(der_bytes)
             return cert.native
+
+    @classmethod
+    def parse_native_pretty(self, pem_str : str):
+        return ordered_dict_to_dict(self.parse_native(pem_str))
 
     @classmethod
     def parse_pem_cert(self, pem_str : str):
@@ -95,6 +100,7 @@ class PEMParser():
                 subject,
                 cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
                 pub_key_id.hex(),
+                ordered_dict_to_dict(cert['tbs_certificate']['subject_public_key_info']['public_key'].native),
                 policy
             )
 

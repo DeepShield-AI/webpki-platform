@@ -12,7 +12,7 @@ with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
     csv_reader = csv.reader(file)
     for row in csv_reader:
         rank_dict[row[1]] = row[0]
-        top_domain_related[row[1]] = set()
+        top_domain_related[row[1]] = []
 
 load_dir = r'D:/global_ca_monitor/data/cert_replica'
 for file_entry in os.scandir(load_dir):
@@ -24,8 +24,8 @@ for file_entry in os.scandir(load_dir):
 
             for subject in entry["san"]:
                 if subject in top_domain_related:
-                    for s in entry["san"]:
-                        top_domain_related[subject].add(s)
+                    if entry["pub_key_alg"] == "rsa":
+                        top_domain_related[subject].append(entry["pub_key"]["modulus"])
 
-with open("1.txt", "w", encoding='utf-8') as file:
+with open("5.txt", "w", encoding='utf-8') as file:
     json.dump(top_domain_related, file, indent=4, default=custom_serializer)
