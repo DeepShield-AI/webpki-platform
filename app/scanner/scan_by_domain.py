@@ -112,10 +112,11 @@ class DomainScanner(Scanner):
                     jarm = "|||,|||,|||,|||,|||,|||,|||,|||,|||,|||"
                     break
 
-                server_hello_ans = self.read_packet(server_hello, queue[iterate])
+                server_hello_ans = self.read_packet(server_hello)
                 jarm += server_hello_ans
-                jarm += ","
                 iterate += 1
+                if iterate < len(queue):
+                    jarm += ","
 
             # Fuzzy hash
             _jarm_hash = jarm_hash(jarm)
@@ -138,12 +139,7 @@ class DomainScanner(Scanner):
             self.scan_status_data.scanned_domains += 1
             self.scan_status_data.scanned_certs += 1
 
-            if e is not None:
-                self.scan_status_data.error_count += 1
-            else:
-                self.scan_status_data.success_count += 1
-
-        self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
+        self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.scanned_domains}, [red]Total: {self.total}")
         self.progress.advance(self.progress_task)
 
 
@@ -156,8 +152,8 @@ class DomainScanner(Scanner):
             transient=True  # 进度条完成后隐藏
         ) as self.progress:
             
-            total = self.end_num - self.begin_num
-            self.progress_task = self.progress.add_task("[Waiting]", total=total)
+            self.total = self.end_num - self.begin_num + 1
+            self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
             self.timer_thread = threading.Thread(target=self.async_update_scan_process_info)
             # self.timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程

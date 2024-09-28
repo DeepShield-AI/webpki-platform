@@ -166,7 +166,10 @@ class Scanner(ABC):
 
         except Exception as e:
             # my_logger.error(f"Error fetching certificate for {host}: {e} {e.__class__}")
-            proxy_socket.close()
+            try:
+                proxy_socket.close()
+            except UnboundLocalError:
+                pass
             return [], f"{e} {e.__class__}", None, None
 
 
@@ -178,18 +181,30 @@ class Scanner(ABC):
             if (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv4Address) and (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv6Address):
                 my_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
                 return None
+        except Exception:
+            my_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+            return None
 
-            if proxyhost and proxyport:
-                sock = socks.socksocket(socket.AF_INET6, socket.SOCK_STREAM)
-                sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+        try:
+            if ":" in destination_ip:
+                if proxyhost and proxyport:
+                    sock = socks.socksocket(socket.AF_INET6, socket.SOCK_STREAM)
+                    sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+                else:
+                    sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                sock.settimeout(self.scan_timeout)
+                sock.connect((destination_ip, destination_port, 0, 0))
             else:
-                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-
-            sock.settimeout(self.scan_timeout)
-            sock.connect((destination_ip, destination_port, 0, 0))
-            sock.sendall(packet)
+                if proxyhost and proxyport:
+                    sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+                else:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(self.scan_timeout)
+                sock.connect((destination_ip, destination_port))
 
             # Receive SH, however, this might now be complete SH
+            sock.sendall(packet)
             server_hello_data = sock.recv(1484)
             
             '''
@@ -212,7 +227,10 @@ class Scanner(ABC):
 
         except Exception as e:
             my_logger.debug(f"Exception {e} happens when connecting {destination_ip}...")
-            sock.close()
+            try:
+                sock.close()
+            except UnboundLocalError:
+                pass
             return None
 
 
@@ -225,7 +243,7 @@ class Scanner(ABC):
 
             # Server hello error
             if data[0] == 21:
-                my_logger.warning("Server hello error")
+                my_logger.debug("Server hello error")
                 selected_cipher = b""
                 return "|||"
 

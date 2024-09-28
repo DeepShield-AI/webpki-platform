@@ -31,7 +31,7 @@ def get_host_dns_records(
             record_result[record_type] = []
             answer = resolver.resolve(host, record_type)
             for rdata in answer:
-                record_result[record_type].append(rdata)
+                record_result[record_type].append(rdata.address)
         except dns.resolver.NoAnswer:
             my_logger.warning(f"No {record_type} record found for {host}.")
         except dns.resolver.NXDOMAIN:
