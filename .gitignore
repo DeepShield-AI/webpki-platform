@@ -13,6 +13,7 @@ uwsgi.pid
 cert_pem_data.csv
 cert_content.csv
 data/
+test/test_scan/out
 
 # txt and figs
 script/fig_generation/cert_replica/*.txt
