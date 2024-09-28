@@ -14,7 +14,7 @@ import os
 from queue import Queue
 from threading import Lock
 from aiofiles.os import listdir
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 
@@ -37,8 +37,11 @@ class DataParser():
         self.load_dir = load_dir
         self.save_dir = save_dir
 
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+
         self.look_up = DomainLookup()
-        self.split_window = 100000
+        self.split_window = 20000
         self.queue = Queue()
 
         # @Debug only
@@ -121,7 +124,7 @@ class DataParser():
                     if os.path.isfile(file_path):
                         with open(file_path, "r") as file:
                             data = json.load(file)
-                            executor.submit(self.scan_file, data)
+                            executor.submit(self.scan_file, data).result()
     
                 executor.shutdown(wait=True)
                 my_logger.info("All threads finished.")
