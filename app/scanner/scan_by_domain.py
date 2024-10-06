@@ -23,6 +23,7 @@ from app import db, app
 from .jarm_fp_utils import *
 from .scan_base import Scanner, ScanStatusData
 from ..config.scan_config import DomainScanConfig
+from ..config.ip_blacklist import IP_BLACKLIST
 from ..utils.cert import get_cert_sha256_hex_from_str
 from ..utils.type import ScanType, ScanStatusType
 from ..utils.json import custom_serializer
@@ -46,6 +47,7 @@ class DomainScanner(Scanner):
         self.begin_num = scan_config.DOMAIN_RANK_START
         self.end_num = scan_config.NUM_DOMAIN_SCAN - 1
         self.tls_fp_type = scan_config.TLS_FP_TYPE
+        self.tls_fp_only = scan_config.TLS_FP_ONLY
         self.scan_port = scan_config.SCAN_PORT
         self.task_queue = PriorityQueue()
         self.data_queue = Queue()
@@ -55,14 +57,19 @@ class DomainScanner(Scanner):
 
         # read domain list from the input file
         self.current_index = self.begin_num
-        with open(self.input_csv_file, 'r') as file:
+        with open(self.input_csv_file, 'r', encoding='utf-8') as file:
             reader = csv.reader(file)
 
             for row in reader:
                 if self.current_index > self.end_num:
                     break
 
-                rank, host = int(row[0]), row[1]
+                try:
+                    rank, host = int(row[0]), row[1]
+                except Exception:
+                    rank = 0
+                    host = row[0]
+
                 self.task_queue.put((rank, host))
                 self.current_index += 1
 
@@ -72,6 +79,10 @@ class DomainScanner(Scanner):
 
 
     def scan_thread_with_jarm(self, rank : int, destination_host : str):
+
+        original_host = destination_host
+        if destination_host.startswith("*."):
+            destination_host = destination_host[2:]
 
         # Select the packets and formats to send
         # Array format = [destination_host,self.scan_port,version,cipher_list,cipher_order,GREASE,RARE_APLN,1.3_SUPPORT,extension_orders]
@@ -99,6 +110,16 @@ class DomainScanner(Scanner):
         # Iterate through all the IPs
         for destination_ip in ipv4 + ipv6:
 
+            # Detect signal
+            if self.crtl_c_event.is_set():
+                # my_logger.info("Terminating scan thread because of Ctrl + C signal")
+                return
+            
+            # Check blacklist
+            if destination_ip in IP_BLACKLIST:
+                my_logger.warning(f"{destination_ip} lies in IP blacklist, skips")
+                continue
+
             jarm = ""
 
             # Assemble, send, and decipher each packet
@@ -122,18 +143,27 @@ class DomainScanner(Scanner):
             _jarm_hash = jarm_hash(jarm)
 
             # Now try to get certificate chain
-            cert_chain, e, tls_version, tls_cipher = self.fetch_raw_cert_chain(destination_host, destination_ip, proxy_host=None, proxy_port=None)
-            cert_chain_sha256_hex = [get_cert_sha256_hex_from_str(cert) for cert in cert_chain]
+            if not self.tls_fp_only:
+                cert_chain, e, tls_version, tls_cipher = self.fetch_raw_cert_chain(destination_host, destination_ip, proxy_host=None, proxy_port=None)
+                cert_chain_sha256_hex = [get_cert_sha256_hex_from_str(cert) for cert in cert_chain]
 
-            self.data_queue.put({
-                "rank" : rank,
-                "destination_host" : destination_host,
-                "destination_ip" : destination_ip,
-                "jarm" : jarm,
-                "jarm_hash" : _jarm_hash,
-                "cert_chain" : cert_chain,
-                "cert_chain_hash" : cert_chain_sha256_hex
-            })
+                self.data_queue.put({
+                    "rank" : rank,
+                    "destination_host" : original_host,
+                    "destination_ip" : destination_ip,
+                    "jarm" : jarm,
+                    "jarm_hash" : _jarm_hash,
+                    "cert_chain" : cert_chain,
+                    "cert_chain_hash" : cert_chain_sha256_hex
+                })
+            else:
+                # print(original_host, _jarm_hash)
+                self.data_queue.put({
+                    "rank" : rank,
+                    "destination_host" : original_host,
+                    "destination_ip" : destination_ip,
+                    "jarm_hash" : _jarm_hash
+                })
 
         with self.scan_status_data_lock:
             self.scan_status_data.scanned_domains += 1
@@ -173,7 +203,7 @@ class DomainScanner(Scanner):
 
                     index, host = self.task_queue.get()
                     if self.tls_fp_type == "jarm":
-                        my_logger.info(host)
+                        # my_logger.info(host)
                         executor.submit(self.scan_thread_with_jarm, index, host)
                         # executor.submit(self.scan_thread_with_jarm, index, host).result()
                     else:
@@ -260,7 +290,7 @@ class DomainScanner(Scanner):
             save_file_path = os.path.join(self.storage_dir, file_name)
             my_logger.info(f"Opening {save_file_path}...")
 
-            with open(save_file_path, 'w') as f:
+            with open(save_file_path, 'w', encoding='utf-8') as f:
                 while count <= window:
                     scan_entry = self.data_queue.get()
 

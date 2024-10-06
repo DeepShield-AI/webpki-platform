@@ -31,6 +31,7 @@ class DomainScanConfig(ScanConfig):
         self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
         # TLS fingerprinting config
         self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
+        self.TLS_FP_ONLY = kwargs.get('TLS_FP_ONLY', True)
 
 
 class IPScanConfig(ScanConfig):
