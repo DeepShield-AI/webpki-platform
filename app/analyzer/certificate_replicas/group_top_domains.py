@@ -18,9 +18,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 
-from ...parser.pem_parser import PEMParser
+from ...parser.pem_parser import PEMParser, PEMResult
 from ...utils.domain_lookup import DomainLookup
 from ...utils.json import custom_serializer
+from ...utils.type import str_to_timestamp
 from ...logger.logger import my_logger
 
 
@@ -30,12 +31,22 @@ class DataParser():
             self,
             log_name = "sabre2024h1",
             load_dir = r'H:/sabre2024h1',
-            save_dir = r'D:/data/group_top_domains_sabre'
+            save_dir = r'D:/data/group_top_domains_sabre',
+            start_time = '2024-09-01 00:00:00',
+            end_time = '2024-10-01 00:00:00',
+            only_domians = True
         ) -> None:
 
         self.log_name = log_name
         self.load_dir = load_dir
         self.save_dir = save_dir
+
+        self.start_time = str_to_timestamp(start_time)
+        self.end_time = str_to_timestamp(end_time)
+        self.only_domains = only_domians
+
+        my_logger.info(f"start_time: {self.start_time}")
+        my_logger.info(f"end_time: {self.end_time}")
 
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
@@ -57,20 +68,43 @@ class DataParser():
         self.saver_thread.start()
 
 
+    def check_entry_timestamp(self, timestamp : int):
+        return self.start_time <= timestamp < self.end_time
+
+
     def fetch_san_from_raw(self, cert : str):
         pem_result = PEMParser.parse_pem_cert(cert)
         return set(pem_result.subject)
 
 
-    def scan_file(self, data: str):
+    def scan_file(self, file_path: str):
+        with open(file_path, "r") as file:
+            try:
+                my_logger.info(f"Reading file: {file_path}")
+                data = json.load(file)
+            except json.JSONDecodeError:
+                # skip unique_ca_certs
+                return
+
         for entry in data.values():
             if entry['leaf'] is not None:
+                if not self.check_entry_timestamp(int(entry['timestamp'])):
+                    # should be continue, but that is way too slow in nimbus log
+                    print(entry['timestamp'])
+                    break
+                
                 san_list = self.fetch_san_from_raw(entry['leaf'])
-
                 for subject in san_list:
                     target_domain_list = self.look_up.lookup(subject)
                     if len(target_domain_list) > 0:
-                        self.queue.put(entry)
+                        # save domains only?
+                        if self.only_domains:
+                            self.queue.put({
+                                "target" : target_domain_list,
+                                "related" : san_list
+                            })
+                        else:
+                            self.queue.put(entry)
                         break
 
         with self.lock:
@@ -87,7 +121,7 @@ class DataParser():
             save_file = os.path.join(self.save_dir, f"top_1m_{self.log_name}_{index * self.split_window}_{(index + 1) * self.split_window}")
             my_logger.info(f"Opening {save_file}...")
 
-            with open(save_file, 'w') as f:
+            with open(save_file, 'w', encoding='utf-8') as f:
                 while count <= self.split_window:
                     top_cert_entry = self.queue.get()
 
@@ -113,18 +147,20 @@ class DataParser():
             transient=True  # 进度条完成后隐藏
         ) as self.progress:
 
-            self.total = sum(1 for file_entry in os.scandir(self.load_dir) if os.path.isfile(file_entry.path))
+            # skip unique_ca_certs
+            self.total = sum(1 for file_entry in os.scandir(self.load_dir) if os.path.isfile(file_entry.path)) - 1
             self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
-            with ThreadPoolExecutor(max_workers=40) as executor:
-
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                file_path_list = []
                 for file_entry in os.scandir(self.load_dir):
-                    file_path = file_entry.path
+                    file_path_list.append(file_entry.path)
 
+                file_path_list.reverse()
+                for file_path in file_path_list:
                     if os.path.isfile(file_path):
-                        with open(file_path, "r") as file:
-                            data = json.load(file)
-                            executor.submit(self.scan_file, data).result()
+                        executor.submit(self.scan_file, file_path)
+                        # executor.submit(self.scan_file, file_path).result()
     
                 executor.shutdown(wait=True)
                 my_logger.info("All threads finished.")
