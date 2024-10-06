@@ -10,8 +10,8 @@ from app.manager.task import TaskBatchTemplate
 from app.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_address = "oak.ct.letsencrypt.org/2024h2"
-log_name = "sabre2024h2"
-log_address = "sabre2024h2.ct.sectigo.com"
+log_name = "sabre2025h2"
+log_address = "sabre2025h2.ct.sectigo.com"
 # log_address = "yeti2024.ct.digicert.com/log"
 # log_address = "ct.cloudflare.com/logs/nimbus2024"
 # log_name = "nimbus2024"
@@ -21,16 +21,16 @@ log_address = "sabre2024h2.ct.sectigo.com"
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "sabre2024h2 125-200M",
-            'STORAGE_DIR' : r"H:/sabre2024h2",
+            'SCAN_PROCESS_NAME': "sabre2025h2 18-27M",
+            'STORAGE_DIR' : r"H:/sabre2025h2",
             'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 100000,
             'SCAN_TIMEOUT' : 2,
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 125000000,
-            'ENTRY_END' : 200000000,
+            'ENTRY_START' : 18000000,
+            'ENTRY_END' : 27000000,
             'WINDOW_SIZE' : 200,
         }
         config = CTScanConfig(**scan_args)
