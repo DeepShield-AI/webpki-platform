@@ -67,10 +67,14 @@ class RelatedDomains():
 
             if entry is None:  # Poison pill to shut down the thread
                 print("Poision detected")
-                save_file = os.path.join(self.save_dir, f"related_domains_count_{self.log_name}")
-                with open(save_file, 'w', encoding='utf-8') as f:
+                save_file = os.path.join(self.save_dir, f"related_domains_{self.log_name}.csv")
+                with open(save_file, 'w', encoding='utf-8', newline='') as f:
                     print(f"Open {save_file}...")
-                    json.dump(output_dict, f, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
+
+                    writer = csv.writer(f)
+                    writer.writerow(['related', 'target'])
+                    for k, v in output_dict.items():
+                        writer.writerow([k, list(v)])
                     break
 
             for related in entry["related"]:
@@ -124,8 +128,8 @@ class RelatedDomains():
             with ThreadPoolExecutor(max_workers=2) as executor:
 
                 for file_entry in os.scandir(self.load_dir):
-                    executor.submit(self.scan_thread, file_entry.path)
-                    # executor.submit(self.scan_thread, file_entry.path).result()
+                    # executor.submit(self.scan_thread, file_entry.path)
+                    executor.submit(self.scan_thread, file_entry.path).result()
 
                 executor.shutdown(wait=True)
                 print("All threads finished.")

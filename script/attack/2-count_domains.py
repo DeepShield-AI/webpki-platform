@@ -1,13 +1,8 @@
 
-import sys
-sys.path.append(r"D:\global_ca_monitor")
-
 import os
-import json, csv
-from app.utils.json import custom_serializer, split_json_objects
+import ast
+import bigjson, csv, json
 
-
-# 读取排名数据
 rank_dict = {}
 with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
     csv_reader = csv.reader(file)
@@ -32,25 +27,33 @@ class RelatedDomains():
             self.output[rank] = 0
 
     def start(self, file_path : str):
-
         file_path = os.path.join(self.load_dir, file_path)
         with open(file_path, "r", encoding='utf-8') as file:
-            print(f'Reading {file_path}')
-            data = json.load(file)
+            save_file = os.path.join(self.save_dir, f"related_domains_count_{self.log_name}.csv")
+            with open(save_file, 'w', encoding='utf-8', newline='') as f:
+                print(f'Reading {file_path}')
+                print(f"Open {save_file}...")
 
-        for target_list in data.values():
-            for target in target_list:
-                self.output[target] += 1
+                data = csv.reader(file)
+                print("Done")
 
-        print("Poision detected")
-        save_file = os.path.join(self.save_dir, f"related_domains_count_{self.log_name}")
-        with open(save_file, 'w', encoding='utf-8') as f:
-            print(f"Open {save_file}...")
-            json.dump(self.output, f, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
+                for row in data:
+                    try:
+                        actual_list = ast.literal_eval(row[1])
+                        for target in actual_list:
+                            self.output[target] += 1
+                    except ValueError:
+                        print(row)
+
+                print("Poision detected")
+                writer = csv.writer(f)
+                writer.writerow(['Key', 'Value'])
+                for k, v in self.output.items():
+                    writer.writerow([k, v])
 
 parser = RelatedDomains(
     log_name = "nimbus",
     load_dir = r'D:/global_ca_monitor/script/attack/',
     save_dir = r'./'
 )
-parser.start("related_domains_count_nimbus.json")
+parser.start("related_domains_nimbus.csv")
