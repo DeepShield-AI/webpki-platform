@@ -40,7 +40,7 @@ class JarmCompress():
 
             if entry is None:  # Poison pill to shut down the thread
                 print("Poision detected")
-                save_file = os.path.join(self.save_dir, f"jarm_{self.log_name}.csv")
+                save_file = os.path.join(self.save_dir, f"3-jarm_{self.log_name}.csv")
                 with open(save_file, 'w', encoding='utf-8', newline='') as f:
                     print(f"Open {save_file}...")
 

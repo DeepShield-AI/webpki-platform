@@ -17,7 +17,14 @@ test/test_scan/out
 script/task_launch/out
 
 # txt and figs
-script/fig_generation/cert_replica/*.txt
-script/fig_generation/cert_replica/*.png
-script/fig_generation/attack_result/*.txt
-script/fig_generation/attack_result/*.png
+script/*/*.txt
+script/*/*.png
+script/*/*.csv
+script/*/*/*.txt
+script/*/*/*.png
+script/*/*/*.csv
+
+# script/fig_generation/cert_replica/*.txt
+# script/fig_generation/cert_replica/*.png
+# script/fig_generation/attack_result/*.txt
+# script/fig_generation/attack_result/*.png

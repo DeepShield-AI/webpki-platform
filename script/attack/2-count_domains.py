@@ -29,7 +29,7 @@ class RelatedDomains():
     def start(self, file_path : str):
         file_path = os.path.join(self.load_dir, file_path)
         with open(file_path, "r", encoding='utf-8') as file:
-            save_file = os.path.join(self.save_dir, f"related_domains_count_{self.log_name}.csv")
+            save_file = os.path.join(self.save_dir, f"2-related_domains_count_{self.log_name}.csv")
             with open(save_file, 'w', encoding='utf-8', newline='') as f:
                 print(f'Reading {file_path}')
                 print(f"Open {save_file}...")

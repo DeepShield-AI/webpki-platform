@@ -3,6 +3,9 @@ import os
 import ast
 import csv
 
+LOG = "nimbus"
+# LOG = "sabre"
+
 # 1 : google.com
 rank_dict = {}
 with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r', encoding='utf-8') as file:
@@ -10,9 +13,16 @@ with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r', encoding='utf-8') as
     for row in csv_reader:
         rank_dict[row[0]] = row[1]
 
+# 100 : "000000000"
+count_dict = {}
+with open(rf"D:/global_ca_monitor/script/attack/related_domains_count_{LOG}.csv", 'r', encoding='utf-8') as file:
+    csv_reader = csv.reader(file)
+    for row in csv_reader:
+        count_dict[row[0]] = row[1]
+
 # google.com  : "000000000"
 jarm_dict = {}
-with open(r"D:/global_ca_monitor/script/attack/jarm_sabre.csv", 'r', encoding='utf-8') as file:
+with open(rf"D:/global_ca_monitor/script/attack/jarm_{LOG}.csv", 'r', encoding='utf-8') as file:
     csv_reader = csv.reader(file)
     for row in csv_reader:
         jarm_dict[row[0]] = row[1]
@@ -66,21 +76,22 @@ class RelatedDomains():
                     print(row)
 
     def save(self):
-        save_file = os.path.join(self.save_dir, f"6-jarm_hit_{self.log_name}.csv")
+        save_file = os.path.join(self.save_dir, f"10-jarm_hit_percentage_{self.log_name}.csv")
         with open(save_file, 'w', encoding='utf-8', newline='') as f:
             print(f"Open {save_file}...")
             writer = csv.writer(f)
-            writer.writerow(['Target', 'HitNum'])
+            writer.writerow(['Target', 'Total', 'HitNumPercentage'])
             for k, v in self.output.items():
-                writer.writerow([k, v['n']])
+                if v['n'] > 0:
+                    writer.writerow([k, count_dict[k], int(v['n']) / int(count_dict[k])])
 
 parser = RelatedDomains(
-    log_name = "sabre",
+    log_name = LOG,
     load_dir = r'D:/global_ca_monitor/script/attack/',
     save_dir = r'./'
 )
 # parser.start("nimbus_test_100.csv")
-# parser.start("related_domains_nimbus1.csv")
-# parser.start("related_domains_nimbus2.csv")
-parser.start("related_domains_sabre.csv")
+parser.start(f"related_domains_{LOG}1.csv")
+parser.start(f"related_domains_{LOG}2.csv")
+# parser.start(f"related_domains_{LOG}.csv")
 parser.save()

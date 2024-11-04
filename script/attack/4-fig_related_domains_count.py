@@ -67,5 +67,5 @@ for j in range(0, matrix.shape[1], inner_cols):
 # 去掉标题
 plt.xlabel('Binned Rank Index')
 plt.ylabel('Binned Rank Group')
-plt.savefig("related_domain_count_sabre.png")
-# plt.savefig("related_domain_count_nimbus.png")
+plt.savefig("4-related_domain_count_sabre.png")
+# plt.savefig("4-related_domain_count_nimbus.png")
