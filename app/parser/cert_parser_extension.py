@@ -22,7 +22,8 @@ from cryptography.x509 import (
     CertificatePolicies,
     SubjectKeyIdentifier,
     AuthorityKeyIdentifier,
-    PrecertificateSignedCertificateTimestamps
+    PrecertificateSignedCertificateTimestamps,
+    SignedCertificateTimestamps
 )
 
 from cryptography.x509.oid import (
@@ -349,6 +350,76 @@ class PrecertificateSignedCertificateTimestampsParser(SingleExtensionParser):
             list_scts = value._signed_certificate_timestamps
             return PrecertificateSignedCertificateTimestampsResult(extension.critical, len(list_scts))
         return None
+
+
+# '''
+#     In the future, here will be the CT timestamp extension parser
+# '''
+
+# import base64
+# from cryptography import x509
+# from cryptography.hazmat.backends import default_backend
+# import struct
+# import binascii
+# import base64
+# import json
+# from collections import OrderedDict
+# from datetime import datetime
+
+# # 解析 Signed Certificate Timestamp (SCT)
+# def parse_sct(sct):
+#     # 解析 version (1 byte)
+#     version = sct[0]
+    
+#     # 解析 LogID (32 bytes)
+#     hex_log_id = sct[1:33].hex()
+    
+#     # 解析 timestamp (8 bytes)
+#     timestamp = struct.unpack('>Q', sct[33:41])[0]
+    
+#     # Convert hex to binary
+#     binary_log_id = binascii.unhexlify(hex_log_id)
+
+#     # Convert binary to Base64
+#     base64_log_id = base64.b64encode(binary_log_id).decode('utf-8')
+
+#     # 输出结果
+#     print("Version:", version)
+#     print("LogID:", base64_log_id)
+#     print("Timestamp:", timestamp)
+
+
+# # 加载证书
+# with open(r'test_certs/tsinghua.edu.cn_single.pem', 'rb') as f:
+#     cert_data = f.read()
+
+# # 解析证书
+# cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+# # 查找 SCT 扩展
+# sct_extension = cert.extensions.get_extension_for_oid(x509.ExtensionOID.PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS)
+
+# # 提取 SCT 数据
+# sct_list = sct_extension.value
+
+# # 解析 SCT 数据
+# for sct in sct_list:
+#     sct : x509.certificate_transparency.SignedCertificateTimestamp
+#     log_id = sct.log_id
+
+#     log_id = base64.b64encode(log_id).decode('utf-8')
+#     # print(sct.version)
+#     # print(log_id)
+
+# # Now I can finally get the correct sct log id ....
+# '''
+#     Version.v1
+#     tz77JN+cTbp18jnFulj0bF38Qs96nzXEnh0JgSXttJk=
+#     Version.v1
+#     ejKMVNi3LbYg6jjgUh7phBZwMhOFTTvSK8E6V6NS61I=
+# '''
+# # 1. Oak2023
+# # 2. Nimbus2023
+# # 至于说 使用 asn1crypto，只能自己加入解析方式了
 
 
 EXTENSIONTOEXTENSIONPARSER : Dict[Extension, SingleExtensionParser] = {

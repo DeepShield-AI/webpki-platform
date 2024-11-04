@@ -1,23 +1,34 @@
 
+'''
+    Update on 24/09/23
+    Now domain scanner is integrated with Jarm
+    The scanner can get Jarm TLS fingerprinting by adding scanning configuration
+    Referenced with https://github.com/salesforce/jarm/blob/master/jarm.py
+'''
+
+import os
 import csv
+import json
 import time
 import hashlib
 import threading
 
 from datetime import datetime, timezone
-from queue import PriorityQueue
+from queue import PriorityQueue, Queue
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.dialects.mysql import insert
 
 from app import db, app
+from .jarm_fp_utils import *
 from .scan_base import Scanner, ScanStatusData
 from ..config.scan_config import DomainScanConfig
+from ..config.ip_blacklist import IP_BLACKLIST
+from ..utils.cert import get_cert_sha256_hex_from_str
 from ..utils.type import ScanType, ScanStatusType
+from ..utils.json import custom_serializer
+from ..utils.network import resolve_host_dns
 from ..logger.logger import my_logger
-from ..models import (
-    ScanStatus, ScanData, CertScanMeta, CertStoreContent, CertStoreRaw
-)
 
 
 class DomainScanner(Scanner):
@@ -27,82 +38,138 @@ class DomainScanner(Scanner):
             scan_id : str,
             start_time : datetime,
             scan_config : DomainScanConfig,
-            cert_data_table_name : str,
         ) -> None:
 
-        super().__init__(scan_id, start_time, scan_config, cert_data_table_name)
+        super().__init__(scan_id, start_time, scan_config)
 
         # scan settings from scan config
         self.input_csv_file = scan_config.INPUT_DOMAIN_LIST_FILE
         self.begin_num = scan_config.DOMAIN_RANK_START
         self.end_num = scan_config.NUM_DOMAIN_SCAN - 1
+        self.tls_fp_type = scan_config.TLS_FP_TYPE
+        self.tls_fp_only = scan_config.TLS_FP_ONLY
+        self.scan_port = scan_config.SCAN_PORT
         self.task_queue = PriorityQueue()
-        self.load_tasks_into_queue()
+        self.data_queue = Queue()
 
+        if not os.path.exists(self.storage_dir):
+            os.makedirs(self.storage_dir)
 
-    def load_tasks_into_queue(self):
+        # read domain list from the input file
         self.current_index = self.begin_num
-        with open(self.input_csv_file, 'r') as file:
+        with open(self.input_csv_file, 'r', encoding='utf-8') as file:
             reader = csv.reader(file)
 
             for row in reader:
                 if self.current_index > self.end_num:
                     break
 
-                rank, host = int(row[0]), row[1]
+                try:
+                    rank, host = int(row[0]), row[1]
+                except Exception:
+                    rank = 0
+                    host = row[0]
+
                 self.task_queue.put((rank, host))
                 self.current_index += 1
 
 
-    def scan_thread(self, rank : int, host : str):
+    def scan_thread_with_custom_tls_fp(self, rank : int, destination_host : str):
+        pass
+
+
+    def scan_thread_with_jarm(self, rank : int, destination_host : str):
+
+        original_host = destination_host
+        if destination_host.startswith("*."):
+            destination_host = destination_host[2:]
+
+        # Select the packets and formats to send
+        # Array format = [destination_host,self.scan_port,version,cipher_list,cipher_order,GREASE,RARE_APLN,1.3_SUPPORT,extension_orders]
+        tls1_2_forward = [destination_host, self.scan_port, "TLS_1.2", "ALL", "FORWARD", "NO_GREASE", "APLN", "1.2_SUPPORT", "REVERSE"]
+        tls1_2_reverse = [destination_host, self.scan_port, "TLS_1.2", "ALL", "REVERSE", "NO_GREASE", "APLN", "1.2_SUPPORT", "FORWARD"]
+        tls1_2_top_half = [destination_host, self.scan_port, "TLS_1.2", "ALL", "TOP_HALF", "NO_GREASE", "APLN", "NO_SUPPORT", "FORWARD"]
+        tls1_2_bottom_half = [destination_host, self.scan_port, "TLS_1.2", "ALL", "BOTTOM_HALF", "NO_GREASE", "RARE_APLN", "NO_SUPPORT", "FORWARD"]
+        tls1_2_middle_out = [destination_host, self.scan_port, "TLS_1.2", "ALL", "MIDDLE_OUT", "GREASE", "RARE_APLN", "NO_SUPPORT", "REVERSE"]
+        tls1_1_middle_out = [destination_host, self.scan_port, "TLS_1.1", "ALL", "FORWARD", "NO_GREASE", "APLN", "NO_SUPPORT", "FORWARD"]
+        tls1_3_forward = [destination_host, self.scan_port, "TLS_1.3", "ALL", "FORWARD", "NO_GREASE", "APLN", "1.3_SUPPORT", "REVERSE"]
+        tls1_3_reverse = [destination_host, self.scan_port, "TLS_1.3", "ALL", "REVERSE", "NO_GREASE", "APLN", "1.3_SUPPORT", "FORWARD"]
+        tls1_3_invalid = [destination_host, self.scan_port, "TLS_1.3", "NO1.3", "FORWARD", "NO_GREASE", "APLN", "1.3_SUPPORT", "FORWARD"]
+        tls1_3_middle_out = [destination_host, self.scan_port, "TLS_1.3", "ALL", "MIDDLE_OUT", "GREASE", "APLN", "1.3_SUPPORT", "REVERSE"]
+        # Possible versions: SSLv3, TLS_1, TLS_1.1, TLS_1.2, TLS_1.3
+        # Possible cipher lists: ALL, NO1.3
+        # GREASE: either NO_GREASE or GREASE
+        # APLN: either APLN or RARE_APLN
+        # Supported Verisons extension: 1.2_SUPPPORT, NO_SUPPORT, or 1.3_SUPPORT
+        # Possible Extension order: FORWARD, REVERSE
+        queue = [tls1_2_forward, tls1_2_reverse, tls1_2_top_half, tls1_2_bottom_half, tls1_2_middle_out, tls1_1_middle_out, tls1_3_forward, tls1_3_reverse, tls1_3_invalid, tls1_3_middle_out]
+
+        # First, resolve the host
+        ipv4, ipv6 = resolve_host_dns(destination_host)
         
-        '''
-            To save VPN data, we first retrieve cert without VPN
-            if this fails, we use VPN instead
-            if both fail, we treat it as exact failure
+        # Iterate through all the IPs
+        for destination_ip in ipv4 + ipv6:
+
+            # Detect signal
+            if self.crtl_c_event.is_set():
+                # my_logger.info("Terminating scan thread because of Ctrl + C signal")
+                return
             
-            TODO: connect with different VPN nodes to see the data difference
-        '''
-        # ipv4, ipv6 = resolve_host_dns(host)
-        ipv4 = []
-        '''
-            When we resolve DNS records, there might be many as CDN deploys
-            TODO: for domain scan, try all ipv4 and ipv6 in the future
-        '''
-        if len(ipv4) > 0:
-            host_ip = ipv4[0]
-        else:
-            host_ip = ""
-        cert_chain, e, remote_ip, tls_version, tls_cipher = self.fetch_raw_cert_chain(host, host_ip, proxy_host=None, proxy_port=None)
+            # Check blacklist
+            if destination_ip in IP_BLACKLIST:
+                my_logger.warning(f"{destination_ip} lies in IP blacklist, skips")
+                continue
 
-        # print(len(cert_chain), e)
-        if len(cert_chain) == 0:
-            # my_logger.warning(f"{host} using VPN proxy data...")
-            cert_chain, e, remote_ip, tls_version, tls_cipher = self.fetch_raw_cert_chain(host, host_ip, proxy_host=self.proxy_host, proxy_port=self.proxy_port)
-        cert_chain_sha256_hex = [hashlib.sha256(cert.encode()).hexdigest() for cert in cert_chain]
+            jarm = ""
 
-        '''
-            Right now, the IP address may not be right as we do not connect to IP address directly
-            TODO: solve this problem and make sure the certificate matches IP address
-        '''
-        result = {'rank': rank, 'host': host, 'ip': remote_ip, 'error': e, 'certificate': cert_chain, 'sha256' : cert_chain_sha256_hex,
-                  'tls_version' : tls_version, 'tls_cipher' : tls_cipher, 'scan_time' : datetime.now(timezone.utc)}
+            # Assemble, send, and decipher each packet
+            iterate = 0
+            while iterate < len(queue):
+                payload = packet_building(queue[iterate])
+                server_hello = self.send_packet(payload, destination_ip, self.scan_port)
+
+                # Deal with timeout error
+                if server_hello == "TIMEOUT":
+                    jarm = "|||,|||,|||,|||,|||,|||,|||,|||,|||,|||"
+                    break
+
+                server_hello_ans = self.read_packet(server_hello)
+                jarm += server_hello_ans
+                iterate += 1
+                if iterate < len(queue):
+                    jarm += ","
+
+            # Fuzzy hash
+            _jarm_hash = jarm_hash(jarm)
+
+            # Now try to get certificate chain
+            if not self.tls_fp_only:
+                cert_chain, e, tls_version, tls_cipher = self.fetch_raw_cert_chain(destination_host, destination_ip, proxy_host=None, proxy_port=None)
+                cert_chain_sha256_hex = [get_cert_sha256_hex_from_str(cert) for cert in cert_chain]
+
+                self.data_queue.put({
+                    "rank" : rank,
+                    "destination_host" : original_host,
+                    "destination_ip" : destination_ip,
+                    "jarm" : jarm,
+                    "jarm_hash" : _jarm_hash,
+                    "cert_chain" : cert_chain,
+                    "cert_chain_hash" : cert_chain_sha256_hex
+                })
+            else:
+                # print(original_host, _jarm_hash)
+                self.data_queue.put({
+                    "rank" : rank,
+                    "destination_host" : original_host,
+                    "destination_ip" : destination_ip,
+                    "jarm_hash" : _jarm_hash
+                })
 
         with self.scan_status_data_lock:
             self.scan_status_data.scanned_domains += 1
-            self.scan_status_data.scanned_certs += len(cert_chain)
+            self.scan_status_data.scanned_certs += 1
 
-            if e is not None:
-                self.scan_status_data.error_count += 1
-            else:
-                self.scan_status_data.success_count += 1
-
-        with self.cached_results_lock:
-            self.cached_results.append(result)
-        if len(self.cached_results) >= self.save_threshold:
-            self.save_results()
-
-        self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
+        self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.scanned_domains}, [red]Total: {self.total}")
         self.progress.advance(self.progress_task)
 
 
@@ -114,32 +181,68 @@ class DomainScanner(Scanner):
             TimeRemainingColumn(),  # 添加预计剩余时间列
             transient=True  # 进度条完成后隐藏
         ) as self.progress:
-            self.progress_task = self.progress.add_task("[Waiting]", total=self.end_num - self.begin_num)
+            
+            self.total = self.end_num - self.begin_num + 1
+            self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
 
-            # asyncio.create_task(self.async_update_scan_process_info())
-            timer_thread = threading.Thread(target=self.async_update_scan_process_info)
-            timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            timer_thread.start()
+            self.timer_thread = threading.Thread(target=self.async_update_scan_process_info)
+            # self.timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+            self.timer_thread.start()
+
+            self.data_save_thread = threading.Thread(target=self.save_results)
+            # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+            self.data_save_thread.start()
 
             my_logger.info(f"Scanning...")
-            with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
                 while not self.task_queue.empty():
+                    # Check if there is signals
+                    if self.crtl_c_event.is_set():
+                        my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                        break
+
                     index, host = self.task_queue.get()
-                    executor.submit(self.scan_thread, index, host)
+                    if self.tls_fp_type == "jarm":
+                        # my_logger.info(host)
+                        executor.submit(self.scan_thread_with_jarm, index, host)
+                        # executor.submit(self.scan_thread_with_jarm, index, host).result()
+                    else:
+                        executor.submit(self.scan_thread_with_custom_tls_fp, index, host)
+
                 # 等待所有线程完成
                 executor.shutdown(wait=True)
                 my_logger.info("All threads finished.")
 
-        self.save_results()
-        my_logger.info(f"Scan Completed")
-        with self.scan_status_data_lock:
-            self.scan_status_data.end_time = datetime.now(timezone.utc)
-            self.scan_status_data.status = ScanStatusType.COMPLETED
+            # Wait for all elements in queue to be handled
+            self.data_queue.join()
+
+            # Send the poison pill to stop the saver thread
+            self.data_queue.put(None)
+            self.data_save_thread.join()
+
+            # The timer thread will never terminates unless the flag is set
+            self.crtl_c_event.set()
+            self.timer_thread.join()
+
+        if self.is_killed:
+            my_logger.info(f"Scan Terminated")
+            with self.scan_status_data_lock:
+                self.scan_status_data.end_time = datetime.now(timezone.utc)
+                self.scan_status_data.status = ScanStatusType.KILLED
+        else:
+            my_logger.info(f"Scan Completed")
+            with self.scan_status_data_lock:
+                self.scan_status_data.end_time = datetime.now(timezone.utc)
+                self.scan_status_data.status = ScanStatusType.COMPLETED
         self.sync_update_scan_process_info()
 
 
     def terminate(self):
-        pass
+        my_logger.info("Terminating domain scan task...")
+        self.crtl_c_event.set()  # 触发退出事件
+        self.is_killed = True
+
+
     def pause(self):
         pass
     def resume(self):
@@ -147,12 +250,10 @@ class DomainScanner(Scanner):
 
 
     def async_update_scan_process_info(self):
-
-        while not self.progress.finished:
-            # await asyncio.get_event_loop().run_in_executor(None, self.sync_update_scan_process_info)
-            # await asyncio.sleep(5)
+        while not self.crtl_c_event.is_set():
             self.sync_update_scan_process_info()
-            time.sleep(5)
+            time.sleep(15)
+        my_logger.info("Thread for tracking the scan status terminates normally")
 
 
     def sync_update_scan_process_info(self):
@@ -180,60 +281,88 @@ class DomainScanner(Scanner):
 
 
     def save_results(self):
-        with self.cached_results_lock:
-            with app.app_context():
-                my_logger.info(f"Saving {len(self.cached_results)} results...")
+        count = 0
+        index = 0
+        window = 100000
 
-                scan_status_data_to_insert = []
-                cert_data_to_insert = {}
-                cert_metadata_to_insert = []
+        while not self.crtl_c_event.is_set():
+            file_name = f"domain_scan_{self.scan_id}_result_{index * window}_{(index + 1) * window}"
+            save_file_path = os.path.join(self.storage_dir, file_name)
+            my_logger.info(f"Opening {save_file_path}...")
 
-                for result in self.cached_results:
-                    scan_status_data_to_insert.append(
-                        ScanData(
-                            SCAN_TIME = result['scan_time'],
-                            DOMAIN = result['host'],
-                            IP = result['ip'],
-                            ERROR_MSG = result['error'],
-                            RECEIVED_CERTS = result['sha256'],
-                            TLS_VERSION = result['tls_version'],
-                            TLS_CIPHER = result['tls_cipher']
-                        )
-                    )
+            with open(save_file_path, 'w', encoding='utf-8') as f:
+                while count <= window:
+                    scan_entry = self.data_queue.get()
 
-                    for i in range(len(result['sha256'])):
-                        cert_data_to_insert[result['sha256'][i]] = result['certificate'][i]
-                        cert_metadata_to_insert.append(
-                            {
-                                'CERT_ID' : result['sha256'][i],
-                                'SCAN_DATE' : result['scan_time'],
-                                'SCAN_DOMAIN' : result['host'],
-                                'SCAN_IP' : result['ip']
-                            }
-                        )
-                try:
-                    cert_data_to_insert = [{'CERT_ID' : key, 'CERT_RAW' : value} for key, value in cert_data_to_insert.items()]
-                    db.session.expunge_all()
-                    db.session.add_all(scan_status_data_to_insert)
-                    db.session.commit()
+                    if scan_entry is None:  # Poison pill to shut down the thread
+                        print("Poision detected")
+                        return
 
-                    # only template model, can not use insert(Model) here
-                    insert_cert_data_statement = insert(self.cert_data_table).values(cert_data_to_insert).prefix_with('IGNORE')
-                    db.session.execute(insert_cert_data_statement)
-                    db.session.commit()
+                    try:
+                        json_str = json.dumps(scan_entry, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
+                        f.write(json_str + '\n')
+                    except Exception as e:
+                        my_logger.error(f"Save {scan_entry} failed, got exception {e}")
+                        pass
 
-                    # many many primary key dupliates...
-                    # need to deal with Integrity Error with duplicate primary key pair with bulk_insert_mappings
-                    insert_cert_raw_statement = insert(CertStoreRaw).values(cert_data_to_insert).prefix_with('IGNORE')
-                    db.session.execute(insert_cert_raw_statement)
-                    db.session.commit()
+                    self.data_queue.task_done()
+                    count += 1
 
-                    # db.session.bulk_insert_mappings(CertScanMeta, cert_metadata_to_insert)
-                    insert_cert_scan_metadata_statement = insert(CertScanMeta).values(cert_metadata_to_insert).prefix_with('IGNORE')
-                    db.session.execute(insert_cert_scan_metadata_statement)
-                    db.session.commit()
-                except Exception as e:
-                    my_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
+                count = 0
+                index += 1
 
-            self.cached_results = []
+        my_logger.info("Thread for saving results finishes normally")
+
+
+        # with self.cached_results_lock:
+        #     with app.app_context():
+        #         my_logger.info(f"Saving {len(self.cached_results)} results...")
+
+        #         scan_status_data_to_insert = []
+        #         cert_data_to_insert = {}
+        #         cert_metadata_to_insert = []
+
+        #         for result in self.cached_results:
+        #             scan_status_data_to_insert.append(
+        #                 ScanData(
+        #                     SCAN_TIME = result['scan_time'],
+        #                     DOMAIN = result['host'],
+        #                     IP = result['ip'],
+        #                     ERROR_MSG = result['error'],
+        #                     RECEIVED_CERTS = result['sha256'],
+        #                     TLS_VERSION = result['tls_version'],
+        #                     TLS_CIPHER = result['tls_cipher']
+        #                 )
+        #             )
+
+        #             for i in range(len(result['sha256'])):
+        #                 cert_data_to_insert[result['sha256'][i]] = result['certificate'][i]
+        #                 cert_metadata_to_insert.append(
+        #                     {
+        #                         'CERT_ID' : result['sha256'][i],
+        #                         'SCAN_DATE' : result['scan_time'],
+        #                         'SCAN_DOMAIN' : result['host'],
+        #                         'SCAN_IP' : result['ip']
+        #                     }
+        #                 )
+        #         try:
+        #             cert_data_to_insert = [{'CERT_ID' : key, 'CERT_RAW' : value} for key, value in cert_data_to_insert.items()]
+        #             db.session.expunge_all()
+        #             db.session.add_all(scan_status_data_to_insert)
+        #             db.session.commit()
+
+        #             # many many primary key dupliates...
+        #             # need to deal with Integrity Error with duplicate primary key pair with bulk_insert_mappings
+        #             insert_cert_raw_statement = insert(CertStoreRaw).values(cert_data_to_insert).prefix_with('IGNORE')
+        #             db.session.execute(insert_cert_raw_statement)
+        #             db.session.commit()
+
+        #             # db.session.bulk_insert_mappings(CertScanMeta, cert_metadata_to_insert)
+        #             insert_cert_scan_metadata_statement = insert(CertScanMeta).values(cert_metadata_to_insert).prefix_with('IGNORE')
+        #             db.session.execute(insert_cert_scan_metadata_statement)
+        #             db.session.commit()
+        #         except Exception as e:
+        #             my_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
+
+        #     self.cached_results = []
 

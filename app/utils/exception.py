@@ -32,3 +32,15 @@ class UnknownTableError(Exception):
     def __init__(self, table_name=""):
         self.message = f"Cannot find table {table_name} in the database."
         super().__init__(self.message)
+
+
+# Used for building fingerprints
+class UnsupportedStringTypeError(Exception):
+    def __init__(self, obj_type=None) -> None:
+        self.message = f"Unsupported asn.1 struct string type: {obj_type}"
+        super().__init__(self.message)
+
+class UnsupportedIntegerTypeError(Exception):
+    def __init__(self, obj_type=None) -> None:
+        self.message = f"Unsupported asn.1 struct int type: {obj_type}"
+        super().__init__(self.message)

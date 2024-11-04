@@ -5,7 +5,7 @@
 '''
 import multiprocessing
 from time import sleep
-from threading import Thread, Lock, RLock
+from threading import Thread, Lock, RLock, Event
 from typing import List, Dict
 
 from . import g_process_executor, g_thread_executor
@@ -64,6 +64,16 @@ class GlobalTaskManager():
         '''
 
         self.max_running_task = 100
+        self.crtl_c_event = Event()
+
+
+    def ctrl_c_handler(self):
+        my_logger.info("Killing all tasks...")
+        current_keys = list(self.running_task.keys())
+        for task_id in current_keys:
+            self.kill_task(task_id)
+        # TODO: Kill pasued task as well
+        # ...
 
 
     def task_scheduler(self):
@@ -108,11 +118,16 @@ class GlobalTaskManager():
             try:
                 parent = self.submitted_task.get(task_id).parent_task
                 if not parent or parent.task_id in self.running_task:
-                    print("hello")
+                    # print("hello")
                     # g_process_executor.submit(self.start_task, task_id).result()
-                    g_thread_executor.submit(self.start_task, task_id).result()
-                    # start_thread = Thread(target=self.start_task, args=(task_id,))
-                    # start_thread.start()
+                    # g_thread_executor.submit(self.start_task, task_id).result()
+                    # g_thread_executor.submit(self.start_task, task_id)
+
+                    # TODO: add this thread to the thread list
+                    # 
+                    self.start_thread = Thread(target=self.start_task, args=(task_id,))
+                    self.start_thread.start()
+                    # print("bye")
                 else:
                     my_logger.warning(f"Task {task_id} parent is not running, cannot start it.")
             except AttributeError as e:
@@ -138,8 +153,12 @@ class GlobalTaskManager():
         except ResourceInsufficientError as e:
             my_logger.error(e.message)
 
-        with self.task_lock:
-            self.running_task.pop(task_id)
+        try:
+            with self.task_lock:
+                self.running_task.pop(task_id)
+        except KeyError:
+            my_logger.warn(f"Task {task_id} has been killed or removed somewhere, pass this")
+            pass
 
 
     def suspend_task(self, task_id : int):

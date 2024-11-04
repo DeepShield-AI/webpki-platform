@@ -1,0 +1,31 @@
+
+import json
+import csv
+import os
+import sys
+sys.path.append(r"D:\global_ca_monitor")
+from app.utils.json import custom_serializer
+
+rank_dict = {}
+top_domain_related = {}
+with open(r"D:/global_ca_monitor/app/data/top-1m.csv", 'r') as file:
+    csv_reader = csv.reader(file)
+    for row in csv_reader:
+        rank_dict[row[1]] = row[0]
+        top_domain_related[row[1]] = set()
+
+load_dir = r'D:/global_ca_monitor/data/cert_replica'
+for file_entry in os.scandir(load_dir):
+
+    print(f"Open {file_entry}")
+    with open(file_entry.path, 'r', encoding='utf-8') as f:
+        for json_str in f.readlines():
+            entry = json.loads(json_str)
+
+            for subject in entry["san"]:
+                if subject in top_domain_related:
+                    for s in entry["san"]:
+                        top_domain_related[subject].add(s)
+
+with open("1.txt", "w", encoding='utf-8') as file:
+    json.dump(top_domain_related, file, indent=4, default=custom_serializer)

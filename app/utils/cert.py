@@ -1,8 +1,14 @@
+
+'''
+    Utility functions for parsing X.509 Certs
+'''
+import os
 import re
+import csv
 import hashlib
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from ..logger.logger import my_logger
+from collections import OrderedDict
 
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import (
@@ -18,6 +24,10 @@ from cryptography.x509 import (
     load_pem_x509_crl,
     load_der_x509_crl
 )
+
+'''
+    This part handles certificates parsed by cryptography.x509 library
+'''
 
 def get_name_attribute(
         name : Name,
@@ -37,6 +47,23 @@ def get_name_attribute(
         # my_logger.warn(f"Name attribute {oid} in {name} not found")
         return value_if_exception
 
+'''
+    This part handles certificates parsed by asn1crytpo library
+'''
+def ordered_dict_to_dict(data):
+    if isinstance(data, list):
+        return [ordered_dict_to_dict(i) for i in data]
+    if isinstance(data, OrderedDict):
+        return {k: ordered_dict_to_dict(v) for k, v in data.items()}
+    return data
+
+def dict_to_ordered_dict(data):
+    if isinstance(data, list):
+        return [dict_to_ordered_dict(i) for i in data]
+    if isinstance(data, dict):
+        return OrderedDict((k, dict_to_ordered_dict(v)) for k, v in data.items())
+    return data
+
 # Extract domain from given URL
 def domain_extract(url : str):
     parsed_url = urlparse(url)
@@ -53,7 +80,7 @@ def is_domain_match(source_domain : str, dest_domain : str):
     pattern = f"^{pattern}$"
 
     if bool(re.match(pattern, source_domain)) == False:
-        my_logger.warn(f"{pattern} and {source_domain} does not match...")
+        # my_logger.warn(f"{pattern} and {source_domain} does not match...")
         return False
     return True
 
@@ -77,3 +104,33 @@ def get_cert_sha256_hex_from_str(cert : str) -> str:
     sha256_hash = hashlib.sha256(cert.encode())
     sha256_hex = sha256_hash.hexdigest()
     return sha256_hex
+
+# Certificate Policy Dict
+# The input file comes from Zmap
+class CertificatePolicyLookup():
+    def __init__(self, input_path=os.path.join(os.path.dirname(__file__), r"../data/certificate_policies.csv")) -> None:
+        self.policy_look_up_dict = {}
+
+        with open(input_path, 'r') as file:
+            csv_reader = csv.reader(file)
+            for row in csv_reader:
+                policy_oid = row[0]
+                policy_type = 0
+
+                if row[6]:
+                    # dv
+                    policy_type |= 1
+                if row[7]:
+                    # ov
+                    policy_type |= 2
+                if row[8]:
+                    # ev
+                    policy_type |= 4
+                if row[9]:
+                    # iv
+                    policy_type |= 8
+
+                self.policy_look_up_dict[policy_oid] = policy_type
+
+# a = CertificatePolicyLookup()
+# print(a.policy_look_up_dict)

@@ -2,6 +2,8 @@
 /.idea
 /*.pyc
 *.pyc
+/.vscode
+__pycache__
 
 # Server temp files
 .DS_Store
@@ -10,3 +12,19 @@ uwsgi.pid
 # Large data files
 cert_pem_data.csv
 cert_content.csv
+data/
+test/test_scan/out
+script/task_launch/out
+
+# txt and figs
+script/*/*.txt
+script/*/*.png
+script/*/*.csv
+script/*/*/*.txt
+script/*/*/*.png
+script/*/*/*.csv
+
+# script/fig_generation/cert_replica/*.txt
+# script/fig_generation/cert_replica/*.png
+# script/fig_generation/attack_result/*.txt
+# script/fig_generation/attack_result/*.png
