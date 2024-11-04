@@ -1,6 +1,6 @@
 
 import sys
-sys.path.append(r"D:\global_ca_monitor")
+sys.path.append(r"/root/global_ca_monitor")
 
 import time
 import signal

@@ -28,7 +28,7 @@ class DevelopmentConfig(Config):
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
 
     import urllib.parse
-    password = "123456"
+    password = "Password123!"
     encoded_password = urllib.parse.quote_plus(password)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URI') or \
         f'mysql+mysqlconnector://tianyu:{encoded_password}@127.0.0.1:3306/authbase?charset=utf8&auth_plugin=mysql_native_password'
