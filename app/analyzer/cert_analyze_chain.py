@@ -61,7 +61,7 @@ import os
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import Table
 from sqlalchemy.dialects.mysql import insert
-from ..models import CertAnalysisStats, CertStoreContent, CertStoreRaw, CaCertStore, CertChainRelation
+from ..models import CertAnalysisStats, CertStoreContent, CertStoreRaw, CaCertStore, CertChainRelation, DomainTrustRelation
 from ..parser.cert_parser_base import X509ParsedInfo
 from app import app, db
 from threading import Lock
@@ -69,7 +69,23 @@ import threading
 import time
 
 from OpenSSL import crypto
+import threading
+import asyncio
+import hashlib
+import json
+import os
 
+from queue import Queue
+from threading import Lock
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
+
+from ..parser.pem_parser import PEMParser, PEMResult
+from ..utils.domain_lookup import DomainLookup
+from ..utils.json import custom_serializer
+from ..utils.type import str_to_timestamp
+from ..logger.logger import my_logger
 
 class CertScanChainAnalyzer():
 
@@ -183,3 +199,117 @@ class CertScanChainAnalyzer():
 
         return sig_verified
 
+
+class DomainChainAnalyzer():
+
+    def __init__(
+            self,
+            input_file : str = r"/data/zgrab2_scan_data/20241110"
+        ) -> None:
+
+        self.input_file = input_file
+        self.queue = Queue()
+
+        # @Debug only
+        self.count = 0
+        self.total = 0
+        self.lock = Lock()
+        self.progress_task = TaskID(-1)
+        self.progress = Progress()
+        self.console = Console()
+
+        self.saver_thread = threading.Thread(target=self.save_results)
+        # saver_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+        self.saver_thread.start()
+
+
+    def analyze_single(self, json_obj):
+        domain = json_obj["domain"]
+
+        try:
+            cert = json_obj["data"]["tls"]["result"]["handshake_log"]["server_certificates"]
+            chain_sha_256 = [get_cert_sha256_hex_from_str(cert["certificate"]["raw"])]
+            not_before = datetime.strptime(cert["certificate"]["parsed"]["validity"]["start"], "%Y-%m-%dT%H:%M:%SZ")
+            not_after = datetime.strptime(cert["certificate"]["parsed"]["validity"]["end"], "%Y-%m-%dT%H:%M:%SZ")
+
+            chain = cert["chain"]
+            chain_sha_256 += [get_cert_sha256_hex_from_str(c["raw"]) for c in chain]
+
+            self.queue.put({
+                "domain" : domain,
+                "cert_chain" : chain_sha_256,
+                "not_before" : not_before,
+                "not_after" : not_after
+            })
+
+        except Exception as e:
+            my_logger.debug(f"Domain {domain} has no cert received")
+
+        self.count += 1
+        self.progress.update(self.progress_task, description=f"[green]Completed: {self.count}")
+        self.progress.advance(self.progress_task)
+
+    def analyze(self):
+
+        with Progress(
+            TextColumn("[bold blue]{task.description}", justify="right"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeRemainingColumn(),  # 添加预计剩余时间列
+            transient=True  # 进度条完成后隐藏
+        ) as self.progress:
+
+            self.progress_task = self.progress.add_task("[Waiting]")
+
+            if os.path.isfile(self.input_file):
+                with open(self.input_file, "r", encoding='utf-8') as file:
+                    print(f"Reading file: {self.input_file}")
+                    for line in file:
+                        json_obj = json.loads(line.strip())
+                        self.analyze_single(json_obj)
+
+            # Wait for all elements in queue to be handled
+            # self.queue.join()
+
+            # Send the poison pill to stop the saver thread
+            self.queue.put(None)
+            self.saver_thread.join()
+
+
+    def save_results(self):
+        with app.app_context():
+            while True:
+                data = self.queue.get()
+                if data is None:  # Poison pill to shut down the thread
+                    print("Poision detected")
+                    break
+
+                trust_relation_data = {
+                    "DOMAIN" : data["domain"],
+                    "CERT_ID" : data["cert_chain"][0],
+                    "NOT_VALID_BEFORE" : data["not_before"],
+                    "NOT_VALID_AFTER" : data["not_after"]
+                }
+
+                insert_trust_relation_statement = insert(DomainTrustRelation).values([trust_relation_data]).prefix_with('IGNORE')
+                db.session.execute(insert_trust_relation_statement)
+                db.session.commit()
+
+                chain_length = len(data["cert_chain"])
+                chain_data = []
+                for i in range(chain_length):
+                    try:
+                        chain_data.append({
+                            "CERT_ID" : data["cert_chain"][i],
+                            "CERT_PARENT_ID" : data["cert_chain"][i+1]
+                        })
+                    except IndexError:
+                        chain_data.append({
+                            "CERT_ID" : data["cert_chain"][i],
+                            "CERT_PARENT_ID" : data["cert_chain"][i]
+                        })
+
+                insert_chain_statement = insert(CertChainRelation).values(chain_data).prefix_with('IGNORE')
+                db.session.execute(insert_chain_statement)
+                db.session.commit()
+                self.queue.task_done()
