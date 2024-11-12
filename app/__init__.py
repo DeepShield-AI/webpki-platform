@@ -30,7 +30,9 @@ db = SQLAlchemy()
 
 def create_app(config_name):
     app = Flask(__name__, template_folder=r"..\ui\templates", static_folder=r"..\ui\static")
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8080", "http://118.229.43.254:4080"]}})
+    # CORS(app)
+    # CORS(app, origins="http://118.229.43.254:4080")
     #  替换默认的json编码器
     app.json_encoder = CustomJSONEncoder
     app.config.from_object(flask_config[config_name])

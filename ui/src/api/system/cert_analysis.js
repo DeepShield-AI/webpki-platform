@@ -8,3 +8,11 @@ export function listCertAnalysisResult(query) {
     params: query
   })
 }
+
+export function getDomainTrustRelation(query) {
+  return request({
+    url: '/system/cert_analysis/trust',
+    method: 'get',
+    params: query
+  })
+}

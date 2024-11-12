@@ -1,31 +1,41 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch">
-      <el-form-item label="扫描结果名称" prop="deptName">
+      <el-form-item label="根域名" prop="rootDomain">
         <el-input
-          v-model="queryParams.deptName"
-          placeholder="请输入扫描结果名称"
+          v-model="queryParams.rootDomain"
+          placeholder="请输入查询根域名组"
           clearable
-          @keyup.enter.native="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="扫描状态" clearable>
-          <el-option
-            v-for="dict in dict.type.sys_normal_disable"
-            :key="dict.value"
-            :label="dict.label"
-            :value="dict.value"
-          />
-        </el-select>
+
+      <el-form-item label="日期" prop="selectedDate">
+        <el-date-picker
+          v-model="queryParams.selectedDate"
+          style="width: 240px"
+          value-format="yyyy-MM-dd"
+          type="date"
+          placeholder="选择日期"
+        ></el-date-picker>
       </el-form-item>
+
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
         <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
       </el-form-item>
     </el-form>
 
-    <el-row :gutter="10" class="mb8">
+    <cert-graph v-loading="loading" :graphData = this.certGraphData />
+
+    <!-- <el-table-column prop="cert_id" label="证书ID" width="200">
+      <template slot-scope="scope">
+        <router-link :to="'/system/cert_view/' + scope.row.cert_id" class="link-type">
+          <span>{{ scope.row.cert_id }}</span>
+        </router-link>
+      </template>
+    </el-table-column> -->
+
+      <!-- <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
           type="primary"
@@ -45,10 +55,10 @@
           @click="toggleExpandAll"
         >展开/折叠</el-button>
       </el-col>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
+      <right-toolbar :showSearch.sync="showSearch" @queryTable="getAnalysisResult"></right-toolbar>
+    </el-row> -->
 
-    <el-table v-loading="loading" :data="certResultList" @selection-change="handleSelectionChange">
+    <!-- <el-table v-loading="loading" :data="certResultList" @selection-change="handleSelectionChange"> -->
     <!-- <el-table
       v-if="refreshTable"
       v-loading="loading"
@@ -57,7 +67,7 @@
       :default-expand-all="isExpandAll"
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       > -->
-      <el-table-column prop="scan_id" label="扫描ID" width="100"></el-table-column>
+      <!-- <el-table-column prop="scan_id" label="扫描ID" width="100"></el-table-column>
       <el-table-column prop="scanned_cert_num" label="扫描证书数量(去重后)" width="100"></el-table-column>
       <el-table-column prop="expired_percent" label="证书过期比例" width="100"></el-table-column>
 
@@ -69,7 +79,7 @@
           </div>
         </template>
         
-      </el-table-column>
+      </el-table-column> -->
 
       <!-- <el-table-column prop="issuer_count" label="证书签发者统计" width="500">
         <div>
@@ -93,21 +103,23 @@
         </div>
       </el-table-column> -->
       
-    </el-table>
+    <!-- </el-table> -->
 
   </div>
 </template>
 
 <script>
-import { listCertAnalysisResult } from "@/api/system/cert_analysis";
+import { listCertAnalysisResult, getDomainTrustRelation } from "@/api/system/cert_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import MultiEChartsPieChart from '../components/piechart/MultiPieChart';
+import CertGraph from './certGraph.vue';
+// import CertGraph from '@/views/system/cert_analysis/certGraph.vue';
 
 export default {
   name: "CertAnalysis",
   dicts: ['sys_normal_disable'],
-  components: { Treeselect, MultiEChartsPieChart },
+  components: { Treeselect, MultiEChartsPieChart, CertGraph },
 
   data() {
     return {
@@ -117,17 +129,6 @@ export default {
       showSearch: true,
       // 表格树数据
       certResultList: [],
-      // return {
-      //       'scan_id': self.SCAN_ID,
-      //       # 'scan_created_datetime': self.SCANCREATEDATETIME,
-      //       'scanned_cert_num': self.SCANNED_CERT_NUM,
-      //       'issuer_count': self.ISSUER_COUNT,
-      //       'key_size_count': self.KEY_SIZE_COUNT,
-      //       'key_type_count': self.KEY_TYPE_COUNT,
-      //       'validation_period_count': self.VALIDATION_PERIOD_COUNT,
-      //       'expired_percent': self.EXPIRED_PERCENT,
-      //   }
-
       // 部门树选项
       deptOptions: [],
       // 弹出层标题
@@ -140,37 +141,11 @@ export default {
       refreshTable: true,
       // 查询参数
       queryParams: {
-        deptName: undefined,
-        status: undefined
+        rootDomain: undefined,
+        selectedDate: undefined
       },
-      // 表单参数
-      form: {},
-      // 表单校验
-      rules: {
-        parentId: [
-          { required: true, message: "上级部门不能为空", trigger: "blur" }
-        ],
-        deptName: [
-          { required: true, message: "部门名称不能为空", trigger: "blur" }
-        ],
-        orderNum: [
-          { required: true, message: "显示排序不能为空", trigger: "blur" }
-        ],
-        email: [
-          {
-            type: "email",
-            message: "请输入正确的邮箱地址",
-            trigger: ["blur", "change"]
-          }
-        ],
-        phone: [
-          {
-            pattern: /^1[3|4|5|6|7|8|9][0-9]\d{8}$/,
-            message: "请输入正确的手机号码",
-            trigger: "blur"
-          }
-        ]
-      },
+      // CertGraph Data
+      certGraphData: undefined,
       // Pie Chart data
       myChartData: {
         labels: ['Label 1', 'Label 2', 'Label 3'],
@@ -180,22 +155,37 @@ export default {
         title: {
           subtext: 'Custom Subtitle',
         },
-        // Add any other custom options you want to pass
       }
-      // ...
-
     };
   },
   created() {
-    this.getList();
+    // this.getAnalysisResult();
     // this.startAutoRefresh();
   },
   beforeDestroy() {
     this.stopAutoRefresh();
   },
+
   methods: {
-    /** 查询部门列表 */
-    getList() {
+    /** 搜索按钮操作 */
+    handleQuery() {
+      this.getDomainTrustRelation();
+    },
+    /** 重置按钮操作 */
+    resetQuery() {
+      this.resetForm("queryForm");
+      // this.handleQuery();
+    },
+    getDomainTrustRelation() {
+      this.loading = true;
+      console.log(this.queryParams)
+
+      getDomainTrustRelation(this.queryParams).then(response => {
+        this.certGraphData = response.data;
+        this.loading = false;
+      });
+    },
+    getAnalysisResult() {
       this.loading = true;
       listCertAnalysisResult(this.queryParams).then(response => {
         // this.scanList = this.handleTree(response.data, "scanId");
@@ -232,39 +222,22 @@ export default {
         this.loading = false;
       });
     },
-    /** 新增按钮操作 */
-    handleAdd(row) {
-      // this.reset();
-      // if (row != undefined) {
-      //   this.form.parentId = row.scanId;
-      // }
-      // this.open = true;
-      // this.title = "新增";
-      addScanProcess().then(response => {
-        // this.deptOptions = this.handleTree(response.data, "scanId");
-        this.getList();
-      });
-    },
-
     /** 定时刷新表格数据 */
     startAutoRefresh() {
       this.autoRefreshTimer = setInterval(() => {
-        this.getList();
+        // this.getAnalysisResult();
       }, 5000);
     },
     stopAutoRefresh() {
       // 停止定时器的逻辑
       clearInterval(this.autoRefreshTimer);
     },
-
-
     updateChartData() {
       // 从外部更新数据和选项
       this.myChartData = {
         labels: ['Updated Label 1', 'Updated Label 2', 'Updated Label 3'],
         data: [40, 30, 30],
       };
-
       this.myChartOptions = {
         title: {
           subtext: 'Updated Subtitle',

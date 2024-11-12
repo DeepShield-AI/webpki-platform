@@ -85,3 +85,7 @@ Misc:
 10. 现在有两个问题
 (1) 我一直不知道如何让这个系统用 Crtl C 停下来,好像主线程收不到 signal
 (2) 我无法让 task manager 中的 thread 称为守护线程,如果去掉 result(),则start 跑不起来...
+
+一、处理 /root 下面 所有文件的权限
+二、nginx
+三、uwsgi
