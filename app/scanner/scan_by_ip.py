@@ -93,6 +93,37 @@ class IPScanner(Scanner):
 
 
     def start(self):
+
+        import subprocess
+
+        def run_zmap(port):
+            # 使用 subprocess 来调用 Zmap，扫描指定的端口
+            # --output-fields=saddr 指定仅输出活跃 IP 地址
+            zmap_command = [
+                'zmap', '-p', str(port), '--output-fields=saddr', '-o', 'active_ips.txt'
+            ]
+            subprocess.run(zmap_command, check=True)
+            
+            # 读取 Zmap 输出的活跃 IP 地址
+            with open('active_ips.txt', 'r') as file:
+                active_ips = [line.strip() for line in file.readlines()]
+            
+            return active_ips
+
+        def process_ip(ip):
+            # 对活跃 IP 地址的进一步处理逻辑
+            print(f"Processing IP: {ip}")
+            # 在这里可以调用 Zgrab 或其他处理工具进一步扫描
+
+        def main():
+            port_to_scan = 80  # 要扫描的端口
+            print("Running Zmap scan...")
+            active_ips = run_zmap(port_to_scan)
+            
+            print(f"Found {len(active_ips)} active IPs.")
+            for ip in active_ips:
+                process_ip(ip)
+
         with Progress(
             TextColumn("[bold blue]{task.description}", justify="right"),
             BarColumn(),

@@ -19,7 +19,7 @@ with app.app_context():
         'STORAGE_DIR' : "out",
         'SCAN_TIMEOUT' : 2,
         'MAX_RETRY' : 2,
-        'DOMAIN_RANK_START': 1000000,
+        'DOMAIN_INDEX_START': 1000000,
         'NUM_DOMAIN_SCAN' : 5000000
     }
 

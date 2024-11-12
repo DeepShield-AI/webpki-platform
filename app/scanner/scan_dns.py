@@ -76,7 +76,7 @@ class DomainScanner(Scanner):
 
         # scan settings from scan config
         self.input_csv_file = scan_config.INPUT_DOMAIN_LIST_FILE
-        self.begin_num = scan_config.DOMAIN_RANK_START
+        self.begin_num = scan_config.DOMAIN_INDEX_START
         self.end_num = scan_config.NUM_DOMAIN_SCAN - 1
         self.task_queue = PriorityQueue()
         self.load_tasks_into_queue()

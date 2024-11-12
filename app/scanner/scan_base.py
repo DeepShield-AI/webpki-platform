@@ -66,6 +66,7 @@ class Scanner(ABC):
 
         # scan settings from scan config
         self.scan_id = scan_id
+        self.scan_name = scan_config.SCAN_PROCESS_NAME
         self.scan_start_time = start_time
 
         self.storage_dir = scan_config.STORAGE_DIR

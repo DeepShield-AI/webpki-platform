@@ -20,13 +20,17 @@ class ScanConfig:
         self.SCAN_TIMEOUT = kwargs.get('SCAN_TIMEOUT', 5)
         self.MAX_RETRY = kwargs.get('MAX_RETRY', 3)
 
+ZGRAB2_PATH = r"/root/zgrab2/zgrab2"
+ZMAP_PATH = r""
 
 class DomainScanConfig(ScanConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # scan type
+        self.SCAN_TOOL = kwargs.get('SCAN_TOOL', "zgrab2")
         # domain list file related
-        self.INPUT_DOMAIN_LIST_FILE = kwargs.get('INPUT_DOMAIN_LIST_FILE', os.path.join(os.path.dirname(__file__), r"../data/top-1m.csv"))
-        self.DOMAIN_RANK_START = kwargs.get('DOMAIN_RANK_START', 0)
+        self.INPUT_DOMAIN_LIST_FILE = kwargs.get('INPUT_DOMAIN_LIST_FILE', r"/root/pki-internet-platform/data/top_domains/cisco-top-1m.csv")
+        self.DOMAIN_INDEX_START = kwargs.get('DOMAIN_INDEX_START', 0)
         self.NUM_DOMAIN_SCAN = kwargs.get('NUM_DOMAIN_SCAN', 100)
         self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
         # TLS fingerprinting config
@@ -88,8 +92,8 @@ def create_scan_config_from_frontend_request(request : Request, scan_type : Scan
     if scan_type == ScanType.SCAN_BY_DOMAIN:
         if request.json.get('input_domain_list_file'):
             common_args['INPUT_DOMAIN_LIST_FILE'] = request.json.get('input_domain_list_file')
-        if request.json.get('domain_rank_start'):
-            common_args['DOMAIN_RANK_START'] = request.json.get('domain_rank_start')
+        if request.json.get('DOMAIN_INDEX_START'):
+            common_args['DOMAIN_INDEX_START'] = request.json.get('DOMAIN_INDEX_START')
         if request.json.get('num_domain_scan'):
             common_args['NUM_DOMAIN_SCAN'] = request.json.get('num_domain_scan')
         return DomainScanConfig(**common_args)
