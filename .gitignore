@@ -7,7 +7,7 @@ __pycache__
 
 # Server temp files
 .DS_Store
-uwsgi.ini
+# uwsgi.ini
 uwsgi.pid
 
 # Large data files
@@ -37,3 +37,4 @@ lib64
 include
 pyvenv.cfg
 share/
+myenv/
