@@ -50,6 +50,53 @@
 
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
+        <h2>证书 Zlint 合规性检查</h2>
+
+        <template>
+          <el-card>
+            <div slot="header">Zlint Information</div>
+            <div class="certificate-zlint">
+
+              <div class="indent">
+                <div v-for="(value, key) in zlintData" :key="key">
+
+                  <strong style="display: inline-block;"> {{ key }}:</strong>
+
+                  <template v-if="isObject(value)" class="indent">
+                    <div v-for="(subValue, subKey) in value" :key="subKey">
+                      <strong style="display: inline-block;">{{ subKey }}:</strong>
+                      <span v-if="checkKeyInDict(subKey)[0]" style="display: inline-block;">
+                        <dict-tag :options="checkKeyInDict(subKey)[1]" :value="subValue"/>
+                      </span>
+                      <span v-else>
+                        <code class="code-block">{{ subValue }}</code>
+                      </span>
+                    </div>
+                  </template>
+
+                  <template v-else>
+                    <span v-if="checkKeyInDict(key)[0]" style="display: inline-block;">
+                      <dict-tag :options="checkKeyInDict(key)[1]" :value="value"/>
+                    </span>
+                    <span v-else>
+                      <code class="code-block">{{ value }}</code>
+                    </span>
+                  </template>
+
+                </div>
+              </div>
+
+            </div>
+          </el-card>
+        </template>
+
+      </el-col>
+    </el-row>
+
+    <el-divider />
+
+    <el-row :gutter="20">
+      <el-col :sm="24" :lg="24" style="padding-left: 20px">
         <h2>证书历史扫描记录</h2>
       </el-col>
     </el-row>
@@ -100,7 +147,7 @@
 </template>
 
 <script>
-import { getCertInfo } from "@/api/system/cert_search";
+import { getCertInfo, getCertZlintInfo } from "@/api/system/cert_search";
 
 export default {
   name: "CertView",
@@ -117,12 +164,14 @@ export default {
       open: false,
       // 证书信息
       certData: {},
+      zlintData: {},
       scanInfoList: [],
     };
   },
   created() {
     const certId = this.$route.params && this.$route.params.cert_id;
     this.getCert(certId);
+    this.getCertZlint(certId);
   },
   methods: {
     /** 查询证书详细 */
@@ -131,6 +180,13 @@ export default {
       getCertInfo(certId).then(response => {
         this.certData = response.cert_data
         this.scanInfoList = response.scan_info
+        this.loading = false;
+      });
+    },
+    getCertZlint(certId) {
+      this.loading = true;
+      getCertZlintInfo(certId).then(response => {
+        this.zlintData = response.zlint_result
         this.loading = false;
       });
     },

@@ -1,91 +1,28 @@
 
+import os
+import json
+import threading
+from threading import Lock
+from queue import Queue
+from datetime import datetime, timezone
+from OpenSSL import crypto
 
-
-from cryptography.hazmat.backends import default_backend
+from sqlalchemy import Table
+from sqlalchemy.dialects.mysql import insert
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 from cryptography.hazmat.primitives import hashes
-# from cryptography.hazmat.backends.openssl import rsa, ec
 from cryptography.hazmat.primitives.asymmetric import dsa as primitive_dsa, rsa as primitive_rsa, ec as primitive_ec, dh as primitive_dh
 from cryptography.hazmat.primitives.asymmetric import types, padding
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-import cryptography.hazmat.bindings
-from cryptography.x509 import (
-    Version,
-    Name,
-    DNSName,
-    Certificate,
-    ReasonFlags,
-    ExtensionType,
-    ObjectIdentifier,
-    AttributeNotFound,
-    ExtensionNotFound,
-    KeyUsage,
-    ExtendedKeyUsage,
-    CRLDistributionPoints,
-    AuthorityInformationAccess,
-    BasicConstraints,
-    SubjectAlternativeName,
-    CertificatePolicies,
-    load_pem_x509_certificate,
-    load_pem_x509_certificates
-)
-
-from cryptography.x509.oid import NameOID, ExtensionOID, SignatureAlgorithmOID, ExtendedKeyUsageOID
-from cryptography.x509.ocsp import OCSPCertStatus, OCSPResponseStatus, OCSPResponse
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
-from cryptography.x509 import Extensions
 
+from app import app, db
+from ..logger.logger import my_logger
+from ..models import CaCertStore, CertChainRelation, DomainTrustRelation
 from ..utils.cert import (
-    domain_extract,
-    is_domain_match,
-    utc_time_diff_in_days,
-    get_name_attribute,
     get_cert_sha256_hex_from_object,
     get_cert_sha256_hex_from_str
 )
-
-from ..logger.logger import my_logger
-from ..utils.type import CertType
-from ..utils.exception import ParseError
-
-from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from dataclasses import dataclass, asdict
-from typing import Optional, Dict, List, Union, Tuple
-from queue import Queue
-import hashlib
-import jsonlines
-import json
-import os
-
-
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import Table
-from sqlalchemy.dialects.mysql import insert
-from ..models import CertAnalysisStats, CertStoreContent, CertStoreRaw, CaCertStore, CertChainRelation, DomainTrustRelation
-from ..parser.cert_parser_base import X509ParsedInfo
-from app import app, db
-from threading import Lock
-import threading
-import time
-
-from OpenSSL import crypto
-import threading
-import asyncio
-import hashlib
-import json
-import os
-
-from queue import Queue
-from threading import Lock
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from rich.console import Console
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
-
-from ..parser.pem_parser import PEMParser, PEMResult
-from ..utils.domain_lookup import DomainLookup
-from ..utils.json import custom_serializer
-from ..utils.type import str_to_timestamp
-from ..logger.logger import my_logger
 
 class CertScanChainAnalyzer():
 

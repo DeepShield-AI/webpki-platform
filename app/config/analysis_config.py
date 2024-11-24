@@ -50,3 +50,5 @@ def create_analyze_config(request : Request, analyze_type : int):
         return CertAnalysisConfig(**common_args)
     else:
         return None
+
+ZLINT_PATH = r"/root/zlint/v3/zlint"

@@ -1,9 +1,14 @@
 
+import json
+import tempfile
+import subprocess
 from ..blueprint import base
-from ..models import CertStoreContent, CertScanMeta, CertStoreRaw
+from ..models import CertStoreContent, CertScanMeta, CertStore
+from ..config.analysis_config import ZLINT_PATH
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from ..parser.cert_parser_base import X509CertParser
+from ..parser.pem_parser import PEMParser
 from ..logger.logger import my_logger
 
 
@@ -14,24 +19,27 @@ def cert_search_list():
 
     filters = []
     if 'certID' in request.args:
-        filters.append(CertStoreContent.CERT_ID == request.args['certID'])
-    if 'certDomain' in request.args:
-        # filters.append(CertStoreContent.SUBJECT_CN == request.args['certDomain'])
-        filters.append(CertStoreContent.SUBJECT_CN.like('%' + request.args['certDomain'] + '%'))
+        filters.append(CertStore.CERT_ID == request.args['certID'])
 
-    if 'params[beginNotValidBefore]' in request.args and 'params[endNotValidBefore]' in request.args:
-        filters.append(CertStoreContent.NOT_VALID_BEFORE >= request.args['params[beginNotValidBefore]'])
-        filters.append(CertStoreContent.NOT_VALID_BEFORE <= request.args['params[endNotValidBefore]'])
-    if 'params[beginNotValidAfter]' in request.args and 'params[beginNotValidAfter]' in request.args:
-        filters.append(CertStoreContent.NOT_VALID_AFTER >= request.args['params[beginNotValidAfter]'])
-        filters.append(CertStoreContent.NOT_VALID_AFTER <= request.args['params[beginNotValidAfter]'])
+    # if 'certID' in request.args:
+    #     filters.append(CertStoreContent.CERT_ID == request.args['certID'])
+    # if 'certDomain' in request.args:
+    #     # filters.append(CertStoreContent.SUBJECT_CN == request.args['certDomain'])
+    #     filters.append(CertStoreContent.SUBJECT_CN.like('%' + request.args['certDomain'] + '%'))
+
+    # if 'params[beginNotValidBefore]' in request.args and 'params[endNotValidBefore]' in request.args:
+    #     filters.append(CertStoreContent.NOT_VALID_BEFORE >= request.args['params[beginNotValidBefore]'])
+    #     filters.append(CertStoreContent.NOT_VALID_BEFORE <= request.args['params[endNotValidBefore]'])
+    # if 'params[beginNotValidAfter]' in request.args and 'params[beginNotValidAfter]' in request.args:
+    #     filters.append(CertStoreContent.NOT_VALID_AFTER >= request.args['params[beginNotValidAfter]'])
+    #     filters.append(CertStoreContent.NOT_VALID_AFTER <= request.args['params[beginNotValidAfter]'])
 
     # combined_query : Query
     # combined_query = union(cert_store_query, cert_scan_query)
 
     page = request.args.get('pageNum', 1, type=int)
     rows = request.args.get('pageSize', 30, type=int)
-    pagination = CertStoreContent.query.filter(*filters).paginate(
+    pagination = CertStore.query.filter(*filters).paginate(
         page=page, per_page=rows, error_out=False)
     search_certs = pagination.items
 
@@ -42,11 +50,55 @@ def cert_search_list():
 @login_required
 def get_cert_info(cert_id):
 
-    cert_raw = CertStoreRaw.query.get(cert_id).get_raw()
-    parser = X509CertParser(cert_raw)
+    cert_raw = CertStore.query.get(cert_id).get_raw()
+    cert_parsed = PEMParser.parse_native_pretty(cert_raw)
 
-    filters = []
-    filters.append(CertScanMeta.CERT_ID == cert_id)
-    scan_metas = CertScanMeta.query.filter(*filters)
+    # filters = []
+    # filters.append(CertScanMeta.CERT_ID == cert_id)
+    # scan_metas = CertScanMeta.query.filter(*filters)
 
-    return jsonify({'code': 200, 'msg': '操作成功', "cert_data" : parser.to_json(), "scan_info" : [scan_meta.to_json() for scan_meta in scan_metas]})
+    return jsonify({'code': 200, 'msg': '操作成功', "cert_data" : cert_parsed, "scan_info" : []})
+    # return jsonify({'code': 200, 'msg': '操作成功', "cert_data" : parser.to_json(), "scan_info" : [scan_meta.to_json() for scan_meta in scan_metas]})
+
+
+@base.route('/system/zlint/<cert_id>', methods=['GET'])
+@login_required
+def get_cert_zlint(cert_id):
+
+    cert_pem = CertStore.query.get(cert_id).get_raw()
+
+    """
+    调用 Zlint 验证证书。
+    :param cert_pem: str, PEM 格式的证书字符串。
+    :return: dict, Zlint 输出结果。
+    """
+    # 创建一个临时文件存储证书内容
+    with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
+        temp_cert_file.write(cert_pem.encode())
+        temp_cert_path = temp_cert_file.name
+
+    try:
+        # 调用 Zlint
+        result = subprocess.run(
+            [ZLINT_PATH, temp_cert_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        # 检查是否有错误输出
+        if result.returncode != 0:
+            raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
+
+        # 解析 JSON 输出
+        zlint_output = json.loads(result.stdout)
+
+    finally:
+        # 删除临时文件
+        try:
+            import os
+            os.unlink(temp_cert_path)
+        except OSError:
+            pass
+
+    return jsonify({'code': 200, 'msg': '操作成功', "zlint_result" : zlint_output})

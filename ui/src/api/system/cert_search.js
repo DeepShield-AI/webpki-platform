@@ -16,3 +16,12 @@ export function getCertInfo(certId) {
     method: 'get'
   })
 }
+
+
+export function getCertZlintInfo(certId) {
+  return request({
+    url: '/system/zlint/' + certId,
+    method: 'get'
+  })
+}
+
