@@ -35,8 +35,8 @@ def generate_cert_data_table(table_name):
     return metadata.tables[table_name]
 
 
-class CertStoreRaw(db.Model):
-    __tablename__ = "CERT_STORE_RAW"
+class CertStore(db.Model):
+    __tablename__ = "CERT_STORE"
     
     CERT_ID = db.Column(db.String(64, collation='gbk_chinese_ci'), primary_key=True, nullable=False, unique=True, index=True)
     CERT_RAW = db.Column(db.Text, nullable=False)
@@ -54,7 +54,7 @@ class CertStoreRaw(db.Model):
         return str(self.CERT_RAW)
 
     def __repr__(self):
-        return f"<CertStoreRaw {self.CERT_ID}>"
+        return f"<CertStore {self.CERT_ID}>"
 
 
 class CertStoreContent(db.Model):
