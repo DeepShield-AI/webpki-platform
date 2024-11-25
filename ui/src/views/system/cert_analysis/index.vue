@@ -1,5 +1,60 @@
 <template>
   <div class="app-container">
+
+    <el-form :model="webQueryParams" ref="webQueryForm" size="small" :inline="true" v-show="showSearch">
+      <el-form-item label="网站" prop="domain">
+        <el-input
+          v-model="webQueryParams.domain"
+          placeholder="请输入分析网站域名"
+          clearable
+        />
+      </el-form-item>
+
+      <el-form-item>
+        <el-button type="primary" icon="el-icon-search" size="mini" @click="handleWebQuery">分析</el-button>
+        <el-button icon="el-icon-refresh" size="mini" @click="resetWebQuery">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+
+    <el-card>
+      <div slot="header">Web Analysis Result</div>
+      <div class="web-result-item">
+
+        <div class="indent">
+          <div v-for="(value, key) in webData" :key="key">
+
+            <strong style="display: inline-block;"> {{ key }}:</strong>
+
+            <template v-if="isObject(value)" class="indent">
+              <div v-for="(subValue, subKey) in value" :key="subKey">
+                <strong style="display: inline-block;">{{ subKey }}:</strong>
+                <span v-if="checkKeyInDict(subKey)[0]" style="display: inline-block;">
+                  <dict-tag :options="checkKeyInDict(subKey)[1]" :value="subValue"/>
+                </span>
+                <span v-else>
+                  <code class="code-block">{{ subValue }}</code>
+                </span>
+              </div>
+            </template>
+
+            <template v-else>
+              <span v-if="checkKeyInDict(key)[0]" style="display: inline-block;">
+                <dict-tag :options="checkKeyInDict(key)[1]" :value="value"/>
+              </span>
+              <span v-else>
+                <code class="code-block">{{ value }}</code>
+              </span>
+            </template>
+
+          </div>
+        </div>
+
+      </div>
+    </el-card>
+
+    <el-divider />
+
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch">
       <el-form-item label="根域名" prop="rootDomain">
         <el-input
@@ -109,7 +164,7 @@
 </template>
 
 <script>
-import { listCertAnalysisResult, getDomainTrustRelation } from "@/api/system/cert_analysis";
+import { getWebAnalysisResult, getDomainTrustRelation } from "@/api/system/cert_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import MultiEChartsPieChart from '../components/piechart/MultiPieChart';
@@ -146,6 +201,11 @@ export default {
       },
       // CertGraph Data
       certGraphData: undefined,
+      // web check data
+      webData: undefined,
+      webQueryParams: {
+        domain: undefined
+      },
       // Pie Chart data
       myChartData: {
         labels: ['Label 1', 'Label 2', 'Label 3'],
@@ -167,6 +227,22 @@ export default {
   },
 
   methods: {
+    /** 搜索按钮操作 */
+    handleWebQuery() {
+      this.analyzeWeb();
+    },
+    /** 重置按钮操作 */
+    resetWebQuery() {
+      this.resetForm("webQueryForm");
+      // this.handleQuery();
+    },
+    analyzeWeb() {
+      this.loading = true;
+      getWebAnalysisResult(this.webQueryParams).then(response => {
+        this.webData = response.data;
+        this.loading = false;
+      });
+    },
     /** 搜索按钮操作 */
     handleQuery() {
       this.getDomainTrustRelation();

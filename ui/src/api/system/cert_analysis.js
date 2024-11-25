@@ -1,9 +1,9 @@
 
 import request from '@/utils/request'
 
-export function listCertAnalysisResult(query) {
+export function getWebAnalysisResult(query) {
   return request({
-    url: '/system/cert_analysis/list',
+    url: '/system/web_analysis',
     method: 'get',
     params: query
   })

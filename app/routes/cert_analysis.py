@@ -1,5 +1,6 @@
 
 import json
+import subprocess
 from ..blueprint import base
 from ..models import CertAnalysisStats, CertChainRelation, DomainTrustRelation
 from datetime import datetime
@@ -7,19 +8,31 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from ..logger.logger import my_logger
 
+PYTHON_PATH = r"/root/pki-internet-platform/myenv/bin/python3"
 
-@base.route('/system/cert_analysis/list', methods=['GET'])
+@base.route('/system/web_analysis', methods=['GET'])
 @login_required
-def cert_analysis_list():
+def web_analysis():
+    domain = request.args.get('domain').strip()
+    if not domain:
+        return jsonify({'msg': '域名不能为空', 'code': 400})
+    
+    try:
+        command = [
+            PYTHON_PATH, "-m",
+            "sslyze",
+            # "--json_out=-",  # 输出 JSON 格式到标准输出
+            domain
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        analysis_data = json.loads(result.stdout)
+        return jsonify({'msg': '操作成功', 'code': 200, "data": analysis_data})
 
-    # my_logger.info(f"{request.args}")
-    filters = []
-    if 'name' in request.args:
-        filters.append(CertAnalysisStats.SCAN_ID.like('%' + request.args['name'] + '%'))
-    cert_analysis_stats = CertAnalysisStats.query.filter(*filters)
-
-    return jsonify({'msg': '操作成功', 'code': 200, "data": [cert_analysis_stat.metadata_to_json() for cert_analysis_stat in cert_analysis_stats]})
-
+    except subprocess.CalledProcessError as e:
+        return jsonify({'msg': f"SSLyze 执行错误: {e.stderr}", 'code': 500})
+    except json.JSONDecodeError:
+        return jsonify({'msg': "解析 SSLyze 输出时出错", 'code': 500})
+    
 
 @base.route('/system/cert_analysis/trust', methods=['GET'])
 @login_required
