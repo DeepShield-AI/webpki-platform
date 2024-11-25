@@ -10,6 +10,7 @@ from flask_login import login_required, current_user
 from ..parser.cert_parser_base import X509CertParser
 from ..parser.pem_parser import PEMParser
 from ..logger.logger import my_logger
+from ..analyzer.cert_analyze_chain import CertScanChainAnalyzer
 
 
 @base.route('/system/cert_search/list', methods=['GET'])
@@ -102,3 +103,25 @@ def get_cert_zlint(cert_id):
             pass
 
     return jsonify({'code': 200, 'msg': '操作成功', "zlint_result" : zlint_output})
+
+
+@base.route('/system/build_cert_chain/', methods=['GET'])
+@login_required
+def get_cert_chain():
+    pem_data = request.args.get('pemCert', '').strip()
+    if not pem_data:
+        return jsonify({'code': 400, 'msg': '缺少 PEM 数据'})
+    try:
+        analyzer = CertScanChainAnalyzer()
+        pem_chain = analyzer.build_verified_chain(pem_data)
+        parsed_chain = [PEMParser.parse_native_pretty(cert) for cert in pem_chain]
+
+        my_logger.info(parsed_chain)
+        return jsonify({'code': 200, 'msg': '操作成功', 'chain': parsed_chain})
+
+    except ValueError as e:
+        return jsonify({'code': 400, 'msg': f'证书处理错误: {str(e)}'})
+    except TypeError as e:
+        return jsonify({'code': 400, 'msg': f'未找到对应证书链', 'chain': None})
+    except Exception as e:
+        return jsonify({'code': 500, 'msg': f'内部错误: {str(e)}'})

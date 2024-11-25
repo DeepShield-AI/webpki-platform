@@ -98,11 +98,67 @@
       @pagination="getList"
     />
 
+    <el-divider />
+
+    <el-form :model="chainParams" ref="chainForm" size="large" :inline="false" v-show="showSearch">
+      <el-form-item label="PEM 证书" prop="pemCert">
+        <el-input
+          v-model="chainParams.pemCert"
+          placeholder="请提供PEM证书"
+          clearable
+          @keyup.enter.native="handleChainQuery"
+          :style="{ height: '80px', fontSize: '16px', lineHeight: '1.5' }"
+          type="textarea"
+        />
+      </el-form-item>
+
+      <el-form-item>
+        <el-button type="primary" icon="el-icon-search" size="large" @click="handleChainQuery">搜索</el-button>
+        <el-button icon="el-icon-refresh" size="large" @click="resetChainQuery">清除</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-card>
+      <div slot="header">Certificate Chain Information</div>
+      <div class="chain-item">
+
+        <div class="indent">
+          <div v-for="(value, key) in certChainData" :key="key">
+
+            <strong style="display: inline-block;"> {{ key }}:</strong>
+
+            <template v-if="isObject(value)" class="indent">
+              <div v-for="(subValue, subKey) in value" :key="subKey">
+                <strong style="display: inline-block;">{{ subKey }}:</strong>
+                <span v-if="checkKeyInDict(subKey)[0]" style="display: inline-block;">
+                  <dict-tag :options="checkKeyInDict(subKey)[1]" :value="subValue"/>
+                </span>
+                <span v-else>
+                  <code class="code-block">{{ subValue }}</code>
+                </span>
+              </div>
+            </template>
+
+            <template v-else>
+              <span v-if="checkKeyInDict(key)[0]" style="display: inline-block;">
+                <dict-tag :options="checkKeyInDict(key)[1]" :value="value"/>
+              </span>
+              <span v-else>
+                <code class="code-block">{{ value }}</code>
+              </span>
+            </template>
+
+          </div>
+        </div>
+
+      </div>
+    </el-card>
+
   </div>
 </template>
 
 <script>
-import { listCert } from "@/api/system/cert_search";
+import { listCert, getCertChain } from "@/api/system/cert_search";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 
@@ -136,7 +192,12 @@ export default {
       notValidBeforeRange: [],
       notValidAfterRange: [],
       // 总条数
-      total: 0
+      total: 0,
+      // chain related data
+      certChainData: undefined,
+      chainParams: {
+        pemCert: undefined
+      },
     };
   },
   created() {
@@ -151,7 +212,7 @@ export default {
     /** 重置按钮操作 */
     resetQuery() {
       this.resetForm("queryForm");
-      this.handleQuery();
+      // this.handleQuery();
     },
     /** 查询扫描进程列表 */
     getList() {
@@ -173,6 +234,35 @@ export default {
         this.refreshTable = true;
       });
     },
+
+    /** 搜索按钮操作 */
+    handleChainQuery() {
+      this.getChain();
+    },
+    /** 重置按钮操作 */
+    resetChainQuery() {
+      this.resetForm("chainForm");
+      // this.handleChainQuery();
+    },
+    getChain() {
+      this.loading = true;
+      getCertChain(this.chainParams).then(response => {
+        this.certChainData = response.chain;
+        this.loading = false;
+      });
+    },
+    isObject(value) {
+      return value !== null && typeof value === 'object';
+    },
+    checkKeyInDict(key) {
+      if (key === "cert_type") {
+        return [true, this.dict.type.sys_cert_type || ''];
+      } else if (key === "subject_pub_key_algo") {
+        return [true, this.dict.type.sys_key_type || ''];
+      } else {
+        return [false, ''];
+      }
+    }
   },
 };
 </script>

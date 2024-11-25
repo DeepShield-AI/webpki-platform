@@ -7,14 +7,10 @@ from queue import Queue
 from datetime import datetime, timezone
 from OpenSSL import crypto
 
-from sqlalchemy import Table
 from sqlalchemy.dialects.mysql import insert
 from rich.console import Console
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import dsa as primitive_dsa, rsa as primitive_rsa, ec as primitive_ec, dh as primitive_dh
 from cryptography.hazmat.primitives.asymmetric import types, padding
-from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 
 from app import app, db
 from ..logger.logger import my_logger
@@ -26,115 +22,76 @@ from ..utils.cert import (
 
 class CertScanChainAnalyzer():
 
-    def __init__(
-            self,
-            scan_id : str,
-            scan_input_table : Table,
-        ) -> None:
-
-        self.scan_id = scan_id
-        self.scan_input_table = scan_input_table
-        self.save_scan_chunk_size = 10000
+    def __init__(self, x509_store_path = r"/data/ct_log_data") -> None:
+        self.x509_store_path = x509_store_path
         self.cert_store = crypto.X509Store()
 
+        for dir in os.scandir(self.x509_store_path):
+            if os.path.isdir(dir.path):
+                self.unique_ca_certs_file = os.path.join(dir.path, "unique_ca_certs")
+                try:
+                    with open(self.unique_ca_certs_file, 'r') as f:
+                        cert_data = f.read()
 
-    def analyze_cert_chain(self):
-        my_logger.info(f"Starting {self.scan_input_table.name} chain analysis...")
-        
-        with app.app_context():
-            # Prepare root store
-            ca_certs = CaCertStore.query.filter()
-            ca_certs = [cert.get_raw() for cert in ca_certs]
+                    certificates = cert_data.split("-----END CERTIFICATE-----\n")
+                    for cert in certificates:
+                        if "-----BEGIN CERTIFICATE-----" in cert:
+                            cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
+                            self.cert_store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, cert))
 
-            for cert in ca_certs:
-                root_cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
-                self.cert_store.add_cert(root_cert)
+                    my_logger.info(f"Load {len(certificates)} CA certs from {dir.path}")
+                except FileNotFoundError:
+                    pass
 
-            # Analyze
-            query = self.scan_input_table.select()
-            result_proxy = db.session.execute(query)
-            
-            while True:
-                rows = result_proxy.fetchmany(self.save_scan_chunk_size)
-                if not rows:
-                    # self.sync_update_info()
-                    break
-
-                for row in rows:
-                    try:
-                        cert = crypto.load_certificate(crypto.FILETYPE_PEM, row[1])
-                        issuer = self.get_issuer(cert)
-                        self.sync_update_info(cert, issuer)
-                    except ValueError:
-                        continue
-
-        my_logger.info("Cert chain analysis completed")
-
-
-    def get_issuer(self, cert):
+    # TODO: handle cross-sign and multiple parent CA stuff in the future
+    def build_verified_chain(self, cert):
         try:
-            store_ctx = crypto.X509StoreContext(self.cert_store, cert)
+            x509_cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
+            store_ctx = crypto.X509StoreContext(self.cert_store, x509_cert)
             chain = store_ctx.get_verified_chain()
-            if len(chain) == 1:
-                return chain[0]
-            else:
-                return chain[1]
-        
+            return [crypto.dump_certificate(crypto.FILETYPE_PEM, c).decode('utf-8') for c in chain]
+
         except crypto.X509StoreContextError as e:
-            # my_logger.error(f"Cert chain analysis failed for cert {get_cert_sha256_hex_from_object(e.certificate.to_cryptography())}...")
+            my_logger.error(f"Cert chain analysis failed for cert {e.certificate.get_subject().commonName}...")
             return None
 
+    '''
+        From GPT
+    '''
+    def find_all_chains(self, target_cert, ca_store):
+        """尝试构建所有可能的证书链"""
+        chains = []
 
-    def sync_update_info(self, cert : crypto.X509, issuer : crypto.X509):
-        # with app.app_context():
-            if issuer:
-                cert_parent_id = get_cert_sha256_hex_from_object(issuer.to_cryptography())
-            else:
-                cert_parent_id = "Not Found Yet"
+        def build_chain(cert, chain):
+            # 如果当前证书是根证书，终止链
+            if cert.get_subject() == cert.get_issuer():
+                chains.append(chain + [cert])
+                return
 
-            cert_chain_data_to_insert = {
-                'CERT_ID' : get_cert_sha256_hex_from_object(cert.to_cryptography()),
-                'CERT_PARENT_ID' : cert_parent_id
-            }
-            insert_cert_store_statement = insert(CertChainRelation).values(cert_chain_data_to_insert).prefix_with('IGNORE')
-            db.session.execute(insert_cert_store_statement)
-            db.session.commit()
+            # 在存储中查找所有可能的 Issuer
+            for ca_cert in ca_store:
+                if ca_cert.get_subject() == cert.get_issuer():
+                    build_chain(ca_cert, chain + [cert])
 
+        # 从目标证书开始构建
+        build_chain(target_cert, [])
+        return chains
 
-    # do not use now
-    def verifySignature(self) -> bool:
-        sig_verified = False
-
-        if self.issuer_cert is not None:
-            issuer_pub_key = self.issuer_cert.public_key()
+    def verify_chain_signature(self, chain):
+        """验证证书链的完整性"""
+        for i in range(len(chain) - 1):
+            cert = chain[i]
+            issuer_cert = chain[i + 1]
             try:
-                if issuer_pub_key.__class__ == primitive_rsa.RSAPublicKey:
-                    issuer_pub_key.verify(
-                        self.cert.signature,
-                        self.cert.tbs_certificate_bytes,
-                        # Depends on the algorithm used to create the certificate
-                        padding.PKCS1v15(),
-                        self.cert.signature_hash_algorithm
-                    )
-                elif issuer_pub_key.__class__ == primitive_ec.EllipticCurvePublicKey:
-                    issuer_pub_key.verify(
-                        self.cert.signature,
-                        self.cert.tbs_certificate_bytes,
-                        primitive_ec.ECDSA(hashes.SHA256())
-                    )
-                else:
-                    issuer_pub_key.verify(
-                        self.cert.signature,
-                        self.cert.tbs_certificate_bytes
-                    )
-                sig_verified = True
-            except InvalidSignature:
-                my_logger.warn(f"Cert {self.cert.serial_number} signature checking failed")
-                sig_verified = False
-        else:
-            my_logger.warn(f"Cert {self.cert.serial_number} has no issuer cert avaliable")
-
-        return sig_verified
+                issuer_cert.public_key().verify(
+                    cert.signature,
+                    cert.tbs_certificate_bytes,
+                    padding.PKCS1v15(),
+                    cert.signature_hash_algorithm,
+                )
+            except Exception as e:
+                return False
+        return True
 
 
 class DomainChainAnalyzer():
