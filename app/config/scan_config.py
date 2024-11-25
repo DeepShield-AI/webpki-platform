@@ -21,7 +21,7 @@ class ScanConfig:
         self.MAX_RETRY = kwargs.get('MAX_RETRY', 3)
 
 ZGRAB2_PATH = r"/root/zgrab2/zgrab2"
-ZMAP_PATH = r""
+ZMAP_PATH = r"/usr/local/sbin/zmap"
 
 class DomainScanConfig(ScanConfig):
     def __init__(self, **kwargs):
@@ -41,11 +41,14 @@ class DomainScanConfig(ScanConfig):
 class IPScanConfig(ScanConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # scan type
+        self.SCAN_TOOL = kwargs.get('SCAN_TOOL', "zmap + zgrab2")
         # IP range file related
-        self.INPUT_IP_LIST_FILE = kwargs.get('INPUT_IP_LIST_FILE', "")
+        self.INPUT_IP_LIST_FILE = kwargs.get('INPUT_IP_LIST_FILE', r"/root/pki-internet-platform/data/ip_scan_range/test_range.csv")
         self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
         # TLS fingerprinting config
         self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
+        self.TLS_FP_ONLY = kwargs.get('TLS_FP_ONLY', True)
 
 
 class CTScanConfig(ScanConfig):

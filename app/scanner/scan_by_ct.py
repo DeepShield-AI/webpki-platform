@@ -28,8 +28,8 @@ from .scan_base import Scanner, ScanStatusData
 from ..config.scan_config import CTScanConfig
 from ..utils.type import ScanType, ScanStatusType
 from ..utils.cert import get_cert_sha256_hex_from_str
+from ..utils.json import custom_serializer
 from ..logger.logger import my_logger
-from ..models import CertStoreRaw
 
 class CTScanner(Scanner):
 
@@ -86,12 +86,20 @@ class CTScanner(Scanner):
             data_to_be_stored = data["data"]
             my_logger.info(f"Saving {len(data_to_be_stored.keys())} results to {save_file_path}")
 
-            try:
-                with open(save_file_path, 'w') as f:
-                    json.dump(data_to_be_stored, f)
-            except Exception as e:
-                my_logger.error(f"Save {save_file_path} failed, got exception {e}")
-                pass
+            with open(save_file_path, 'w', encoding='utf-8') as f:
+                for key, value in data_to_be_stored.items():
+                    try:
+                        data_str = {
+                            "entry_number" : key,
+                            "data" : value
+                        }
+
+                        json_str = json.dumps(data_str, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
+                        f.write(json_str + '\n')
+
+                    except Exception as e:
+                        my_logger.error(f"Save {save_file_path} failed, got exception {e}")
+                        pass
 
             self.data_queue.task_done()
             my_logger.info(f"Finished saving {len((data_to_be_stored.keys()))} results to {save_file_path}")

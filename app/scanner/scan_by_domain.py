@@ -180,21 +180,10 @@ class DomainScanner(Scanner):
         if self.scan_tool == "zgrab2":
             output_file = os.path.join(
                 self.storage_dir,
-                self.scan_name
+                self.scan_name.replace(" ", "_")
             )
-            command = [
-                ZGRAB2_PATH,
-                "tls",
-                "--input-file", self.input_csv_file,
-                "--output-file", output_file
-            ]
 
-            try:
-                result = subprocess.run(command, capture_output=True, text=True, check=True)
-                print("Zgrab2 scan completed. Output saved to:", output_file)
-            except subprocess.CalledProcessError as e:
-                print("Error occurred while running Zgrab2:")
-                print(e.stderr)
+            self.run_zgrab2(self.input_csv_file, output_file)
 
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
@@ -321,7 +310,7 @@ class DomainScanner(Scanner):
         window = 100000
 
         while not self.crtl_c_event.is_set():
-            file_name = f"domain_scan_{self.scan_id}_result_{index * window}_{(index + 1) * window}"
+            file_name = f"domain_scan_{self.scan_name}_result_{index * window}_{(index + 1) * window}"
             save_file_path = os.path.join(self.storage_dir, file_name)
             my_logger.info(f"Opening {save_file_path}...")
 
