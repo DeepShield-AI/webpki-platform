@@ -1,4 +1,4 @@
-use mysql;
-CREATE USER 'authbase'@'localhost' IDENTIFIED BY '123456';
-GRANT ALL ON *.* TO 'authbase'@'localhost';
-flush privileges;
+
+CREATE USER 'tianyu'@'%' IDENTIFIED BY 'Password123!';
+GRANT ALL PRIVILEGES ON *.* TO 'tianyu'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;

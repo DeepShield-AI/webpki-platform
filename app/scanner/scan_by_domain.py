@@ -12,6 +12,7 @@ import json
 import time
 import hashlib
 import threading
+import subprocess
 
 from datetime import datetime, timezone
 from queue import PriorityQueue, Queue
@@ -22,7 +23,7 @@ from sqlalchemy.dialects.mysql import insert
 from app import db, app
 from .jarm_fp_utils import *
 from .scan_base import Scanner, ScanStatusData
-from ..config.scan_config import DomainScanConfig
+from ..config.scan_config import DomainScanConfig, ZGRAB2_PATH
 from ..config.ip_blacklist import IP_BLACKLIST
 from ..utils.cert import get_cert_sha256_hex_from_str
 from ..utils.type import ScanType, ScanStatusType
@@ -43,8 +44,9 @@ class DomainScanner(Scanner):
         super().__init__(scan_id, start_time, scan_config)
 
         # scan settings from scan config
+        self.scan_tool = scan_config.SCAN_TOOL
         self.input_csv_file = scan_config.INPUT_DOMAIN_LIST_FILE
-        self.begin_num = scan_config.DOMAIN_RANK_START
+        self.begin_num = scan_config.DOMAIN_INDEX_START
         self.end_num = scan_config.NUM_DOMAIN_SCAN - 1
         self.tls_fp_type = scan_config.TLS_FP_TYPE
         self.tls_fp_only = scan_config.TLS_FP_ONLY
@@ -105,7 +107,7 @@ class DomainScanner(Scanner):
         queue = [tls1_2_forward, tls1_2_reverse, tls1_2_top_half, tls1_2_bottom_half, tls1_2_middle_out, tls1_1_middle_out, tls1_3_forward, tls1_3_reverse, tls1_3_invalid, tls1_3_middle_out]
 
         # First, resolve the host
-        ipv4, ipv6 = resolve_host_dns(destination_host)
+        ipv4, ipv6 = resolve_host_dns(destination_host, dns_servers=['114.114.114.114'])
         
         # Iterate through all the IPs
         for destination_ip in ipv4 + ipv6:
@@ -174,67 +176,89 @@ class DomainScanner(Scanner):
 
 
     def start(self):
-        with Progress(
-            TextColumn("[bold blue]{task.description}", justify="right"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeRemainingColumn(),  # 添加预计剩余时间列
-            transient=True  # 进度条完成后隐藏
-        ) as self.progress:
-            
-            self.total = self.end_num - self.begin_num + 1
-            self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
+        # Choose to use Zgrab2 or self_built tools
+        if self.scan_tool == "zgrab2":
+            output_file = os.path.join(
+                self.storage_dir,
+                self.scan_name.replace(" ", "_")
+            )
 
-            self.timer_thread = threading.Thread(target=self.async_update_scan_process_info)
-            # self.timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            self.timer_thread.start()
+            self.run_zgrab2(self.input_csv_file, output_file)
 
-            self.data_save_thread = threading.Thread(target=self.save_results)
-            # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            self.data_save_thread.start()
-
-            my_logger.info(f"Scanning...")
-            with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
-                while not self.task_queue.empty():
-                    # Check if there is signals
-                    if self.crtl_c_event.is_set():
-                        my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
-                        break
-
-                    index, host = self.task_queue.get()
-                    if self.tls_fp_type == "jarm":
-                        # my_logger.info(host)
-                        executor.submit(self.scan_thread_with_jarm, index, host)
-                        # executor.submit(self.scan_thread_with_jarm, index, host).result()
-                    else:
-                        executor.submit(self.scan_thread_with_custom_tls_fp, index, host)
-
-                # 等待所有线程完成
-                executor.shutdown(wait=True)
-                my_logger.info("All threads finished.")
-
-            # Wait for all elements in queue to be handled
-            self.data_queue.join()
-
-            # Send the poison pill to stop the saver thread
-            self.data_queue.put(None)
-            self.data_save_thread.join()
-
-            # The timer thread will never terminates unless the flag is set
-            self.crtl_c_event.set()
-            self.timer_thread.join()
-
-        if self.is_killed:
-            my_logger.info(f"Scan Terminated")
-            with self.scan_status_data_lock:
-                self.scan_status_data.end_time = datetime.now(timezone.utc)
-                self.scan_status_data.status = ScanStatusType.KILLED
-        else:
-            my_logger.info(f"Scan Completed")
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
                 self.scan_status_data.status = ScanStatusType.COMPLETED
-        self.sync_update_scan_process_info()
+            self.sync_update_scan_process_info()
+
+        elif self.scan_tool == "self":
+            with Progress(
+                TextColumn("[bold blue]{task.description}", justify="right"),
+                BarColumn(),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                TimeRemainingColumn(),  # 添加预计剩余时间列
+                transient=True  # 进度条完成后隐藏
+            ) as self.progress:
+                
+                self.total = self.end_num - self.begin_num + 1
+                self.progress_task = self.progress.add_task("[Waiting]", total=self.total)
+
+                self.timer_thread = threading.Thread(target=self.async_update_scan_process_info)
+                # self.timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+                self.timer_thread.start()
+
+                self.data_save_thread = threading.Thread(target=self.save_results)
+                # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
+                self.data_save_thread.start()
+
+                my_logger.info(f"Scanning...")
+                with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
+                    while not self.task_queue.empty():
+                        # Check if there is signals
+                        if self.crtl_c_event.is_set():
+                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            break
+
+                        index, host = self.task_queue.get()
+                        if self.tls_fp_type == "jarm":
+                            # my_logger.info(host)
+                            executor.submit(self.scan_thread_with_jarm, index, host)
+                            # executor.submit(self.scan_thread_with_jarm, index, host).result()
+                        else:
+                            executor.submit(self.scan_thread_with_custom_tls_fp, index, host)
+
+                    # 等待所有线程完成
+                    executor.shutdown(wait=True)
+                    my_logger.info("All threads finished.")
+
+                # Wait for all elements in queue to be handled
+                self.data_queue.join()
+
+                # Send the poison pill to stop the saver thread
+                self.data_queue.put(None)
+                self.data_save_thread.join()
+
+                # The timer thread will never terminates unless the flag is set
+                self.crtl_c_event.set()
+                self.timer_thread.join()
+
+            if self.is_killed:
+                my_logger.info(f"Scan Terminated")
+                with self.scan_status_data_lock:
+                    self.scan_status_data.end_time = datetime.now(timezone.utc)
+                    self.scan_status_data.status = ScanStatusType.KILLED
+            else:
+                my_logger.info(f"Scan Completed")
+                with self.scan_status_data_lock:
+                    self.scan_status_data.end_time = datetime.now(timezone.utc)
+                    self.scan_status_data.status = ScanStatusType.COMPLETED
+            self.sync_update_scan_process_info()
+
+        else:
+            my_logger.warning("Unrecognized scan tool")
+            with self.scan_status_data_lock:
+                self.scan_status_data.end_time = datetime.now(timezone.utc)
+                self.scan_status_data.status = ScanStatusType.BACKEND_ERROR
+            self.sync_update_scan_process_info()
 
 
     def terminate(self):
@@ -286,7 +310,8 @@ class DomainScanner(Scanner):
         window = 100000
 
         while not self.crtl_c_event.is_set():
-            file_name = f"domain_scan_{self.scan_id}_result_{index * window}_{(index + 1) * window}"
+            n = self.scan_name.replace(" ", "_")
+            file_name = f"{n}_{index * window}_{(index + 1) * window}"
             save_file_path = os.path.join(self.storage_dir, file_name)
             my_logger.info(f"Opening {save_file_path}...")
 
@@ -312,57 +337,4 @@ class DomainScanner(Scanner):
                 index += 1
 
         my_logger.info("Thread for saving results finishes normally")
-
-
-        # with self.cached_results_lock:
-        #     with app.app_context():
-        #         my_logger.info(f"Saving {len(self.cached_results)} results...")
-
-        #         scan_status_data_to_insert = []
-        #         cert_data_to_insert = {}
-        #         cert_metadata_to_insert = []
-
-        #         for result in self.cached_results:
-        #             scan_status_data_to_insert.append(
-        #                 ScanData(
-        #                     SCAN_TIME = result['scan_time'],
-        #                     DOMAIN = result['host'],
-        #                     IP = result['ip'],
-        #                     ERROR_MSG = result['error'],
-        #                     RECEIVED_CERTS = result['sha256'],
-        #                     TLS_VERSION = result['tls_version'],
-        #                     TLS_CIPHER = result['tls_cipher']
-        #                 )
-        #             )
-
-        #             for i in range(len(result['sha256'])):
-        #                 cert_data_to_insert[result['sha256'][i]] = result['certificate'][i]
-        #                 cert_metadata_to_insert.append(
-        #                     {
-        #                         'CERT_ID' : result['sha256'][i],
-        #                         'SCAN_DATE' : result['scan_time'],
-        #                         'SCAN_DOMAIN' : result['host'],
-        #                         'SCAN_IP' : result['ip']
-        #                     }
-        #                 )
-        #         try:
-        #             cert_data_to_insert = [{'CERT_ID' : key, 'CERT_RAW' : value} for key, value in cert_data_to_insert.items()]
-        #             db.session.expunge_all()
-        #             db.session.add_all(scan_status_data_to_insert)
-        #             db.session.commit()
-
-        #             # many many primary key dupliates...
-        #             # need to deal with Integrity Error with duplicate primary key pair with bulk_insert_mappings
-        #             insert_cert_raw_statement = insert(CertStoreRaw).values(cert_data_to_insert).prefix_with('IGNORE')
-        #             db.session.execute(insert_cert_raw_statement)
-        #             db.session.commit()
-
-        #             # db.session.bulk_insert_mappings(CertScanMeta, cert_metadata_to_insert)
-        #             insert_cert_scan_metadata_statement = insert(CertScanMeta).values(cert_metadata_to_insert).prefix_with('IGNORE')
-        #             db.session.execute(insert_cert_scan_metadata_statement)
-        #             db.session.commit()
-        #         except Exception as e:
-        #             my_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
-
-        #     self.cached_results = []
 

@@ -50,3 +50,11 @@ def create_analyze_config(request : Request, analyze_type : int):
         return CertAnalysisConfig(**common_args)
     else:
         return None
+
+ZLINT_PATH = r"/root/zlint/v3/zlint"
+TRUST_ROOT_DIR = r"/root/pki-internet-platform/data/trust_roots"
+CA_CERT_DIR = r"/data/ct_log_data"
+
+IP2LOCATIONDB1_DIR = r"/data/ip2location/db1/IP2LOCATION-LITE-DB1.BIN"
+IP2LOCATIONDB3_DIR = r"/data/ip2location/db3/IP2LOCATION-LITE-DB3.BIN"
+IP2LOCATIONASN_DIR = r"/data/ip2location/asn/IP2LOCATION-LITE-ASN.BIN"

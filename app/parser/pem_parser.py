@@ -5,7 +5,7 @@ import idna
 import hashlib
 from dataclasses import dataclass, asdict
 from asn1crypto import pem, x509
-from ..utils.cert import ordered_dict_to_dict
+from ..utils.cert import ordered_dict_to_dict, get_cert_sha256_hex_from_str
 
 '''
     Keep the following infomation:
@@ -27,6 +27,7 @@ class PEMResult():
     signature : str
     issuer_cn : str
     issuer_org : str
+    issuer_country : str
     not_before : str
     not_after : str
     subject : list
@@ -34,6 +35,9 @@ class PEMResult():
     pub_key_id : str
     pub_key : dict
     policy : str
+    self_signed : bool
+    subject_sha : str
+    issuer_sha : str
 
 
 class PEMParser():
@@ -95,13 +99,17 @@ class PEMParser():
                 cert['tbs_certificate']['signature']['algorithm'].native,
                 cert['tbs_certificate']['issuer'].native.get('common_name', None),
                 cert['tbs_certificate']['issuer'].native.get('organization_name', None),
+                cert['tbs_certificate']['issuer'].native.get('country_name', None),
                 cert['tbs_certificate']['validity']['not_before'].native.strftime("%Y-%m-%d-%H-%M-%S"),
                 cert['tbs_certificate']['validity']['not_after'].native.strftime("%Y-%m-%d-%H-%M-%S"),
                 subject,
                 cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
                 pub_key_id.hex(),
                 ordered_dict_to_dict(cert['tbs_certificate']['subject_public_key_info']['public_key'].native),
-                policy
+                policy,
+                cert['tbs_certificate']['issuer'].native == cert['tbs_certificate']['subject'].native,
+                get_cert_sha256_hex_from_str(str(cert['tbs_certificate']['subject'].native)),
+                get_cert_sha256_hex_from_str(str(cert['tbs_certificate']['issuer'].native))
             )
 
             return pem_result

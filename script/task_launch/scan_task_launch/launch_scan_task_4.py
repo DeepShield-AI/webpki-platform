@@ -1,6 +1,6 @@
 
 import sys
-sys.path.append(r"D:\global_ca_monitor")
+sys.path.append(r"/root/pki-internet-platform")
 
 import time
 from app import app, db
@@ -8,29 +8,29 @@ from app.manager import g_manager
 from app.manager.task import TaskBatchTemplate
 from app.config.scan_config import DomainScanConfig, CTScanConfig
 
-log_name = "oak2024h2"
-log_address = "oak.ct.letsencrypt.org/2024h2"
+# log_name = "oak2024h2"
+# log_address = "oak.ct.letsencrypt.org/2024h2"
 # log_name = "sabre2024h2"
 # log_address = "sabre2024h2.ct.sectigo.com"
-# log_address = "yeti2024.ct.digicert.com/log"
+log_name = "yeti2024"
+log_address = "yeti2024.ct.digicert.com/log"
 # log_address = "ct.cloudflare.com/logs/nimbus2024"
 # log_name = "nimbus2024"
-# log_name = "yeti2024"
 # 188918416
 
 if __name__ == "__main__":
     with app.app_context():
         scan_args = {
-            'SCAN_PROCESS_NAME': "oak2024h2 450-500M",
-            'STORAGE_DIR' : r"H:/oak2024h2",
+            'SCAN_PROCESS_NAME': "yeti2024 0-5M",
+            'STORAGE_DIR' : r"/data/ct_log_data/yeti2024",
             'MAX_THREADS_ALLOC' : 50,
-            'THREAD_WORKLOAD' : 100000,
-            'SCAN_TIMEOUT' : 2,
+            'THREAD_WORKLOAD' : 10000,
+            'SCAN_TIMEOUT' : 5,
             'MAX_RETRY' : 10,
             'CT_LOG_NAME' : log_name,
             'CT_LOG_ADDRESS' : log_address,
-            'ENTRY_START' : 450000000,
-            'ENTRY_END' : 500000000,
+            'ENTRY_START' : 0,
+            'ENTRY_END' : 5000000,
             'WINDOW_SIZE' : 250,
         }
         config = CTScanConfig(**scan_args)

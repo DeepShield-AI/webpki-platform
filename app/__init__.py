@@ -7,19 +7,28 @@ import flask_excel as excel
 from flask_cors import CORS
 
 import os
-import json
+import json, base64
 from datetime import datetime, date
 
 JSONEncoder = json.JSONEncoder
 
 class CustomJSONEncoder(JSONEncoder):
     def default(self, obj):
+        # if isinstance(obj, datetime):
+        #     return obj.isoformat()  # 或者用 obj.strftime("%Y-%m-%d %H:%M:%S") 等其他格式
+        # else:
+        #     return JSONEncoder.default(self, obj)
         if isinstance(obj, datetime):
             return obj.strftime('%Y-%m-%d %H:%M:%S')
-        elif isinstance(obj, date):
+        if isinstance(obj, date):
             return obj.strftime('%Y-%m-%d')
-        else:
-            return JSONEncoder.default(self, obj)
+        if isinstance(obj, set):
+            return list(obj)
+        if isinstance(obj, bytes):
+            return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+        if isinstance(obj, bytearray):
+            return base64.b64encode(obj).decode('utf-8')
+        raise TypeError(f"Type {type(obj)} not serializable")
 
 loginmanager = LoginManager()
 loginmanager.session_protection = 'strong'
@@ -30,7 +39,9 @@ db = SQLAlchemy()
 
 def create_app(config_name):
     app = Flask(__name__, template_folder=r"..\ui\templates", static_folder=r"..\ui\static")
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8080", "http://118.229.43.254:4080"]}})
+    # CORS(app)
+    # CORS(app, origins="http://118.229.43.254:4080")
     #  替换默认的json编码器
     app.json_encoder = CustomJSONEncoder
     app.config.from_object(flask_config[config_name])

@@ -35,8 +35,8 @@ def get_host_dns_records(
         except dns.resolver.NoAnswer:
             # my_logger.warning(f"No {record_type} record found for {host}.")
             my_logger.debug(f"No {record_type} record found for {host}.")
-        except dns.resolver.NXDOMAIN:
-            my_logger.warning(f"{host} does not exist.")
+        except dns.resolver.NXDOMAIN as e:
+            my_logger.warning(f"{host} does not exist: {e}")
         except dns.resolver.Timeout:
             # my_logger.warning(f"DNS query for {host} timed out.")
             my_logger.debug(f"DNS query for {host} timed out.")
@@ -52,9 +52,15 @@ def get_host_dns_records(
 def resolve_host_dns(
         host : str = "www.tsinghua.edu.cn",
         dns_servers = [
+            '114.114.114.114',
+            '114.114.115.115',
             '1.1.1.1',  # Cloudflare DNS
             '8.8.8.8',  # Google DNS
             '9.9.9.9',  # Quad9 DNS
+            '223.5.5.5',
+            '11.11.1.2',
+            '11.11.1.1',
+            '11.11.1.3'
         ],
         lifetime : float = 10.0,
         timeout : float = 5.0

@@ -1,0 +1,29 @@
+{
+    "cert": {
+      "cn": "*.tsinghua.edu.cn",
+      "error": true,
+      "error_info": {
+        "algo": [],
+        "deploy": [
+          "OCSP状态异常"
+        ]
+      },
+      "issuer_c": "US",
+      "not_after": "20230823150212Z",
+      "not_before": "20230525150213Z",
+      "sha1": "C6:DE:E4:6E:35:2E:AD:A4:58:A9:DC:98:FA:01:0B:C1:86:DA:E2:79"
+    },
+    "domain": "https://www.tsinghua.edu.cn/",
+    "entity_type": "高校",
+    "geo": {
+      "latitude": "40.003213",
+      "longitude": "116.326933",
+      "region": [
+        "北京市",
+        "北京市",
+        "海淀区"
+      ]
+    },
+    "has_cert": true,
+    "name": "清华大学"
+  }
