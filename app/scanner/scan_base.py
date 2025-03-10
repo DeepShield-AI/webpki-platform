@@ -306,6 +306,7 @@ class Scanner(ABC):
     def run_zgrab2(self, input_file, output_file):
         command = [
             ZGRAB2_PATH,
+            "--senders", f"{self.max_threads_alloc}",
             "--input-file", input_file,
             "--output-file", output_file,
             "tls"

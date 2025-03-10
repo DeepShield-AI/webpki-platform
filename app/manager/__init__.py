@@ -98,7 +98,7 @@ import sys
 import signal
 
 def signal_handler(sig, frame):
-    my_logger.warn("Ctrl+C detected")
+    my_logger.warning("Ctrl+C detected")
     g_manager.ctrl_c_handler()
     g_thread_executor.shutdown(wait=True)
     sys.exit(0)

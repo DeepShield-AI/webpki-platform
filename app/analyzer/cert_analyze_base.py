@@ -8,7 +8,7 @@ from ..logger.logger import my_logger
 from ..utils.exception import ParseError, UnknownTableError
 from ..config.analysis_config import CertAnalysisConfig
 
-from .cert_analyze_chain import CertScanChainAnalyzer
+from .cert_analyze_chain import CertChainAnalyzer
 from .cert_analyze_revocation import CertRevocationAnalyzer
 from .cert_analyze_parse import CertParseAnalyzer
 
@@ -36,7 +36,7 @@ class CertScanAnalyzer():
 
         # Parse analysis flag to choose to build analyzer
         self.parse_analyzer = CertParseAnalyzer(analysis_config.SCAN_ID, self.save_scan_chunk_size) if analysis_config.SUBTASK_FLAG & CertAnalysisConfig.PARSE_SUBTASK else None
-        self.chain_analyzer = CertScanChainAnalyzer() if analysis_config.SUBTASK_FLAG & CertAnalysisConfig.CHAIN_SUBTASK else None
+        self.chain_analyzer = CertChainAnalyzer() if analysis_config.SUBTASK_FLAG & CertAnalysisConfig.CHAIN_SUBTASK else None
         self.revoke_analyzer = CertRevocationAnalyzer(self.save_scan_chunk_size) if analysis_config.SUBTASK_FLAG & CertAnalysisConfig.REVOKE_SUBTASK else None
         self.ca_analyzer = None if analysis_config.SUBTASK_FLAG & CertAnalysisConfig.CA_SUBTASK else None
 

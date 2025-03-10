@@ -5,14 +5,24 @@ import threading
 from threading import Lock
 from queue import Queue
 from datetime import datetime, timezone
-from OpenSSL import crypto
 
 from sqlalchemy.dialects.mysql import insert
 from rich.console import Console
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
-from cryptography.hazmat.primitives.asymmetric import types, padding
+from OpenSSL.crypto import (
+    X509,
+    X509Name,
+    X509Store,
+    X509StoreContext,
+    X509StoreContextError,
+    Error,
+    load_certificate,
+    dump_certificate,
+    FILETYPE_PEM,
+)
 
 from app import app, db
+from ..config.analysis_config import CA_CERT_DIR, TRUST_ROOT_DIR
 from ..logger.logger import my_logger
 from ..models import CaCertStore, CertChainRelation, DomainTrustRelation
 from ..utils.cert import (
@@ -20,78 +30,174 @@ from ..utils.cert import (
     get_cert_sha256_hex_from_str
 )
 
-class CertScanChainAnalyzer():
+class CertChainAnalyzer():
 
-    def __init__(self, x509_store_path = r"/data/ct_log_data") -> None:
-        self.x509_store_path = x509_store_path
-        self.cert_store = crypto.X509Store()
+    def __init__(self) -> None:
+        self.trust_root_store = X509Store()
+        self.untrust_ca_store = set()
 
-        for dir in os.scandir(self.x509_store_path):
+        # load all CCADB trusted root
+        for file in os.scandir(TRUST_ROOT_DIR):
+            if os.path.isfile(file.path):
+                self.trust_root_store.load_locations(file.path)
+
+        # prepare untrusted but stored ca certs from CT
+        for dir in os.scandir(CA_CERT_DIR):
             if os.path.isdir(dir.path):
                 self.unique_ca_certs_file = os.path.join(dir.path, "unique_ca_certs")
-                try:
-                    with open(self.unique_ca_certs_file, 'r') as f:
-                        cert_data = f.read()
+                with open(self.unique_ca_certs_file, 'r') as f:
+                    cert_data = f.read()
 
-                    certificates = cert_data.split("-----END CERTIFICATE-----\n")
-                    for cert in certificates:
-                        if "-----BEGIN CERTIFICATE-----" in cert:
-                            cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
-                            self.cert_store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, cert))
+                certificates = cert_data.split("-----END CERTIFICATE-----\n")
+                for cert in certificates:
+                    if "-----BEGIN CERTIFICATE-----" in cert:
+                        cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
+                        self.untrust_ca_store.add(load_certificate(FILETYPE_PEM, cert))
+                my_logger.info(f"Load {len(certificates)} CA certs from {dir.path}")
 
-                    my_logger.info(f"Load {len(certificates)} CA certs from {dir.path}")
-                except FileNotFoundError:
-                    pass
+    '''
+        Function 1: give one leaf (ca) certificate, find all possible cross-sign ca certs (not path now)
+        TODO: replace parent to path and give label trust/untrusted
+    '''
+    def find_cross_sign_certs_from_store(self, cert : str, all = False):
+        cross_sign_certs_num = 0
 
-    # TODO: handle cross-sign and multiple parent CA stuff in the future
-    def build_verified_chain(self, cert):
         try:
-            x509_cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
-            store_ctx = crypto.X509StoreContext(self.cert_store, x509_cert)
-            chain = store_ctx.get_verified_chain()
-            return [crypto.dump_certificate(crypto.FILETYPE_PEM, c).decode('utf-8') for c in chain]
+            x509_cert = load_certificate(FILETYPE_PEM, cert)
+            issuer = x509_cert.get_issuer().der()
 
-        except crypto.X509StoreContextError as e:
+            for ca_cert in self.untrust_ca_store:
+                ca_cert : X509
+                subject = ca_cert.get_subject().der()
+
+                if issuer == subject:
+                    # possible parent
+                    print("see")
+                    # is_parent = self.verify_parent(x509_cert, ca_cert)
+                    # if is_parent:
+                    cross_sign_certs_num += 1
+
+        except X509StoreContextError as e:
             my_logger.error(f"Cert chain analysis failed for cert {e.certificate.get_subject().commonName}...")
-            return None
+        except Exception as e:
+            my_logger.error(f"{e}")
+        finally:
+            return cross_sign_certs_num
+
+    def verify_parent(self, cert, issuer):
+        # build single context to 
+        # in this internal stage, we assume the issuer (even if non-root cert) can be trusted
+        # so that the verify_certificate() can pass
+        try:
+            parent_store = X509Store()
+            parent_store.add_cert(issuer)
+            store_ctx = X509StoreContext(parent_store, cert)
+            store_ctx.verify_certificate()
+            return True
+        except X509StoreContextError as e:
+            return False
 
     '''
-        From GPT
+        Function 2: Verify current cert chain from scan and rebuild if possible
+        TODO: rebuild chain and return the best/all selection(s)
+        顺序混乱 - 调整顺序
+        完整且可信
+        完整但不可信
+        不完整（缺中间、缺根）
+        多余证书
     '''
-    def find_all_chains(self, target_cert, ca_store):
-        """尝试构建所有可能的证书链"""
-        chains = []
+    def verify_and_rebuild_cert_chain(self, cert_chain : list[str]):
+        if not cert_chain: return None
 
-        def build_chain(cert, chain):
-            # 如果当前证书是根证书，终止链
-            if cert.get_subject() == cert.get_issuer():
-                chains.append(chain + [cert])
-                return
+        try:
+            parent_store = X509Store()
+            for cert in cert_chain:
+                parent_store.add_cert(load_certificate(FILETYPE_PEM, cert))
+            store_ctx = X509StoreContext(parent_store, load_certificate(FILETYPE_PEM, cert_chain[0]))
+            store_ctx.verify_certificate()
+            return True
 
-            # 在存储中查找所有可能的 Issuer
-            for ca_cert in ca_store:
-                if ca_cert.get_subject() == cert.get_issuer():
-                    build_chain(ca_cert, chain + [cert])
+        except X509StoreContextError as e:
+            # print(len(cert_chain))
+            # my_logger.error(f"Cert chain analysis failed for cert {e.certificate.get_subject().commonName}...")
+            return False
 
-        # 从目标证书开始构建
-        build_chain(target_cert, [])
-        return chains
+    # @TODO use this instead
+    def validate_and_order_cert_chain(self, cert_chain):
+        """
+        验证给定的证书链的有效性，并尝试修复其顺序或补全缺失证书。
 
-    def verify_chain_signature(self, chain):
-        """验证证书链的完整性"""
-        for i in range(len(chain) - 1):
-            cert = chain[i]
-            issuer_cert = chain[i + 1]
-            try:
-                issuer_cert.public_key().verify(
-                    cert.signature,
-                    cert.tbs_certificate_bytes,
-                    padding.PKCS1v15(),
-                    cert.signature_hash_algorithm,
-                )
-            except Exception as e:
-                return False
-        return True
+        参数:
+            cert_chain (list): 证书链，包含多个 X509 对象，可能顺序错误或不完整。
+            x509_store (X509Store): 用于验证和补全证书链的信任存储。
+
+        返回:
+            list: 一个按顺序排列的有效证书链（从叶子到根），如果成功。
+            None: 如果无法构建有效的证书链。
+
+        异常:
+            Exception: 如果验证失败或无法补全证书链。
+        """
+
+        # check and rebuild cert chain order
+        try:
+            # 建立颁发者到证书的映射
+            issuer_to_cert = {cert.get_issuer().der() : cert for cert in cert_chain}
+
+            # 构造链：从叶子开始，尝试找到匹配的颁发者
+            ordered_chain = [cert_chain[0]]  # 从叶子证书开始
+            current_cert = cert_chain[0]
+
+            while True:
+                issuer = current_cert.get_issuer().der()
+                if issuer in issuer_to_cert:
+                    next_cert = issuer_to_cert[issuer]
+                    ordered_chain.append(next_cert)
+                    current_cert = next_cert
+                else:
+                    break
+
+            # 验证并返回重组的链
+            ordered_chain = self.build_chain(ordered_chain)
+            return ordered_chain
+        except Exception:
+            pass
+
+        # 尝试使用信任存储中的证书补全链
+        try:
+            # 从信任存储补全链
+            extended_chain = cert_chain[:]
+            store_certs = []
+
+            # 遍历存储的证书，添加到链中
+            for i in range(self.trust_root_store.get_count()):
+                store_certs.append(x509_store.get_cert(i))
+            issuer_to_cert.update({cert.get_issuer().der(): cert for cert in store_certs})
+
+            # 构造完整链
+            ordered_chain = [cert_chain[0]]
+            current_cert = cert_chain[0]
+
+            while True:
+                issuer = current_cert.get_issuer().der()
+                if issuer in issuer_to_cert:
+                    next_cert = issuer_to_cert[issuer]
+                    if next_cert not in ordered_chain:
+                        ordered_chain.append(next_cert)
+                        current_cert = next_cert
+                    else:
+                        break
+                else:
+                    break
+
+            # 验证补全后的链
+            ordered_chain = self.build_chain(ordered_chain)
+            return ordered_chain
+        except Exception:
+            pass
+
+        # 最后一步：如果所有尝试都失败，返回错误
+        raise Exception("Failed to construct a valid certificate chain.")
 
 
 class DomainChainAnalyzer():

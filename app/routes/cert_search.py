@@ -10,7 +10,7 @@ from flask_login import login_required, current_user
 from ..parser.cert_parser_base import X509CertParser
 from ..parser.pem_parser import PEMParser
 from ..logger.logger import my_logger
-from ..analyzer.cert_analyze_chain import CertScanChainAnalyzer
+from ..analyzer.cert_analyze_chain import CertChainAnalyzer
 
 
 @base.route('/system/cert_search/list', methods=['GET'])
@@ -112,8 +112,8 @@ def get_cert_chain():
     if not pem_data:
         return jsonify({'code': 400, 'msg': '缺少 PEM 数据'})
     try:
-        analyzer = CertScanChainAnalyzer()
-        pem_chain = analyzer.build_verified_chain(pem_data)
+        analyzer = CertChainAnalyzer()
+        pem_chain = analyzer.find_cross_sign_certs_from_store(pem_data)
         parsed_chain = [PEMParser.parse_native_pretty(cert) for cert in pem_chain]
 
         my_logger.info(parsed_chain)

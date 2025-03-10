@@ -107,7 +107,7 @@ class DomainScanner(Scanner):
         queue = [tls1_2_forward, tls1_2_reverse, tls1_2_top_half, tls1_2_bottom_half, tls1_2_middle_out, tls1_1_middle_out, tls1_3_forward, tls1_3_reverse, tls1_3_invalid, tls1_3_middle_out]
 
         # First, resolve the host
-        ipv4, ipv6 = resolve_host_dns(destination_host)
+        ipv4, ipv6 = resolve_host_dns(destination_host, dns_servers=['114.114.114.114'])
         
         # Iterate through all the IPs
         for destination_ip in ipv4 + ipv6:
@@ -310,7 +310,8 @@ class DomainScanner(Scanner):
         window = 100000
 
         while not self.crtl_c_event.is_set():
-            file_name = f"domain_scan_{self.scan_name}_result_{index * window}_{(index + 1) * window}"
+            n = self.scan_name.replace(" ", "_")
+            file_name = f"{n}_{index * window}_{(index + 1) * window}"
             save_file_path = os.path.join(self.storage_dir, file_name)
             my_logger.info(f"Opening {save_file_path}...")
 
@@ -336,57 +337,4 @@ class DomainScanner(Scanner):
                 index += 1
 
         my_logger.info("Thread for saving results finishes normally")
-
-
-        # with self.cached_results_lock:
-        #     with app.app_context():
-        #         my_logger.info(f"Saving {len(self.cached_results)} results...")
-
-        #         scan_status_data_to_insert = []
-        #         cert_data_to_insert = {}
-        #         cert_metadata_to_insert = []
-
-        #         for result in self.cached_results:
-        #             scan_status_data_to_insert.append(
-        #                 ScanData(
-        #                     SCAN_TIME = result['scan_time'],
-        #                     DOMAIN = result['host'],
-        #                     IP = result['ip'],
-        #                     ERROR_MSG = result['error'],
-        #                     RECEIVED_CERTS = result['sha256'],
-        #                     TLS_VERSION = result['tls_version'],
-        #                     TLS_CIPHER = result['tls_cipher']
-        #                 )
-        #             )
-
-        #             for i in range(len(result['sha256'])):
-        #                 cert_data_to_insert[result['sha256'][i]] = result['certificate'][i]
-        #                 cert_metadata_to_insert.append(
-        #                     {
-        #                         'CERT_ID' : result['sha256'][i],
-        #                         'SCAN_DATE' : result['scan_time'],
-        #                         'SCAN_DOMAIN' : result['host'],
-        #                         'SCAN_IP' : result['ip']
-        #                     }
-        #                 )
-        #         try:
-        #             cert_data_to_insert = [{'CERT_ID' : key, 'CERT_RAW' : value} for key, value in cert_data_to_insert.items()]
-        #             db.session.expunge_all()
-        #             db.session.add_all(scan_status_data_to_insert)
-        #             db.session.commit()
-
-        #             # many many primary key dupliates...
-        #             # need to deal with Integrity Error with duplicate primary key pair with bulk_insert_mappings
-        #             insert_cert_raw_statement = insert(CertStoreRaw).values(cert_data_to_insert).prefix_with('IGNORE')
-        #             db.session.execute(insert_cert_raw_statement)
-        #             db.session.commit()
-
-        #             # db.session.bulk_insert_mappings(CertScanMeta, cert_metadata_to_insert)
-        #             insert_cert_scan_metadata_statement = insert(CertScanMeta).values(cert_metadata_to_insert).prefix_with('IGNORE')
-        #             db.session.execute(insert_cert_scan_metadata_statement)
-        #             db.session.commit()
-        #         except Exception as e:
-        #             my_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
-
-        #     self.cached_results = []
 
