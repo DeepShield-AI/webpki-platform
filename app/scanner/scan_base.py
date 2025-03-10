@@ -7,10 +7,11 @@ import socks
 import codecs
 import ipaddress
 import http.client
+import subprocess
 
 from abc import ABC, abstractmethod
 from threading import Lock
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
+from rich.progress import Progress, TaskID
 from rich.console import Console
 
 from datetime import datetime, timezone
@@ -19,12 +20,11 @@ from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
 from dataclasses import dataclass
 
 from .jarm_fp_utils import *
-from ..config.scan_config import ScanConfig
+from ..config.scan_config import ScanConfig, ZGRAB2_PATH, ZMAP_PATH
 from ..utils.type import ScanType, ScanStatusType
 from ..utils.exception import RetriveError
-from ..utils.network import resolve_host_dns
 from ..logger.logger import my_logger
-from ..models import ScanStatus, generate_cert_data_table
+from ..models import ScanStatus
 
 
 @dataclass
@@ -66,6 +66,7 @@ class Scanner(ABC):
 
         # scan settings from scan config
         self.scan_id = scan_id
+        self.scan_name = scan_config.SCAN_PROCESS_NAME
         self.scan_start_time = start_time
 
         self.storage_dir = scan_config.STORAGE_DIR
@@ -123,7 +124,8 @@ class Scanner(ABC):
 
             # my_logger.info(f"Getting certs from {host}...")
             sock_ssl = SSL.Connection(ctx, proxy_socket)
-            sock_ssl.set_tlsext_host_name(host.encode())  # SNI is here
+            if host:
+                sock_ssl.set_tlsext_host_name(host.encode())  # SNI is here
             sock_ssl.set_connect_state()
 
             retry_count = 0
@@ -276,6 +278,48 @@ class Scanner(ABC):
             my_logger.error(f"Exception {e} happens when reading server hello packet, probably the packet is not server hello...")
             return "|||"
 
+
+    # External scan tools caller functions
+    def run_zmap(self, input_file, output_file):
+        # handle input_file here
+        if input_file: return
+        
+        zmap_command = [
+            ZMAP_PATH,
+            '-p', '443',
+            '-o', output_file,
+            '-B', '25M',    # can increase to 30M, but might cause server stuck
+            # '-P', '2',      # send two probes to each target
+            '-v', '3',      # set log level to 3, in the future to 0
+            # '-q',           # run in quiet mode
+            '0.0.0.0/0'     # scan all IPv4
+        ]
+
+        try:
+            subprocess.run(zmap_command, capture_output=False, text=True, check=True)
+            my_logger.info(f"Zmap scan completed. Output saved to: {output_file}")
+        except subprocess.CalledProcessError as e:
+            my_logger.error("Error occurred while running Zmap:")
+            my_logger.error(e.stderr)
+
+
+    def run_zgrab2(self, input_file, output_file):
+        command = [
+            ZGRAB2_PATH,
+            "--senders", f"{self.max_threads_alloc}",
+            "--input-file", input_file,
+            "--output-file", output_file,
+            "tls"
+        ]
+        # Add heatbleed vulnerability check
+        # command.append("--heartbleed")
+
+        try:
+            subprocess.run(command, capture_output=False, text=True, check=True)
+            my_logger.info(f"Zgrab2 scan completed. Output saved to: {output_file}")
+        except subprocess.CalledProcessError as e:
+            my_logger.error("Error occurred while running Zgrab2:")
+            my_logger.error(e.stderr)
 
     '''
         @Methods for all types of scans

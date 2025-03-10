@@ -7,7 +7,7 @@
 
 from app import app
 from flask import request, render_template, jsonify
-
+from flask_login import current_user
 
 @app.errorhandler(404)
 def page_not_found(e):
@@ -22,6 +22,9 @@ def before():
     # print("---请求headers--end----")
     print("GET参数：" + str(request.args))
     print("POST参数：" + str(request.form))
+
+    # print(f"Is Authenticated: {current_user.is_authenticated}")
+    # print(f"Current User: {current_user}")
 
     url = request.path  # 当前请求的URL
     passUrl = ["/login"]

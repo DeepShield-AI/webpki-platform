@@ -48,8 +48,11 @@ class CertAnalysisStats(db.Model):
 class CertChainRelation(db.Model):
     __tablename__ = "CERT_CHAIN_RELATION"
 
-    CERT_ID = db.Column(db.String(64), db.ForeignKey('CERT_STORE_RAW.CERT_ID'), primary_key=True, nullable=False, index=True)
-    CERT_PARENT_ID = db.Column(db.String(64), db.ForeignKey('CA_CERT_STORE.CERT_ID'), primary_key=True, nullable=False, index=True)
+    # CERT_ID = db.Column(db.String(64), db.ForeignKey('CERT_STORE_RAW.CERT_ID'), primary_key=True, nullable=False, index=True)
+    # CERT_PARENT_ID = db.Column(db.String(64), db.ForeignKey('CA_CERT_STORE.CERT_ID'), primary_key=True, nullable=False, index=True)
+
+    CERT_ID = db.Column(db.String(64), primary_key=True, nullable=False, index=True)
+    CERT_PARENT_ID = db.Column(db.String(64), primary_key=True, nullable=False, index=True)
 
     def to_json(self):
         return {
@@ -62,3 +65,24 @@ class CertChainRelation(db.Model):
 
     def __repr__(self):
         return f"<CertChainRelation {self.CERT_ID}>"
+
+
+class DomainTrustRelation(db.Model):
+    __tablename__ = 'DOMAIN_TRUST_RELATION'
+    
+    DOMAIN = db.Column(db.String(512), primary_key=True, nullable=False)
+    CERT_ID = db.Column(db.String(64), primary_key=True, nullable=False)
+    NOT_VALID_BEFORE = db.Column(db.DateTime, nullable=False)
+    NOT_VALID_AFTER = db.Column(db.DateTime, nullable=False)
+    
+    def to_json(self):
+        return {
+            "domain": self.DOMAIN,
+            "cert_id" : self.CERT_ID,
+            "not_before" : self.NOT_VALID_BEFORE,
+            "not_after" : self.NOT_VALID_AFTER
+        }
+    
+    def __repr__(self):
+        return f"<DomainTrustRelation(DOMAIN='{self.DOMAIN}', CERT_ID='{self.CERT_ID}')>"
+    

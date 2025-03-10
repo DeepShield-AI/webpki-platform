@@ -1,8 +1,7 @@
 
 import sys
-sys.path.append(r"D:\global_ca_monitor")
+sys.path.append(r"/root/pki-internet-platform")
 
-import os
 import time
 from app import app
 from app.config.scan_config import DomainScanConfig
@@ -14,17 +13,18 @@ if __name__ == "__main__":
     with app.app_context():
         scan_type = ScanType(ScanType.SCAN_BY_DOMAIN)
         scan_args = {
-            'MAX_THREADS_ALLOC' : 1000,
+            'SCAN_TOOL' : "self",
+            'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 2,
-            'INPUT_DOMAIN_LIST_FILE' : os.path.join(os.path.dirname(__file__), r"../../data/domain_list/domain_list_nimbus"),
-            'SCAN_PROCESS_NAME': "nimbus_associate_domain_list",
-            'STORAGE_DIR' : "out",
-            'SCAN_TIMEOUT' : 2,
-            'MAX_RETRY' : 2,
-            'DOMAIN_RANK_START': 0,
-            'NUM_DOMAIN_SCAN' : 120389,
+            'INPUT_DOMAIN_LIST_FILE' : r"/root/pki-internet-platform/data/gov_domains/cn/cn_gov_20241106_central",
+            'SCAN_PROCESS_NAME': "CN GOV 20241203 Central",
+            'STORAGE_DIR' : r"/data/self_scan_data/CN_GOV_20241203",
+            'SCAN_TIMEOUT' : 10,
+            'MAX_RETRY' : 10,
+            'DOMAIN_INDEX_START': 0,
+            'NUM_DOMAIN_SCAN' : 100000,
             'TLS_FP_TYPE' : "jarm",
-            'TLS_FP_ONLY' : True
+            'TLS_FP_ONLY' : False
         }
 
         config = DomainScanConfig(**scan_args)

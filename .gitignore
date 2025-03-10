@@ -8,6 +8,7 @@ __pycache__
 
 # Server temp files
 .DS_Store
+# uwsgi.ini
 uwsgi.pid
 
 # Large data files
@@ -22,3 +23,17 @@ script/*/*.csv
 script/*/*/*.txt
 script/*/*/*.png
 script/*/*/*.csv
+
+# script/fig_generation/cert_replica/*.txt
+# script/fig_generation/cert_replica/*.png
+# script/fig_generation/attack_result/*.txt
+# script/fig_generation/attack_result/*.png
+
+# python venv
+bin/
+lib/
+lib64
+include
+pyvenv.cfg
+share/
+myenv/

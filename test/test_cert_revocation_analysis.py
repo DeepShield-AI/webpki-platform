@@ -3,7 +3,6 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 from app import app, db
-from app.models import CertAnalysisStats, CertStoreContent, CertStoreRaw, CaCertStore
 from app.analyzer.cert_analyze_revocation import CertRevocationAnalyzer
 from sqlalchemy import create_engine, MetaData, Table
 
