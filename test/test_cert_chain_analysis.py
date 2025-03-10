@@ -4,7 +4,7 @@ sys.path.append(r"/root/pki-internet-platform")
 
 from app import app, db
 from app.models import CertAnalysisStats, CertStoreContent, CertStore, CaCertStore
-from app.analyzer.cert_analyze_chain import CertScanChainAnalyzer, DomainChainAnalyzer
+from app.analyzer.cert_analyze_chain import CertChainAnalyzer, DomainChainAnalyzer
 from sqlalchemy import create_engine, MetaData, Table
 
 analyzer = DomainChainAnalyzer()

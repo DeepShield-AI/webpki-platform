@@ -2,7 +2,6 @@
 import sys
 sys.path.append(r"/root/pki-internet-platform")
 
-import os
 import time
 from app import app
 from app.config.scan_config import DomainScanConfig
@@ -14,18 +13,18 @@ if __name__ == "__main__":
     with app.app_context():
         scan_type = ScanType(ScanType.SCAN_BY_DOMAIN)
         scan_args = {
-            'SCAN_TOOL' : "zgrab2",
-            'MAX_THREADS_ALLOC' : 100,
+            'SCAN_TOOL' : "self",
+            'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 2,
-            'INPUT_DOMAIN_LIST_FILE' : r"/root/pki-internet-platform/data/top_domains/cisco-top-1m.csv",
-            'SCAN_PROCESS_NAME': "CiscoTop1M 20250112",
-            'STORAGE_DIR' : r"/data/zgrab2_scan_data",
+            'INPUT_DOMAIN_LIST_FILE' : r"/root/pki-internet-platform/data/enterprise_domains/cn/soe",
+            'SCAN_PROCESS_NAME': "CN SOE 20241201",
+            'STORAGE_DIR' : r"/data/self_scan_data/CN_SOE_20241201",
             'SCAN_TIMEOUT' : 10,
             'MAX_RETRY' : 10,
             'DOMAIN_INDEX_START': 0,
-            'NUM_DOMAIN_SCAN' : 1000000,
+            'NUM_DOMAIN_SCAN' : 100000,
             'TLS_FP_TYPE' : "jarm",
-            'TLS_FP_ONLY' : True
+            'TLS_FP_ONLY' : False
         }
 
         config = DomainScanConfig(**scan_args)

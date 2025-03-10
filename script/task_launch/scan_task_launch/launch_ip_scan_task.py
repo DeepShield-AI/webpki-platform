@@ -17,7 +17,7 @@ if __name__ == "__main__":
             'MAX_THREADS_ALLOC' : 1000,
             'THREAD_WORKLOAD' : 2,
             'INPUT_IP_LIST_FILE' : r"/root/pki-internet-platform/data/top_domains/cisco-top-1m.csv",
-            'SCAN_PROCESS_NAME': "Full IPv4 20241124",
+            'SCAN_PROCESS_NAME': "Full IPv4 20250209",
             'SCAN_PORT' : 433,
             'STORAGE_DIR' : r"/data/ip_scan_data",
             'SCAN_TIMEOUT' : 10,
