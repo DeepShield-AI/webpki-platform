@@ -13,12 +13,13 @@ if __name__ == "__main__":
     with app.app_context():
         scan_type = ScanType(ScanType.SCAN_BY_DOMAIN)
         scan_args = {
-            'SCAN_TOOL' : "self",
+            'SCAN_TOOL' : "zgrab2",
             'MAX_THREADS_ALLOC' : 50,
             'THREAD_WORKLOAD' : 2,
-            'INPUT_DOMAIN_LIST_FILE' : r"/root/pki-internet-platform/data/gov_domains/cn/cn_gov_20241106_central",
-            'SCAN_PROCESS_NAME': "CN GOV 20241203 Central",
-            'STORAGE_DIR' : r"/data/self_scan_data/CN_GOV_20241203",
+            'INPUT_DOMAIN_LIST_FILE' : r"/root/pki-internet-platform/data/gov_domains/cn/cn_gov_20241106",
+            'SCAN_PROCESS_NAME': "CN GOV 20250324",
+            # 'STORAGE_DIR' : r"/data/self_scan_data/CN_GOV_20241203",
+            'STORAGE_DIR' : r"/data/zgrab2_scan_data",
             'SCAN_TIMEOUT' : 10,
             'MAX_RETRY' : 10,
             'DOMAIN_INDEX_START': 0,
