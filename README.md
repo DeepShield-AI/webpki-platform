@@ -88,7 +88,7 @@ Backend:
     cd pki-internet-platform
     python3 -m venv myenv
     source myenv/bin/activate
-    pip install -r requirments.txt
+    pip install -e .
 
 Fronend:
 	cd ui/
@@ -106,7 +106,7 @@ Uwsgi for Backend and Frontend
 	uwsgi --ini uwsgi.ini
 
 Backend:
-	py .\start.py
+    pki-internet-platform
 	
 Frontend:
 	cd ui/
@@ -126,7 +126,7 @@ Uwsgi for Backend and Frontend
 	uwsgi --ini uwsgi.ini
 	
 Backend:
-	py .\start.py
+    pki-internet-platform
 	
 Frontend:
 	cd ui/

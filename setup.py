@@ -12,7 +12,10 @@ setup(
     install_requires=read_requirements(),  # 从 requirements.txt 读取依赖
     entry_points={             # 如果需要命令行工具，可以设置这个
         'console_scripts': [
-            'pki-internet-platform=pki_internet_platform.tool.start:main',  # 假设你的入口函数叫 main
+            'pki-internet-platform=tool.start:main',  # 假设你的入口函数叫 main
         ],
     },
 )
+
+# use `pip install -e .` to set up
+# use `pki-internet-platform` to run
