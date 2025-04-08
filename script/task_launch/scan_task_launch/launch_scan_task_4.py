@@ -4,8 +4,8 @@ sys.path.append(r"/root/pki-internet-platform")
 
 import time
 from backend import app, db
-from backend.manager import g_manager
-from backend.manager.task import TaskBatchTemplate
+from backend.task_manager import g_manager
+from backend.task_manager.task import TaskBatchTemplate
 from backend.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_name = "oak2024h2"

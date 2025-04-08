@@ -23,13 +23,14 @@ from sqlalchemy.dialects.mysql import insert
 from backend import db, app
 from .jarm_fp_utils import *
 from .scan_base import Scanner, ScanStatusData
-from ..config.scan_config import DomainScanConfig, ZGRAB2_PATH
-from ..config.ip_blacklist import IP_BLACKLIST
-from ..utils.cert import get_cert_sha256_hex_from_str
-from ..utils.type import ScanType, ScanStatusType
-from ..utils.json import custom_serializer
-from ..utils.network import resolve_host_dns
-from ..logger.logger import my_logger
+from backend.config.config_loader import ZGRAB2_PATH, ZMAP_PATH
+from backend.config.scan_config import DomainScanConfig
+from backend.config.ip_blacklist import IP_BLACKLIST
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.type import ScanType, ScanStatusType
+from backend.utils.json import custom_serializer
+from backend.utils.network import resolve_host_dns
+from backend.logger.logger import my_logger
 
 
 class DomainScanner(Scanner):

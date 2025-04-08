@@ -1,120 +1,112 @@
 
 import os
+from dataclasses import dataclass, asdict, fields, field
+from typing import List, Type, TypeVar, Any
+
 from flask import Request
-from backend.utils.type import ScanStatusType, ScanType
+from backend.utils.type import ScanType
 
+from backend.config.config_loader import (
+    MAX_THREADS_ALLOC, THREAD_WORKLOAD, SCAN_TIMEOUT, MAX_RETRY,
+    DEFAULT_DOMAIN_LIST_FILE, DEFAULT_IP_LIST_FILE, DEFAULT_STORAGE_DIR
+)
+
+# define a template type variable, can be any type
+T = TypeVar("T")
+
+def from_dict(cls: Type[T], data: dict) -> T:
+    field_names = {f.name for f in fields(cls)}
+    init_data = {k: v for k, v in data.items() if k in field_names}
+    return cls(**init_data)
+
+@dataclass
 class ScanConfig:
-    def __init__(self, **kwargs):
-        # name of scan process
-        self.SCAN_PROCESS_NAME = kwargs.get('SCAN_PROCESS_NAME', '')
-        # scan data output directory (raw data)
-        self.STORAGE_DIR = kwargs.get('STORAGE_DIR', os.path.join(os.path.dirname(__file__), r"../data/raw_cert_data/ct_scan"))
-        # scan concurrency level
-        self.MAX_THREADS_ALLOC = kwargs.get('MAX_THREADS_ALLOC', 100)
-        self.THREAD_WORKLOAD = kwargs.get('THREAD_WORKLOAD', 2000)
-        # proxy settings (if applicable)
-        self.PROXY_HOST = kwargs.get('PROXY_HOST', '127.0.0.1')
-        self.PROXY_PORT = kwargs.get('PROXY_PORT', 33210)
-        # retry settings
-        self.SCAN_TIMEOUT = kwargs.get('SCAN_TIMEOUT', 5)
-        self.MAX_RETRY = kwargs.get('MAX_RETRY', 3)
+    scan_process_name: str = ""
+    storage_dir: str = DEFAULT_STORAGE_DIR
+    max_threads_alloc: int = MAX_THREADS_ALLOC
+    thread_workload: int = THREAD_WORKLOAD
+    proxy_host: str = "127.0.0.1"
+    proxy_port: int = 33210
+    scan_timeout: int = SCAN_TIMEOUT
+    max_retry: int = MAX_RETRY
 
-ZGRAB2_PATH = r"/root/zgrab2/zgrab2"
-ZMAP_PATH = r"/usr/local/sbin/zmap"
+    def to_dict(self) -> dict:
+        return asdict(self)
 
+    @classmethod
+    def from_dict(cls: Type[T], data: dict) -> T:
+        return from_dict(cls, data)
+
+
+@dataclass
 class DomainScanConfig(ScanConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # scan type
-        self.SCAN_TOOL = kwargs.get('SCAN_TOOL', "zgrab2")
-        # domain list file related
-        self.INPUT_DOMAIN_LIST_FILE = kwargs.get('INPUT_DOMAIN_LIST_FILE', r"/root/pki-internet-platform/data/top_domains/cisco-top-1m.csv")
-        self.DOMAIN_INDEX_START = kwargs.get('DOMAIN_INDEX_START', 0)
-        self.NUM_DOMAIN_SCAN = kwargs.get('NUM_DOMAIN_SCAN', 100)
-        self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
-        # TLS fingerprinting config
-        self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
-        self.TLS_FP_ONLY = kwargs.get('TLS_FP_ONLY', True)
+    scan_tool: str = "zgrab2"
+    input_domain_list_file: str = DEFAULT_DOMAIN_LIST_FILE
+    domain_index_start: int = 0
+    num_domain_scan: int = 100
+    scan_port: int = 443
+    tls_fp_type: str = "jarm"
+    tls_fp_only: bool = True
 
 
+@dataclass
 class IPScanConfig(ScanConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # scan type
-        self.SCAN_TOOL = kwargs.get('SCAN_TOOL', "zmap + zgrab2")
-        # IP range file related
-        self.INPUT_IP_LIST_FILE = kwargs.get('INPUT_IP_LIST_FILE', r"/root/pki-internet-platform/data/ip_scan_range/test_range.csv")
-        self.SCAN_PORT = kwargs.get('SCAN_PORT', 443)
-        # TLS fingerprinting config
-        self.TLS_FP_TYPE = kwargs.get('TLS_FP_TYPE', "jarm")
-        self.TLS_FP_ONLY = kwargs.get('TLS_FP_ONLY', True)
+    scan_tool: str = "zmap + zgrab2"
+    input_ip_list_file: str = DEFAULT_IP_LIST_FILE
+    scan_port: int = 443
+    tls_fp_type: str = "jarm"
+    tls_fp_only: bool = True
 
 
+@dataclass
 class CTScanConfig(ScanConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # CT log request url construction
-        self.CT_LOG_NAME = kwargs.get('CT_LOG_NAME', "")
-        self.CT_LOG_ADDRESS = kwargs.get('CT_LOG_ADDRESS', "")
-        self.ENTRY_START = kwargs.get('ENTRY_START', 0)
-        self.ENTRY_END = kwargs.get('ENTRY_END', 1000)
-        self.WINDOW_SIZE = kwargs.get('WINDOW_SIZE', 10)
+    ct_log_name: str = ""
+    ct_log_address: str = ""
+    entry_start: int = 0
+    entry_end: int = 1000
+    window_size: int = 10
 
 
+# field(default_factory=...) 是 dataclasses 中的语法，用来设置可变类型（如 list、dict）的默认值。不能写成：
+# ns: List[str] = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]  # 会导致所有实例共享同一个列表对象
+@dataclass
 class DNSScanConfig(ScanConfig):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # need NS and record types
-        self.NS = kwargs.get('NS', ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
-        self.RECORD_TYPES = kwargs.get("RECORD_TYPES", ["A", "AAAA", "TXT"])
+    ns: List[str] = field(default_factory=lambda: ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
+    record_types: List[str] = field(default_factory=lambda: ["A", "AAAA", "TXT"])
 
 
-config_class_mapping = {
-    ScanType.SCAN_BY_DOMAIN: DomainScanConfig,
-    ScanType.SCAN_BY_IP: IPScanConfig,
-    ScanType.SCAN_BY_CT: CTScanConfig,
-}
-
-def create_scan_config_from_frontend_request(request : Request, scan_type : ScanType):
-
+def create_scan_config_from_frontend_request(request: Request, scan_type: ScanType) -> ScanConfig:
     common_args = {
-        'SCAN_PROCESS_NAME': request.json.get('scan_process_name'),
-        'STORAGE_DIR' : request.json.get('storage_dir'),
-        'MAX_THREADS_ALLOC': int(request.json.get('max_threads_alloc')),
-        'THREAD_WORKLOAD' : int(request.json.get('thread_workload')),
-        'SCAN_TIMEOUT': int(request.json.get('scan_timeout')),
-        'MAX_RETRY': int(request.json.get('max_retry')),
+        'scan_process_name': request.json.get('scan_process_name'),
+        'storage_dir': request.json.get('storage_dir'),
+        'max_threads_alloc': int(request.json.get('max_threads_alloc')),
+        'thread_workload': int(request.json.get('thread_workload')),
+        'scan_timeout': int(request.json.get('scan_timeout')),
+        'max_retry': int(request.json.get('max_retry')),
+        'proxy_host': request.json.get('proxy_host', '127.0.0.1'),
+        'proxy_port': int(request.json.get('proxy_port', 33210)),
     }
 
-    if request.json.get('proxy_host'):
-        common_args['PROXY_HOST'] = request.json.get('proxy_host')
-    if request.json.get('proxy_port'):
-        common_args['PROXY_PORT'] = request.json.get('proxy_port')
-
     if scan_type == ScanType.SCAN_BY_DOMAIN:
-        if request.json.get('input_domain_list_file'):
-            common_args['INPUT_DOMAIN_LIST_FILE'] = request.json.get('input_domain_list_file')
-        if request.json.get('DOMAIN_INDEX_START'):
-            common_args['DOMAIN_INDEX_START'] = request.json.get('DOMAIN_INDEX_START')
-        if request.json.get('num_domain_scan'):
-            common_args['NUM_DOMAIN_SCAN'] = request.json.get('num_domain_scan')
-        return DomainScanConfig(**common_args)
-
-    if scan_type == ScanType.SCAN_BY_IP:
-        if request.json.get('input_ip_list_file'):
-            common_args['INPUT_IP_LIST_FILE'] = request.json.get('input_ip_list_file')
-        return IPScanConfig(**common_args)
-
-    if scan_type == ScanType.SCAN_BY_CT:
-        if request.json.get('ct_log_name'):
-            common_args['CT_LOG_NAME'] = request.json.get('ct_log_name')
-        if request.json.get('ct_log_address'):
-            common_args['CT_LOG_ADDRESS'] = request.json.get('ct_log_address')
-        if request.json.get('entry_start'):
-            common_args['ENTRY_START'] = request.json.get('entry_start')
-        if request.json.get('entry_end'):
-            common_args['ENTRY_END'] = request.json.get('entry_end')
-        if request.json.get('window_size'):
-            common_args['WINDOW_SIZE'] = request.json.get('window_size')
-        return CTScanConfig(**common_args)
-
+        return DomainScanConfig(
+            **common_args,
+            input_domain_list_file=request.json.get('input_domain_list_file'),
+            domain_index_start=int(request.json.get('domain_index_start', 0)),
+            num_domain_scan=int(request.json.get('num_domain_scan', 100)),
+        )
+    elif scan_type == ScanType.SCAN_BY_IP:
+        return IPScanConfig(
+            **common_args,
+            input_ip_list_file=request.json.get('input_ip_list_file')
+        )
+    elif scan_type == ScanType.SCAN_BY_CT:
+        return CTScanConfig(
+            **common_args,
+            ct_log_name=request.json.get('ct_log_name'),
+            ct_log_address=request.json.get('ct_log_address'),
+            entry_start=int(request.json.get('entry_start', 0)),
+            entry_end=int(request.json.get('entry_end', 1000)),
+            window_size=int(request.json.get('window_size', 10)),
+        )
+    else:
+        raise ValueError(f"Unsupported scan_type: {scan_type}")

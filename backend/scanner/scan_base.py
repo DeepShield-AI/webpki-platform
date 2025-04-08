@@ -20,11 +20,12 @@ from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
 from dataclasses import dataclass
 
 from .jarm_fp_utils import *
-from ..config.scan_config import ScanConfig, ZGRAB2_PATH, ZMAP_PATH
-from ..utils.type import ScanType, ScanStatusType
-from ..utils.exception import RetriveError
-from ..logger.logger import my_logger
-from ..models import ScanStatus
+from backend.config.config_loader import ZGRAB2_PATH, ZMAP_PATH
+from backend.config.scan_config import ScanConfig
+from backend.utils.type import ScanType, ScanStatusType
+from backend.utils.exception import RetriveError
+from backend.logger.logger import my_logger
+from backend.models import ScanStatus
 
 
 @dataclass

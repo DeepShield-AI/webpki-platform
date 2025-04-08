@@ -17,8 +17,8 @@ from ..models import ScanStatus, ScanData, CertAnalysisStats
 from ..config.scan_config import DomainScanConfig, IPScanConfig, CTScanConfig
 from ..utils.type import ScanType, ScanStatusType
 
-from ..manager import Manager
-from ..manager.task import Task
+from ..task_manager import Manager
+from ..task_manager.task import Task
 
 class ScanManager(Manager):
 

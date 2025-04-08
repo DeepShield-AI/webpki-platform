@@ -3,7 +3,7 @@ from backend import app, db
 from sqlalchemy import MetaData
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from ..manager import g_thread_executor
+from ..task_manager import g_thread_executor
 from ..logger.logger import my_logger
 from ..utils.exception import ParseError, UnknownTableError
 from ..config.analysis_config import CertAnalysisConfig

@@ -6,8 +6,8 @@ from .ca_analyze_base import CaMetricAnalyzer
 from ..logger.logger import my_logger
 from ..models import ScanStatus, CertAnalysisStats
 from ..config.analysis_config import CertAnalysisConfig, CaAnalysisConfig
-from ..manager import Manager
-from ..manager.task import Task
+from ..task_manager import Manager
+from ..task_manager.task import Task
 from ..utils.exception import RegisterError, UnknownTableError
 
 class AnalysisManager(Manager):

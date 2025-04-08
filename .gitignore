@@ -1,5 +1,6 @@
 
 # Cache files/folders
+.pytest_cache
 /.idea
 /*.pyc
 *.pyc
@@ -24,17 +25,12 @@ script/*/*/*.txt
 script/*/*/*.png
 script/*/*/*.csv
 
-# script/fig_generation/cert_replica/*.txt
-# script/fig_generation/cert_replica/*.png
-# script/fig_generation/attack_result/*.txt
-# script/fig_generation/attack_result/*.png
+script/fig_generation/cert_replica/*.txt
+script/fig_generation/cert_replica/*.png
+script/fig_generation/attack_result/*.txt
+script/fig_generation/attack_result/*.png
 
 # python venv
-bin/
-lib/
-lib64
-include
-pyvenv.cfg
-share/
+.env
 myenv/
 pki_internet_platform.egg-info/

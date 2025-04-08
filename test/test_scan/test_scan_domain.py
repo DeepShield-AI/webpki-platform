@@ -6,8 +6,8 @@ import time
 from backend import app
 from backend.config.scan_config import DomainScanConfig
 from backend.utils.type import ScanType
-from backend.manager import g_manager
-from backend.manager.task import TaskBatchTemplate
+from backend.task_manager import g_manager
+from backend.task_manager.task import TaskBatchTemplate
 
 with app.app_context():
     scan_type = ScanType(ScanType.SCAN_BY_DOMAIN)
