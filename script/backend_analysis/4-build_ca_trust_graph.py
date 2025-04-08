@@ -8,11 +8,11 @@ import signal
 import threading
 from queue import PriorityQueue, Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from app.logger.logger import my_logger
-from app.config.analysis_config import TRUST_ROOT_DIR
-from app.parser.pem_parser import PEMParser, PEMResult
-from app.utils.cert import get_cert_sha256_hex_from_str, is_issuer
-from app.utils.json import custom_serializer
+from backend.logger.logger import my_logger
+from backend.config.analysis_config import TRUST_ROOT_DIR
+from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.utils.cert import get_cert_sha256_hex_from_str, is_issuer
+from backend.utils.json import custom_serializer
 
 class Analyzer():
 

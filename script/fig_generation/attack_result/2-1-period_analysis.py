@@ -7,7 +7,7 @@ import json
 import csv
 import sys
 sys.path.append(r"D:\global_ca_monitor")
-from app.utils.json import custom_serializer
+from backend.utils.json import custom_serializer
 
 def check_entry_time(timestamp):
     timestamp_seconds = timestamp / 1000

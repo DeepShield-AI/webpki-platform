@@ -4,10 +4,10 @@ sys.path.append(r"/root/global_ca_monitor")
 
 import time
 import signal
-from app import app, db
-from app.manager import g_manager
-from app.manager.task import TaskBatchTemplate
-from app.config.scan_config import DomainScanConfig, CTScanConfig
+from backend import app, db
+from backend.manager import g_manager
+from backend.manager.task import TaskBatchTemplate
+from backend.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_address = "oak.ct.letsencrypt.org/2024h2"
 log_name = "sabre2025h2"

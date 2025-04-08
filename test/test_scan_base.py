@@ -5,9 +5,9 @@ sys.path.append(r"E:\global_ca_monitor")
 
 import socket
 from datetime import datetime, timezone
-from app import app
-from app.scanner.scan_by_domain import DomainScanner
-from app.config.scan_config import DomainScanConfig
+from backend import app
+from backend.scanner.scan_by_domain import DomainScanner
+from backend.config.scan_config import DomainScanConfig
 
 # domain = "0-courier.push.apple.com"
 # domain = "platform.hicloud.com"

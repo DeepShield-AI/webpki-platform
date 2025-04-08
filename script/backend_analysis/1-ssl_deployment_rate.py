@@ -14,12 +14,12 @@ from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.dialects.mysql import insert
 
-from app import db, app
-from app.utils.cert import get_cert_sha256_hex_from_str
-from app.utils.type import ScanType, ScanStatusType
-from app.utils.json import custom_serializer
-from app.utils.network import resolve_host_dns
-from app.logger.logger import my_logger
+from backend import db, app
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.type import ScanType, ScanStatusType
+from backend.utils.json import custom_serializer
+from backend.utils.network import resolve_host_dns
+from backend.logger.logger import my_logger
 
 class Analyzer():
 

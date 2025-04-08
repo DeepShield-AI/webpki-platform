@@ -1,8 +1,8 @@
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from app import app, db
-from app.models import CertAnalysisStats
+from backend import app, db
+from backend.models import CertAnalysisStats
 from sqlalchemy import create_engine, MetaData, Table
 
 with app.app_context():

@@ -4,10 +4,10 @@ sys.path.append(r"E:\global_ca_monitor")
 
 import multiprocessing
 from threading import Thread
-from app import app, db
-from app.manager import g_manager
-from app.manager.task import TaskBatchTemplate
-from app.config.analysis_config import CaAnalysisConfig
+from backend import app, db
+from backend.manager import g_manager
+from backend.manager.task import TaskBatchTemplate
+from backend.config.analysis_config import CaAnalysisConfig
 
 with app.app_context():
     analyze_args = {

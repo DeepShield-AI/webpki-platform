@@ -2,14 +2,14 @@
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
 import numpy as np
 import matplotlib.pyplot as plt
-from app.utils.exception import UnknownTableError, ParseError
-from app.utils.cert import get_cert_sha256_hex_from_str
-from app.parser.cert_parser_base import X509CertParser
-from app.parser.cert_parser_extension import SubjectKeyIdentifier, SubjectKeyIdentifierResult
+from backend.utils.exception import UnknownTableError, ParseError
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.parser.cert_parser_base import X509CertParser
+from backend.parser.cert_parser_extension import SubjectKeyIdentifier, SubjectKeyIdentifierResult
 from collections import Counter
 
 def merge_dict(d1, d2):

@@ -2,11 +2,11 @@
 import sys
 sys.path.append(r"/root/global_ca_monitor")
 
-from app import app
-from app.config.scan_config import CTScanConfig
-from app.utils.type import ScanType
-from app.manager import g_manager
-from app.manager.task import TaskBatchTemplate
+from backend import app
+from backend.config.scan_config import CTScanConfig
+from backend.utils.type import ScanType
+from backend.manager import g_manager
+from backend.manager.task import TaskBatchTemplate
 
 log_address = "oak.ct.letsencrypt.org/2024h1"
 header_request = f"https://{log_address}/ct/v1/get-sth"

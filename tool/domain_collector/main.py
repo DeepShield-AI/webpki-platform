@@ -3,9 +3,9 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 import json
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
-from app.utils.exception import UnknownTableError
+from backend.utils.exception import UnknownTableError
 from src.retrieve_ca_domain_from_cert import retrieve_ca_owned_domains_from_cert, get_domain
 from src.recursive_collect import retrieve_domain
 

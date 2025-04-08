@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"D:\global_ca_monitor")
 
 import json
-from app.utils.json import custom_serializer
+from backend.utils.json import custom_serializer
 
 # 读取 JSON 文件并转化为符合要求的格式
 def convert_json(input_file, output_file):

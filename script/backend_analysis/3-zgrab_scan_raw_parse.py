@@ -8,9 +8,9 @@ import threading
 import signal
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from app.logger.logger import my_logger
-from app.utils.json import custom_serializer
-from app.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
+from backend.logger.logger import my_logger
+from backend.utils.json import custom_serializer
+from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
 
 class Analyzer():
 

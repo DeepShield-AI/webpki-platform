@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 import json
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
 # from app.utils.exception import UnknownTableError
 

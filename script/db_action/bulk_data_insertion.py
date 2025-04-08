@@ -6,10 +6,10 @@ import os, json
 from sqlalchemy.dialects.mysql import insert
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 
-from app import app, db
-from app.models import CertStore
-from app.logger.logger import my_logger
-from app.utils.cert import get_cert_sha256_hex_from_str
+from backend import app, db
+from backend.models import CertStore
+from backend.logger.logger import my_logger
+from backend.utils.cert import get_cert_sha256_hex_from_str
 
 data = {}
 input_file = r"/data/zgrab2_scan_data/CiscoTop1M_20241110"

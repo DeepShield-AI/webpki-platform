@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 import time
-from app.utils.domain_lookup import DomainLookup
+from backend.utils.domain_lookup import DomainLookup
 
 
 start_time = time.time()

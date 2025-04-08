@@ -12,17 +12,17 @@ import subprocess
 from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from app.parser.pem_parser import PEMParser, PEMResult
-from app.config.analysis_config import ZLINT_PATH
-from app.utils.cert import get_cert_sha256_hex_from_str
-from app.utils.json import custom_serializer
-from app.logger.logger import my_logger
+from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.config.analysis_config import ZLINT_PATH
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.json import custom_serializer
+from backend.logger.logger import my_logger
 
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from app.logger.logger import my_logger
-from app.utils.json import custom_serializer
-from app.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
+from backend.logger.logger import my_logger
+from backend.utils.json import custom_serializer
+from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
 from collections import defaultdict
 
 final_data = defaultdict(int)  # or defaultdict(dict), depending on your needs

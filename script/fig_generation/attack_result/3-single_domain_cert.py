@@ -4,7 +4,7 @@ import csv
 import os
 import sys
 sys.path.append(r"D:\global_ca_monitor")
-from app.utils.json import custom_serializer
+from backend.utils.json import custom_serializer
 
 rank_dict = {}
 top_domain_related = {}

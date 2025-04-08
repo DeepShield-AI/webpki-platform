@@ -6,7 +6,7 @@ from datetime import datetime
 import sys
 sys.path.append(r"D:\global_ca_monitor")
 
-from app.parser.pem_parser import PEMParser
+from backend.parser.pem_parser import PEMParser
 
 
 def check_entry_time(timestamp):

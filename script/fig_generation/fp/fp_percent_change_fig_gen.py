@@ -2,7 +2,7 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 import json
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
 # from app.utils.exception import UnknownTableError
 from datetime import datetime, timezone
@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import pandas as pd
-from app.utils.exception import UnknownTableError
+from backend.utils.exception import UnknownTableError
 
 with app.app_context():
 

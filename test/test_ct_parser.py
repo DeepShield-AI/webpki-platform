@@ -5,8 +5,8 @@ sys.path.append(r"E:\global_ca_monitor")
 import json
 import base64
 import requests
-from app.parser.ct_parser import *
-from app.logger.logger import my_logger
+from backend.parser.ct_parser import *
+from backend.logger.logger import my_logger
 from OpenSSL import crypto
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 

@@ -1,13 +1,13 @@
 
-from app import app, db
+from backend import app, db
 from typing import List, Dict
 from threading import Lock
 from sqlalchemy import MetaData, Table
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from app.utils.exception import ParseError, UnknownTableError
-from app.parser.cert_parser_base import X509CertParser
-from app.parser.cert_parser_extension import SANResult
-from app.utils.type import CertType
+from backend.utils.exception import ParseError, UnknownTableError
+from backend.parser.cert_parser_base import X509CertParser
+from backend.parser.cert_parser_extension import SANResult
+from backend.utils.type import CertType
 from urllib.parse import urlparse
 
 result_list_lock = Lock()

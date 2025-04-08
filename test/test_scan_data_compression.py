@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"D:\global_ca_monitor")
 
 import asyncio
-from app.utils.ct_scan_data_compression import CompressScanContent
+from backend.utils.ct_scan_data_compression import CompressScanContent
 
 compressor = CompressScanContent(
     load_dir=r'H:/sabre2024h2',

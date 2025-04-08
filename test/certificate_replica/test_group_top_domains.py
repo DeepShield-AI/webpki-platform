@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"D:\global_ca_monitor")
 
 import time
-from app.analyzer.certificate_replicas.group_top_domains import DataParser
+from backend.analyzer.certificate_replicas.group_top_domains import DataParser
 
 # parser = DataParser(log_name="nimbus2024", load_dir=r'H:/nimbus2024', save_dir=r'D:/global_ca_monitor/data/group_top_domains_nimbus')
 # parser.start()

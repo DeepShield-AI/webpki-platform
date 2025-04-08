@@ -14,12 +14,12 @@ from urllib.parse import urlparse
 from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from app.analyzer.cert_analyze_chain import CertChainAnalyzer
-from app.parser.pem_parser import PEMParser, PEMResult
-from app.config.analysis_config import ZLINT_PATH
-from app.utils.cert import get_cert_sha256_hex_from_str
-from app.utils.json import custom_serializer
-from app.logger.logger import my_logger
+from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
+from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.config.analysis_config import ZLINT_PATH
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.json import custom_serializer
+from backend.logger.logger import my_logger
 
 output_file = open("certs.json", "w", encoding='utf-8')
 existing_domain = set()

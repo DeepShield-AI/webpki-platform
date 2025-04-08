@@ -1,8 +1,8 @@
 
-from app.scanner.scan_by_domain import DomainScanner
-from app.config.scan_config import DomainScanConfig
-from app.parser.cert_parser_base import X509CertParser
-from app.parser.cert_parser_extension import SANResult
+from backend.scanner.scan_by_domain import DomainScanner
+from backend.config.scan_config import DomainScanConfig
+from backend.parser.cert_parser_base import X509CertParser
+from backend.parser.cert_parser_extension import SANResult
 from .retrieve_ca_domain_from_cert import get_domain
 
 import re

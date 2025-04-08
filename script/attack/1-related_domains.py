@@ -17,10 +17,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 from rich.console import Console
 from threading import Lock, Thread
-from app.parser.pem_parser import PEMParser, PEMResult
-from app.utils.json import custom_serializer, split_json_objects
-from app.utils.cert import get_cert_sha256_hex_from_str
-from app.utils.domain_lookup import DomainLookup
+from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.utils.json import custom_serializer, split_json_objects
+from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.domain_lookup import DomainLookup
 
 
 # 读取排名数据

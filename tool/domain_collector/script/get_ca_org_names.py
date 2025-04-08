@@ -2,9 +2,9 @@
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
-from app.utils.exception import UnknownTableError
+from backend.utils.exception import UnknownTableError
 
 ca_org_name_list = set()
 ca_org_issued_cert_dict = {}

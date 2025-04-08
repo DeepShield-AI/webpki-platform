@@ -1,9 +1,9 @@
 
 import sys
 sys.path.append(r"D:\global_ca_monitor")
-from app.parser.pem_parser import PEMParser
-from app.parser.cert_asn1_struct_fp import ASN1StructFP
-from app.utils.json import custom_serializer
+from backend.parser.pem_parser import PEMParser
+from backend.parser.cert_asn1_struct_fp import ASN1StructFP
+from backend.utils.json import custom_serializer
 
 import json
 with open(r'test_certs/baidu.com_single.pem', 'r') as f:

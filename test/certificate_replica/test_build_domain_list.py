@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"D:\global_ca_monitor")
 
 import time
-from app.analyzer.certificate_replicas.build_domain_list import BuildDomainList
+from backend.analyzer.certificate_replicas.build_domain_list import BuildDomainList
 
 # parser = BuildDomainList(
 #     log_name = "sabre",

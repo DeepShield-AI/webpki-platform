@@ -3,8 +3,8 @@ import sys
 sys.path.append(r"D:\global_ca_monitor")
 
 import json
-from app.analyzer.certificate_replicas.replica_counting import ReplicaCounting
-from app.utils.domain_lookup import DomainRank
+from backend.analyzer.certificate_replicas.replica_counting import ReplicaCounting
+from backend.utils.domain_lookup import DomainRank
 # from app.analyzer.certificate_replicas.overlap_analysis import OverlapAnalysis
 # from app.analyzer.certificate_replicas.issuer_analysis import IssuerAnalysis
 # from app.analyzer.certificate_replicas.pub_key_analysis import PubKeyAnalysis

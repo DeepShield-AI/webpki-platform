@@ -37,3 +37,4 @@ include
 pyvenv.cfg
 share/
 myenv/
+pki_internet_platform.egg-info/

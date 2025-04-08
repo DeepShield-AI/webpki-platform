@@ -4,7 +4,7 @@ sys.path.append(r"D:\global_ca_monitor")
 
 import os
 import json
-from app.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_cert_sha256_hex_from_str
 
 load_dir = r'H:/oak2024'
 

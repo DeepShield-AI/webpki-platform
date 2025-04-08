@@ -4,11 +4,11 @@ sys.path.append(r"/root/pki-internet-platform")
 
 import os
 import time
-from app import app
-from app.config.scan_config import DomainScanConfig
-from app.utils.type import ScanType
-from app.manager import g_manager
-from app.manager.task import TaskBatchTemplate
+from backend import app
+from backend.config.scan_config import DomainScanConfig
+from backend.utils.type import ScanType
+from backend.manager import g_manager
+from backend.manager.task import TaskBatchTemplate
 
 if __name__ == "__main__":
     with app.app_context():

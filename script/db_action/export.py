@@ -3,7 +3,7 @@ import csv
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from app import app, db
+from backend import app, db
 from sqlalchemy import MetaData
 
 cert_input_table_name = "cert_store_raw"

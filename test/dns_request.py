@@ -2,7 +2,7 @@
 import sys
 sys.path.append(r"/root/pki-internet-platform")
 
-from app.utils.network import *
+from backend.utils.network import *
 
 # print(resolve_host_dns())
 # print(resolve_host_dns(host="www.google.com"))

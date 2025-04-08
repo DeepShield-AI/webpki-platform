@@ -2,8 +2,8 @@
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from app import app, db
-from app.analyzer.cert_analyze_base import CertScanAnalyzer
+from backend import app, db
+from backend.analyzer.cert_analyze_base import CertScanAnalyzer
 from sqlalchemy import create_engine, MetaData, Table
 
 with app.app_context():
