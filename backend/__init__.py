@@ -1,7 +1,7 @@
 from flask import Flask, render_template
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
-from .config.flask_config import flask_config
+from backend.config.flask_config import flask_config
 from flask_login import LoginManager
 import flask_excel as excel
 from flask_cors import CORS
@@ -9,10 +9,9 @@ from flask_cors import CORS
 import os
 import json, base64
 from datetime import datetime, date
+from flask.json.provider import DefaultJSONProvider
 
-JSONEncoder = json.JSONEncoder
-
-class CustomJSONEncoder(JSONEncoder):
+class CustomJSONProvider(DefaultJSONProvider):
     def default(self, obj):
         # if isinstance(obj, datetime):
         #     return obj.isoformat()  # 或者用 obj.strftime("%Y-%m-%d %H:%M:%S") 等其他格式
@@ -43,7 +42,7 @@ def create_app(config_name):
     # CORS(app)
     # CORS(app, origins="http://118.229.43.254:4080")
     #  替换默认的json编码器
-    app.json_encoder = CustomJSONEncoder
+    app.json = CustomJSONProvider(app)
     app.config.from_object(flask_config[config_name])
     flask_config[config_name].init_app(app)
 

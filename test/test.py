@@ -1,7 +1,7 @@
-import socket
 
-# 获取本地 IP 地址
-hostname = socket.gethostname()
-local_ip = socket.gethostbyname(hostname)
+from backend.utils.type import ScanType
 
-print(f"本地 IP 地址: {local_ip}")
+def test_scan_type_enum():
+    assert ScanType.SCAN_BY_CT.value == 2
+    assert isinstance(ScanType.SCAN_BY_DOMAIN, ScanType)
+    assert isinstance(ScanType.SCAN_BY_IP, ScanType)
