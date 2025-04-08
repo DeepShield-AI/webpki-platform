@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa as primitive_dsa, rsa 
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_pem_x509_certificate
 
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..parser.cert_parser_base import X509CertParser
 from ..parser.cert_parser_extension import X509CertExtensionParser, ExtensionResult
 from ..parser.cert_parser_extension import (

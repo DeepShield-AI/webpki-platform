@@ -1,7 +1,7 @@
 
 import dns.resolver
 from typing import Dict, Tuple, List
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 def get_host_dns_records(
         host : str = "www.tsinghua.edu.cn",
@@ -34,18 +34,18 @@ def get_host_dns_records(
                 record_result[record_type].append(rdata.address)
         except dns.resolver.NoAnswer:
             # my_logger.warning(f"No {record_type} record found for {host}.")
-            my_logger.debug(f"No {record_type} record found for {host}.")
+            primary_logger.debug(f"No {record_type} record found for {host}.")
         except dns.resolver.NXDOMAIN as e:
-            my_logger.warning(f"{host} does not exist: {e}")
+            primary_logger.warning(f"{host} does not exist: {e}")
         except dns.resolver.Timeout:
             # my_logger.warning(f"DNS query for {host} timed out.")
-            my_logger.debug(f"DNS query for {host} timed out.")
+            primary_logger.debug(f"DNS query for {host} timed out.")
         except dns.resolver.NoNameservers:
-            my_logger.warning(f"No DNS servers available to resolve {host}.")
+            primary_logger.warning(f"No DNS servers available to resolve {host}.")
         except dns.resolver.NoAnswer:
-            my_logger.debug(f"No DNS records found for {host}")
+            primary_logger.debug(f"No DNS records found for {host}")
         except Exception as e:
-            my_logger.debug(f"Error: {e}")
+            primary_logger.debug(f"Error: {e}")
     return record_result
 
 

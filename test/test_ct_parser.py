@@ -6,7 +6,7 @@ import json
 import base64
 import requests
 from backend.parser.ct_parser import *
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 from OpenSSL import crypto
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
@@ -20,12 +20,12 @@ entries = []
 try:
     response = requests.get(log_server_request, params=params, verify=True)
 except Exception as e:
-    my_logger.warning(f"Exception {e} when requesting CT entries from {start} to {end}")
+    primary_logger.warning(f"Exception {e} when requesting CT entries from {start} to {end}")
 
 if response.status_code == 200:
     entries = json.loads(response.text)['entries']
 else:
-    my_logger.warning(f"Requesting CT entries from {start} to {end} failed.")
+    primary_logger.warning(f"Requesting CT entries from {start} to {end} failed.")
 
 result = []
 for entry in entries:

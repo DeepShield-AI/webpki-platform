@@ -16,11 +16,11 @@ from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.config.analysis_config import ZLINT_PATH
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.json import custom_serializer
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 from backend.utils.json import custom_serializer
 from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
 from collections import defaultdict
@@ -260,7 +260,7 @@ class Analyzer():
                     key_words_set.add("no_sct")
 
         except Exception as e:
-            my_logger.error(e)
+            primary_logger.error(e)
         finally:
             self.queue.put(key_words_set)
 
@@ -274,7 +274,7 @@ class Analyzer():
                     for line in file:
                         # Check if there is signals
                         if self.crtl_c_event.is_set():
-                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                             break
 
                         json_obj = json.loads(line.strip())
@@ -283,7 +283,7 @@ class Analyzer():
 
                     # 等待所有线程完成
                     executor.shutdown(wait=True)
-                    my_logger.info("All threads finished.")
+                    primary_logger.info("All threads finished.")
 
         # Wait for all elements in queue to be handled
         self.queue.join()
@@ -310,14 +310,14 @@ class Analyzer():
                 json_str = json.dumps(final_data, ensure_ascii=False, default=custom_serializer)
                 f.write(json_str + '\n')
             except Exception as e:
-                my_logger.error(f"Save {data} failed, got exception {e}")
+                primary_logger.error(f"Save {data} failed, got exception {e}")
                 pass
 
 
 if __name__ == "__main__":
 
     def signal_handler(sig, frame, analyzer : Analyzer):
-        my_logger.warning("Ctrl+C detected")
+        primary_logger.warning("Ctrl+C detected")
         analyzer.crtl_c_event.set()
         sys.exit(0)
 
@@ -334,5 +334,5 @@ if __name__ == "__main__":
         output_file = r"/data/zgrab2_scan_data/CiscoTop1M_20250112_out",
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()

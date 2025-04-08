@@ -30,7 +30,7 @@ from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.json import custom_serializer
 from backend.utils.network import resolve_host_dns
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 
 
 class DomainScanner(Scanner):
@@ -120,7 +120,7 @@ class DomainScanner(Scanner):
             
             # Check blacklist
             if destination_ip in IP_BLACKLIST:
-                my_logger.warning(f"{destination_ip} lies in IP blacklist, skips")
+                primary_logger.warning(f"{destination_ip} lies in IP blacklist, skips")
                 continue
 
             jarm = ""
@@ -211,12 +211,12 @@ class DomainScanner(Scanner):
                 # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
                 self.data_save_thread.start()
 
-                my_logger.info(f"Scanning...")
+                primary_logger.info(f"Scanning...")
                 with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
                     while not self.task_queue.empty():
                         # Check if there is signals
                         if self.crtl_c_event.is_set():
-                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                             break
 
                         index, host = self.task_queue.get()
@@ -229,7 +229,7 @@ class DomainScanner(Scanner):
 
                     # 等待所有线程完成
                     executor.shutdown(wait=True)
-                    my_logger.info("All threads finished.")
+                    primary_logger.info("All threads finished.")
 
                 # Wait for all elements in queue to be handled
                 self.data_queue.join()
@@ -243,19 +243,19 @@ class DomainScanner(Scanner):
                 self.timer_thread.join()
 
             if self.is_killed:
-                my_logger.info(f"Scan Terminated")
+                primary_logger.info(f"Scan Terminated")
                 with self.scan_status_data_lock:
                     self.scan_status_data.end_time = datetime.now(timezone.utc)
                     self.scan_status_data.status = ScanStatusType.KILLED
             else:
-                my_logger.info(f"Scan Completed")
+                primary_logger.info(f"Scan Completed")
                 with self.scan_status_data_lock:
                     self.scan_status_data.end_time = datetime.now(timezone.utc)
                     self.scan_status_data.status = ScanStatusType.COMPLETED
             self.sync_update_scan_process_info()
 
         else:
-            my_logger.warning("Unrecognized scan tool")
+            primary_logger.warning("Unrecognized scan tool")
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
                 self.scan_status_data.status = ScanStatusType.BACKEND_ERROR
@@ -263,7 +263,7 @@ class DomainScanner(Scanner):
 
 
     def terminate(self):
-        my_logger.info("Terminating domain scan task...")
+        primary_logger.info("Terminating domain scan task...")
         self.crtl_c_event.set()  # 触发退出事件
         self.is_killed = True
 
@@ -278,12 +278,12 @@ class DomainScanner(Scanner):
         while not self.crtl_c_event.is_set():
             self.sync_update_scan_process_info()
             time.sleep(15)
-        my_logger.info("Thread for tracking the scan status terminates normally")
+        primary_logger.info("Thread for tracking the scan status terminates normally")
 
 
     def sync_update_scan_process_info(self):
 
-        my_logger.info(f"Updating...")
+        primary_logger.info(f"Updating...")
         if self.scan_status_data.status == ScanStatusType.RUNNING:
             scan_time = (datetime.now(timezone.utc) - self.scan_status_data.start_time).seconds
         elif self.scan_status_data.status == ScanStatusType.COMPLETED:
@@ -314,7 +314,7 @@ class DomainScanner(Scanner):
             n = self.scan_name.replace(" ", "_")
             file_name = f"{n}_{index * window}_{(index + 1) * window}"
             save_file_path = os.path.join(self.storage_dir, file_name)
-            my_logger.info(f"Opening {save_file_path}...")
+            primary_logger.info(f"Opening {save_file_path}...")
 
             with open(save_file_path, 'w', encoding='utf-8') as f:
                 while count <= window:
@@ -328,7 +328,7 @@ class DomainScanner(Scanner):
                         json_str = json.dumps(scan_entry, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
                         f.write(json_str + '\n')
                     except Exception as e:
-                        my_logger.error(f"Save {scan_entry} failed, got exception {e}")
+                        primary_logger.error(f"Save {scan_entry} failed, got exception {e}")
                         pass
 
                     self.data_queue.task_done()
@@ -337,5 +337,5 @@ class DomainScanner(Scanner):
                 count = 0
                 index += 1
 
-        my_logger.info("Thread for saving results finishes normally")
+        primary_logger.info("Thread for saving results finishes normally")
 

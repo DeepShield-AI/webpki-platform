@@ -32,7 +32,7 @@ from backend import app, db
 from threading import Lock
 from sqlalchemy.dialects.mysql import insert
 from ..models import CertRevocationStatusOCSP, CertRevocationStatusCRL, CRLArchive
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..utils.exception import ParseError
 from ..utils.cert import (
     get_cert_sha256_hex_from_object,
@@ -88,7 +88,7 @@ class CertRevocationAnalyzer():
             except ParseError:
                 pass
             except Exception as e:
-                my_logger.error(f"Error analyze revocation: {e}")
+                primary_logger.error(f"Error analyze revocation: {e}")
 
         self.sync_update_info()
 
@@ -152,7 +152,7 @@ class CertRevocationAnalyzer():
             return self.crl_cache[crl_url]
         
         try:
-            my_logger.debug(f"Requesting CRL from {crl_url}...")
+            primary_logger.debug(f"Requesting CRL from {crl_url}...")
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
             }
@@ -163,7 +163,7 @@ class CertRevocationAnalyzer():
                 crl_response : requests.Response = requests.get(crl_url, headers=headers, timeout=3)
 
             if not crl_response.status_code == 200:
-                my_logger.warn(f"Server {crl_url} rejected CRL reqeust")
+                primary_logger.warn(f"Server {crl_url} rejected CRL reqeust")
                 return (request_time, None)
 
             crl = load_pem_x509_crl(crl_response.content, default_backend())
@@ -176,7 +176,7 @@ class CertRevocationAnalyzer():
         except ValueError:
             try:
                 crl = load_der_x509_crl(crl_response.content, default_backend())
-                my_logger.warn("CRL response is encoded with DER")
+                primary_logger.warn("CRL response is encoded with DER")
                 with self.crl_cache_lock:
                     self.crl_cache[crl_url] = (request_time, crl)
                 return (request_time, crl)
@@ -286,7 +286,7 @@ class CertRevocationAnalyzer():
 
         try:
             try:
-                my_logger.debug(f"Requesting OCSP response from {server_url}...")
+                primary_logger.debug(f"Requesting OCSP response from {server_url}...")
                 request_time = datetime.now(timezone.utc)
                 if use_proxy:
                     raw_response = requests.post(
@@ -304,7 +304,7 @@ class CertRevocationAnalyzer():
                         timeout=2
                     )
                 if not raw_response.status_code == 200:
-                    my_logger.warn(f"Server {server_url} rejected OCSP reqeust")
+                    primary_logger.warn(f"Server {server_url} rejected OCSP reqeust")
                     return (request_time, None)
 
             except requests.exceptions.RequestException as e:
@@ -318,7 +318,7 @@ class CertRevocationAnalyzer():
             # my_logger.warn(f"OCSP response from {server_url} is not complete, retrying...")
             return self.request_ocsp_response(cert, issuer, server_url, hash, retry_times - 1)
         except Exception as e:
-            my_logger.error(f"Error when getting OCSP response: {e}")
+            primary_logger.error(f"Error when getting OCSP response: {e}")
             return (request_time, None)
 
 
@@ -362,7 +362,7 @@ class CertRevocationAnalyzer():
                         # my_logger.warn(f"Request failed: {e}")
                         continue
                     except Exception as e:
-                        my_logger.error(f"An unexpected error occurred: {e}")
+                        primary_logger.error(f"An unexpected error occurred: {e}")
 
         return issuers
 
@@ -376,13 +376,13 @@ class CertRevocationAnalyzer():
             return load_der_x509_certificate(raw_content, default_backend())
         except ValueError as e:
             # 记录错误信息或者采取其他适当的措施
-            my_logger.error(f"Error loading certificate: {e}")
+            primary_logger.error(f"Error loading certificate: {e}")
             raise
 
 
     def sync_update_info(self):
         with app.app_context():
-            my_logger.info(f"Updating cert revocation data...")
+            primary_logger.info(f"Updating cert revocation data...")
 
             REASONFLAG_MAPPING = {
                 None : None,
@@ -405,7 +405,7 @@ class CertRevocationAnalyzer():
 
             with self.crl_result_list_lock:
                 crl_data = []
-                my_logger.info(f"Converting crl {len(self.crl_result_list)} data...")
+                primary_logger.info(f"Converting crl {len(self.crl_result_list)} data...")
                 for res in self.crl_result_list:
                     crl_data.append({
                         'CERT_ID' :  res[0],
@@ -420,13 +420,13 @@ class CertRevocationAnalyzer():
                     db.session.execute(insert_crl_store_statement)
                     db.session.commit()
                 except Exception as e:
-                    my_logger.error(f"Error insertion CRL data: {e} \n {e.with_traceback()}")
+                    primary_logger.error(f"Error insertion CRL data: {e} \n {e.with_traceback()}")
                 finally:
                     self.crl_result_list = []
 
             with self.ocsp_result_list_lock:
                 ocsp_data = []
-                my_logger.info(f"Converting ocsp {len(self.ocsp_result_list)} data...")
+                primary_logger.info(f"Converting ocsp {len(self.ocsp_result_list)} data...")
                 for res in self.ocsp_result_list:
                     if res[4]:
                         if res[4] == OCSPResponseStatus.UNAUTHORIZED:
@@ -452,11 +452,11 @@ class CertRevocationAnalyzer():
                     db.session.execute(insert_ocsp_store_statement)
                     db.session.commit()
                 except Exception as e:
-                    my_logger.error(f"Error insertion OCSP data: {e} \n {e.with_traceback()}")
+                    primary_logger.error(f"Error insertion OCSP data: {e} \n {e.with_traceback()}")
                 finally:
                     self.ocsp_result_list = []
 
-            my_logger.info(f"Converting crl_cache data...")
+            primary_logger.info(f"Converting crl_cache data...")
             with self.crl_cache_lock:
                 for entry in self.crl_cache:
                     if entry in self.stored_crl_key:
@@ -474,6 +474,6 @@ class CertRevocationAnalyzer():
                         db.session.execute(insert_crl_archive_statement)
                         db.session.commit()
                     except Exception as e:
-                        my_logger.error(f"Error insertion CRL entry: {e} \n {e.with_traceback()}")
+                        primary_logger.error(f"Error insertion CRL entry: {e} \n {e.with_traceback()}")
                     finally:
                         self.stored_crl_key.append(entry)

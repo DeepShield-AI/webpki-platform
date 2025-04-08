@@ -8,7 +8,7 @@ import hashlib
 from datetime import datetime
 from collections import OrderedDict
 from ..utils.exception import *
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
 from ..utils.type import sort_dict_by_key, sort_list_by_key
 
@@ -34,7 +34,7 @@ class ASN1StructFP():
     def build_fp(self, parsed_cert : OrderedDict) -> tuple[str, str]:
 
         if type(parsed_cert) != OrderedDict:
-            my_logger.error("Certificate should be passed in OrderDict type")
+            primary_logger.error("Certificate should be passed in OrderDict type")
             return ""
 
         fp_raw = []
@@ -134,7 +134,7 @@ class ASN1StructFP():
                                     policy_flag = self.policy_lookup.policy_look_up_dict[policy["policy_identifier"]]
                                     self.fp_recursive(policy_flag, current_fp_raw, self.ID_NUMBER)
                                 except KeyError:
-                                    my_logger.warning(f"Policy {policy['policy_identifier']} does not exist in the dictionary")
+                                    primary_logger.warning(f"Policy {policy['policy_identifier']} does not exist in the dictionary")
                                     self.fp_recursive(policy_flag, current_fp_raw, self.OBJ_ID)
                                 # policy qualifiers
                                 for qualifier in sort_list_by_key(policy["policy_qualifiers"], "policy_qualifier_id"):
@@ -149,10 +149,10 @@ class ASN1StructFP():
                             # also, don't care about the precertificate_poision here
                             pass
                         else:
-                            my_logger.warning(f"Unsupported extension in certificate: {extension['extn_id']}")
+                            primary_logger.warning(f"Unsupported extension in certificate: {extension['extn_id']}")
                             pass
                 else:
-                    my_logger.warning(f"Unsupported field in certificate: {key}")
+                    primary_logger.warning(f"Unsupported field in certificate: {key}")
                     pass
 
         elif type(obj) == int:

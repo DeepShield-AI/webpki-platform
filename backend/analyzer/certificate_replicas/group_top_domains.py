@@ -22,7 +22,7 @@ from ...parser.pem_parser import PEMParser, PEMResult
 from ...utils.domain_lookup import DomainLookup
 from ...utils.json import custom_serializer
 from ...utils.type import str_to_timestamp
-from ...logger.logger import my_logger
+from ...logger.logger import primary_logger
 
 
 class DataParser():
@@ -45,8 +45,8 @@ class DataParser():
         self.end_time = str_to_timestamp(end_time)
         self.only_domains = only_domians
 
-        my_logger.info(f"start_time: {self.start_time}")
-        my_logger.info(f"end_time: {self.end_time}")
+        primary_logger.info(f"start_time: {self.start_time}")
+        primary_logger.info(f"end_time: {self.end_time}")
 
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
@@ -80,7 +80,7 @@ class DataParser():
     def scan_file(self, file_path: str):
         with open(file_path, "r") as file:
             try:
-                my_logger.info(f"Reading file: {file_path}")
+                primary_logger.info(f"Reading file: {file_path}")
                 data = json.load(file)
             except json.JSONDecodeError:
                 # skip unique_ca_certs
@@ -119,7 +119,7 @@ class DataParser():
 
         while True:
             save_file = os.path.join(self.save_dir, f"top_1m_{self.log_name}_{index * self.split_window}_{(index + 1) * self.split_window}")
-            my_logger.info(f"Opening {save_file}...")
+            primary_logger.info(f"Opening {save_file}...")
 
             with open(save_file, 'w', encoding='utf-8') as f:
                 while count <= self.split_window:
@@ -163,7 +163,7 @@ class DataParser():
                         # executor.submit(self.scan_file, file_path).result()
     
                 executor.shutdown(wait=True)
-                my_logger.info("All threads finished.")
+                primary_logger.info("All threads finished.")
 
             # Wait for all elements in queue to be handled
             self.queue.join()

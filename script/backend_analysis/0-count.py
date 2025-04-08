@@ -8,7 +8,7 @@ import threading
 import signal
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 
 class Analyzer():
 
@@ -45,7 +45,7 @@ class Analyzer():
                     for line in file:
                         # Check if there is signals
                         if self.crtl_c_event.is_set():
-                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                             break
 
                         json_obj = json.loads(line.strip())
@@ -54,7 +54,7 @@ class Analyzer():
 
                     # 等待所有线程完成
                     executor.shutdown(wait=True)
-                    my_logger.info("All threads finished.")
+                    primary_logger.info("All threads finished.")
 
         # Wait for all elements in queue to be handled
         self.queue.join()
@@ -76,7 +76,7 @@ class Analyzer():
 if __name__ == "__main__":
 
     def signal_handler(sig, frame, analyzer : Analyzer):
-        my_logger.warning("Ctrl+C detected")
+        primary_logger.warning("Ctrl+C detected")
         analyzer.crtl_c_event.set()
         sys.exit(0)
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         output_file = r"/data/ip_scan_data/Full_IPv4_20250311_zgrab2_out",
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()
 
 # count: 8019620

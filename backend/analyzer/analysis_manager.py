@@ -3,7 +3,7 @@ from typing import Optional, Dict, Union
 from .cert_analyze_base import CertScanAnalyzer
 from .ca_analyze_base import CaMetricAnalyzer
 
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..models import ScanStatus, CertAnalysisStats
 from ..config.analysis_config import CertAnalysisConfig, CaAnalysisConfig
 from ..task_manager import Manager
@@ -32,20 +32,20 @@ class AnalysisManager(Manager):
         except UnknownTableError:
             raise RegisterError(task.task_id)
 
-        my_logger.info(f"New analysis process registered")
+        primary_logger.info(f"New analysis process registered")
 
     def start_task(self, task_id : int):
-        my_logger.info(f"Starting analysis {task_id}...")
+        primary_logger.info(f"Starting analysis {task_id}...")
         self.registry[task_id].start()
 
     def kill_task(self, task_id : int):
-        my_logger.info(f"Killing analysis {task_id}...")
+        primary_logger.info(f"Killing analysis {task_id}...")
         self.registry[task_id].terminate()
 
     def pause_task(self, task_id : int):
-        my_logger.info(f"Pausing analysis {task_id}...")
+        primary_logger.info(f"Pausing analysis {task_id}...")
         self.registry[task_id].pause()
 
     def resume_task(self, task_id : int):
-        my_logger.info(f"Resuming analysis {task_id}...")
+        primary_logger.info(f"Resuming analysis {task_id}...")
         self.registry[task_id].resume()

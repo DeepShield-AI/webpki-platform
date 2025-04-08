@@ -23,7 +23,7 @@ from OpenSSL.crypto import (
 
 from backend import app, db
 from ..config.analysis_config import CA_CERT_DIR, TRUST_ROOT_DIR
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..models import CaCertStore, CertChainRelation, DomainTrustRelation
 from ..utils.cert import (
     get_cert_sha256_hex_from_object,
@@ -53,7 +53,7 @@ class CertChainAnalyzer():
                     if "-----BEGIN CERTIFICATE-----" in cert:
                         cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
                         self.untrust_ca_store.add(load_certificate(FILETYPE_PEM, cert))
-                my_logger.info(f"Load {len(certificates)} CA certs from {dir.path}")
+                primary_logger.info(f"Load {len(certificates)} CA certs from {dir.path}")
 
     '''
         Function 1: give one leaf (ca) certificate, find all possible cross-sign ca certs (not path now)
@@ -78,9 +78,9 @@ class CertChainAnalyzer():
                     cross_sign_certs_num += 1
 
         except X509StoreContextError as e:
-            my_logger.error(f"Cert chain analysis failed for cert {e.certificate.get_subject().commonName}...")
+            primary_logger.error(f"Cert chain analysis failed for cert {e.certificate.get_subject().commonName}...")
         except Exception as e:
-            my_logger.error(f"{e}")
+            primary_logger.error(f"{e}")
         finally:
             return cross_sign_certs_num
 
@@ -243,7 +243,7 @@ class DomainChainAnalyzer():
             })
 
         except Exception as e:
-            my_logger.debug(f"Domain {domain} has no cert received")
+            primary_logger.debug(f"Domain {domain} has no cert received")
 
         self.count += 1
         self.progress.update(self.progress_task, description=f"[green]Completed: {self.count}")

@@ -4,7 +4,7 @@
 '''
 from abc import ABC, abstractmethod
 from .task import Task
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 class Manager(ABC):
 
@@ -98,10 +98,10 @@ import sys
 import signal
 
 def signal_handler(sig, frame):
-    my_logger.warning("Ctrl+C detected")
+    primary_logger.warning("Ctrl+C detected")
     g_manager.ctrl_c_handler()
     g_thread_executor.shutdown(wait=True)
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
-my_logger.info("Crtl+C signal handler attached!")
+primary_logger.info("Crtl+C signal handler attached!")

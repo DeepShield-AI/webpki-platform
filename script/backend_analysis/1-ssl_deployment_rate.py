@@ -19,7 +19,7 @@ from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.json import custom_serializer
 from backend.utils.network import resolve_host_dns
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 
 class Analyzer():
 
@@ -49,7 +49,7 @@ class Analyzer():
                     for line in file:
                         # Check if there is signals
                         if self.crtl_c_event.is_set():
-                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                             break
 
                         json_obj = json.loads(line.strip())
@@ -58,7 +58,7 @@ class Analyzer():
 
                     # 等待所有线程完成
                     executor.shutdown(wait=True)
-                    my_logger.info("All threads finished.")
+                    primary_logger.info("All threads finished.")
 
         # Wait for all elements in queue to be handled
         self.data_queue.join()
@@ -79,10 +79,10 @@ class Analyzer():
             if value["deploy_all"]: deployed_all += 1
             if value["deploy"] and value["consistant"]: consistant += 1
             
-        my_logger.info(f"Result for {self.input_file}:")
-        my_logger.info(f"Deployed: {deployed}")
-        my_logger.info(f"Deployed all: {deployed_all}")
-        my_logger.info(f"Consistant: {consistant}")
+        primary_logger.info(f"Result for {self.input_file}:")
+        primary_logger.info(f"Deployed: {deployed}")
+        primary_logger.info(f"Deployed all: {deployed_all}")
+        primary_logger.info(f"Consistant: {consistant}")
 
     def analyze_single(self, json_obj):
         domain = json_obj["destination_host"]
@@ -134,7 +134,7 @@ class Analyzer():
 if __name__ == "__main__":
 
     def signal_handler(sig, frame, analyzer : Analyzer):
-        my_logger.warning("Ctrl+C detected")
+        primary_logger.warning("Ctrl+C detected")
         analyzer.crtl_c_event.set()
         sys.exit(0)
 
@@ -143,7 +143,7 @@ if __name__ == "__main__":
         output_file = r"/data/self_scan_data/CN_EDU_20241201/CN_EDU_20241201_result_1"
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()
 
     analyzer = Analyzer(
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         output_file = r"/data/self_scan_data/CN_GOV_20241201/CN_GOV_20241201_result_1"
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()
 
     analyzer = Analyzer(
@@ -159,5 +159,5 @@ if __name__ == "__main__":
         output_file = r"/data/self_scan_data/CN_SOE_20241201/CN_SOE_20241201_result_1"
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()

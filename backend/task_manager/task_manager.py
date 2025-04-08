@@ -1,3 +1,41 @@
+from tasks.start_task import start_task_async
+from task import Task
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from logger.logger import primary_logger
+from threading import Lock
+from typing import Dict
+
+class GlobalTaskManager:
+    def __init__(self):
+        self.running_task: Dict[int, Task] = {}
+        self.submitted_task: Dict[int, Task] = {}
+        self.task_dict: Dict[int, Task] = {}
+        self.task_id_counter = 0
+        self.lock = Lock()
+        self.thread_pool = ThreadPoolExecutor()
+        self.process_pool = ProcessPoolExecutor()
+        self.manager_map = {}  # task_type -> SpecificManager
+
+    def submit_task(self, task: Task):
+        with self.lock:
+            task_id = self.task_id_counter
+            self.task_id_counter += 1
+            task.task_id = task_id
+            self.submitted_task[task_id] = task
+            self.task_dict[task_id] = task
+            primary_logger.info(f"Task {task_id} submitted.")
+            return task_id
+
+    def start_submitted_tasks(self):
+        for task_id in list(self.submitted_task.keys()):
+            task = self.submitted_task[task_id]
+            parent = task.parent_task
+            if parent is None or parent.task_id in self.running_task:
+                primary_logger.info(f"Dispatching task {task_id} to Celery.")
+                start_task_async.delay(task_id)
+
+# 单例实例
+g_manager = GlobalTaskManager()
 
 '''
     Backend process manager
@@ -15,7 +53,7 @@ from ..scanner.scan_manager import ScanManager
 from ..analyzer.analysis_manager import AnalysisManager
 from ..utils.type import TaskType
 from ..utils.exception import RegisterError, ResourceInsufficientError
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 class GlobalTaskManager():
 
@@ -68,7 +106,7 @@ class GlobalTaskManager():
 
 
     def ctrl_c_handler(self):
-        my_logger.info("Killing all tasks...")
+        primary_logger.info("Killing all tasks...")
         current_keys = list(self.running_task.keys())
         for task_id in current_keys:
             self.kill_task(task_id)
@@ -77,7 +115,7 @@ class GlobalTaskManager():
 
 
     def task_scheduler(self):
-        my_logger.info("Starting task scheduler...")
+        primary_logger.info("Starting task scheduler...")
         while True:
             try:
                 sleep(5)
@@ -87,7 +125,7 @@ class GlobalTaskManager():
 
 
     def submit_task(self, task_queue : List[Task]):
-        my_logger.info("Submitting tasks...")
+        primary_logger.info("Submitting tasks...")
         for task in task_queue:
             try:
                 '''
@@ -99,13 +137,13 @@ class GlobalTaskManager():
                 with self.task_lock:
                     self.submitted_task[task.task_id] = task
             except RegisterError as e:
-                my_logger.error(e.message)
+                primary_logger.error(e.message)
 
 
     def start_submitted_tasks(self):
         # my_logger.info("Starting submitted tasks...")
         if len(self.running_task.keys()) >= self.max_running_task:
-            my_logger.warning("Full task running slots, please wait for some running task finishes")
+            primary_logger.warning("Full task running slots, please wait for some running task finishes")
             return
 
         '''
@@ -129,15 +167,15 @@ class GlobalTaskManager():
                     self.start_thread.start()
                     # print("bye")
                 else:
-                    my_logger.warning(f"Task {task_id} parent is not running, cannot start it.")
+                    primary_logger.warning(f"Task {task_id} parent is not running, cannot start it.")
             except AttributeError as e:
                 print(e)
-                my_logger.warning(f"Trying to start task {task_id} that has been killed manually")
+                primary_logger.warning(f"Trying to start task {task_id} that has been killed manually")
 
 
     def start_task(self, task_id : int):
         if len(self.running_task.keys()) >= self.max_running_task:
-            my_logger.warning("Full task running slots, please wait for some running task finishes")
+            primary_logger.warning("Full task running slots, please wait for some running task finishes")
             return
 
         '''
@@ -148,16 +186,16 @@ class GlobalTaskManager():
             self.running_task[task_id] = self.submitted_task.get(task_id)
             self.submitted_task.pop(task_id)
         try:
-            my_logger.info(f"Staring task {task_id}...")
+            primary_logger.info(f"Staring task {task_id}...")
             self.manager_map[self.running_task[task_id].task_type].start_task(task_id)
         except ResourceInsufficientError as e:
-            my_logger.error(e.message)
+            primary_logger.error(e.message)
 
         try:
             with self.task_lock:
                 self.running_task.pop(task_id)
         except KeyError:
-            my_logger.warn(f"Task {task_id} has been killed or removed somewhere, pass this")
+            primary_logger.warn(f"Task {task_id} has been killed or removed somewhere, pass this")
             pass
 
 
@@ -168,7 +206,7 @@ class GlobalTaskManager():
         '''
         # suspend child first, then parent
         if task_id not in self.running_task:
-            my_logger.warning(f"Trying to suspend non-running task {task_id}")
+            primary_logger.warning(f"Trying to suspend non-running task {task_id}")
             return
         
         with self.task_lock:
@@ -176,7 +214,7 @@ class GlobalTaskManager():
             for child in child_list:
                 self.suspend_task(child.task_id)
 
-            my_logger.info(f"Suspending task {task_id}...")
+            primary_logger.info(f"Suspending task {task_id}...")
             self.manager_map[self.running_task.get(task_id).task_type].suspend_task(task_id)
             self.suspended_task[task_id] = self.running_task.get(task_id)
             self.running_task.pop(task_id)
@@ -189,22 +227,22 @@ class GlobalTaskManager():
             If the task's parent is suspended, this method will return an error
         '''
         if len(self.running_task.keys()) >= self.max_running_task:
-            my_logger.warning("Full task running slots, please wait for some running task finishes")
+            primary_logger.warning("Full task running slots, please wait for some running task finishes")
             return
         
         # resume parent first, then child
         if task_id not in self.suspended_task:
-            my_logger.warning(f"Trying to resume non-suspend task {task_id}")
+            primary_logger.warning(f"Trying to resume non-suspend task {task_id}")
             return
         
         with self.task_lock:
             parent_task_id = self.suspended_task.get(task_id).parent_task.task_id
             if parent_task_id in self.suspended_task:
-                my_logger.warning(f"Trying to resume task {task_id} while its parent is currently suspended")
+                primary_logger.warning(f"Trying to resume task {task_id} while its parent is currently suspended")
                 return
 
             try:
-                my_logger.info(f"Resuming task {task_id}...")
+                primary_logger.info(f"Resuming task {task_id}...")
                 self.manager_map[self.suspended_task.get(task_id).task_type].resume_task(task_id)
                 self.running_task[task_id] = self.suspended_task.get(task_id)
                 self.suspended_task.pop(task_id)
@@ -213,7 +251,7 @@ class GlobalTaskManager():
                     for child in self.running_task.get(task_id).child_task:
                         self.resume_task(child.task_id)
             except ResourceInsufficientError as e:
-                my_logger.error(e.message)
+                primary_logger.error(e.message)
 
 
     def kill_task(self, task_id : int):
@@ -235,7 +273,7 @@ class GlobalTaskManager():
             for child in task.child_task:
                 self.kill_task(child.task_id)
 
-            my_logger.info(f"Killing task {task_id}...")
+            primary_logger.info(f"Killing task {task_id}...")
             self.manager_map[task.task_type].kill_task(task_id)
 
             if task_id in self.submitted_task:

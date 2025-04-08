@@ -29,7 +29,7 @@ from ..config.scan_config import CTScanConfig
 from ..utils.type import ScanType, ScanStatusType
 from ..utils.cert import get_cert_sha256_hex_from_str
 from ..utils.json import custom_serializer
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 class CTScanner(Scanner):
 
@@ -70,7 +70,7 @@ class CTScanner(Scanner):
                     cert_sha256 = get_cert_sha256_hex_from_str(cert)
                     self.ca_sha_256_set.add(cert_sha256)
 
-            my_logger.info(f"Load {len(certificates)} old CA certs")
+            primary_logger.info(f"Load {len(certificates)} old CA certs")
         except FileNotFoundError:
             pass
 
@@ -79,12 +79,12 @@ class CTScanner(Scanner):
         while not self.crtl_c_event.is_set():
             data = self.data_queue.get()
             if data is None:  # Poison pill to shut down the thread
-                my_logger.info("Poision detected")
+                primary_logger.info("Poision detected")
                 break
 
             save_file_path = os.path.join(self.storage_dir, data["save_file_name"])
             data_to_be_stored = data["data"]
-            my_logger.info(f"Saving {len(data_to_be_stored.keys())} results to {save_file_path}")
+            primary_logger.info(f"Saving {len(data_to_be_stored.keys())} results to {save_file_path}")
 
             with open(save_file_path, 'w', encoding='utf-8') as f:
                 for key, value in data_to_be_stored.items():
@@ -98,30 +98,30 @@ class CTScanner(Scanner):
                         f.write(json_str + '\n')
 
                     except Exception as e:
-                        my_logger.error(f"Save {save_file_path} failed, got exception {e}")
+                        primary_logger.error(f"Save {save_file_path} failed, got exception {e}")
                         pass
 
             self.data_queue.task_done()
-            my_logger.info(f"Finished saving {len((data_to_be_stored.keys()))} results to {save_file_path}")
-        my_logger.info("Thread for saving results finishes normally")
+            primary_logger.info(f"Finished saving {len((data_to_be_stored.keys()))} results to {save_file_path}")
+        primary_logger.info("Thread for saving results finishes normally")
 
 
     def save_ca_certs(self):
         while not self.crtl_c_event.is_set():
             ca_cert = self.ca_cert_queue.get()
             if ca_cert is None:  # Poison pill to shut down the thread
-                my_logger.info("Poision detected")
+                primary_logger.info("Poision detected")
                 break
 
             try:
                 with open(self.unique_ca_certs_file, 'a') as f:
                     f.write(ca_cert)
             except Exception as e:
-                my_logger.error(f"Save ca cert {get_cert_sha256_hex_from_str(ca_cert)} failed, got exception {e}")
+                primary_logger.error(f"Save ca cert {get_cert_sha256_hex_from_str(ca_cert)} failed, got exception {e}")
                 pass
 
             self.ca_cert_queue.task_done()
-        my_logger.info("Thread for CA certs finishes normally")
+        primary_logger.info("Thread for CA certs finishes normally")
 
 
     # Each scan thread needs to take the last entry into account
@@ -135,7 +135,7 @@ class CTScanner(Scanner):
         
             # check window_size fits the start and the end range
             # assert((end_entry - start_entry) >= self.window_size)
-            my_logger.info(f"Start thread for {start_entry} to {end_entry}")
+            primary_logger.info(f"Start thread for {start_entry} to {end_entry}")
 
             thread_result = {}
             loop_start = start_entry
@@ -146,7 +146,7 @@ class CTScanner(Scanner):
 
                 # Detect signal
                 if self.crtl_c_event.is_set():
-                    my_logger.info("Terminating scan thread because of Ctrl + C signal")
+                    primary_logger.info("Terminating scan thread because of Ctrl + C signal")
                     return
 
                 received_entries = []
@@ -168,7 +168,7 @@ class CTScanner(Scanner):
                         try:
                             received_entries += json.loads(response.text)['entries']
                         except json.JSONDecodeError as e:
-                            my_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {loop_start} to {loop_end}")
+                            primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {loop_start} to {loop_end}")
                             retry_times += 1
                             time.sleep(2 * retry_times)  # 指数退避策略
                             continue
@@ -192,14 +192,14 @@ class CTScanner(Scanner):
                         time.sleep(retry_after)
                         continue
                     else:
-                        my_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
+                        primary_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
                         retry_times += 1
                         time.sleep(2 * retry_times)  # 指数退避策略
                         continue
                 
                 # If the collection fails, we log it here
                 if retry_times > self.max_retry:
-                    my_logger.error(f"Requesting CT entries from {loop_start} to {loop_end} failed after {self.max_retry} times.")
+                    primary_logger.error(f"Requesting CT entries from {loop_start} to {loop_end} failed after {self.max_retry} times.")
 
                 # Cache the received results
                 rank = -1
@@ -263,12 +263,12 @@ class CTScanner(Scanner):
                 "data" : thread_result
             })
 
-            my_logger.info(f"Put data to {file_name} into queue")
+            primary_logger.info(f"Put data to {file_name} into queue")
             self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
             self.progress.advance(self.progress_task)
         
         except json.JSONDecodeError as e:
-            my_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
+            primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
             thread_result_str = json.dumps(thread_result)
             error_position = e.pos
 
@@ -276,12 +276,12 @@ class CTScanner(Scanner):
             start_pos = max(0, error_position - 50)
             end_pos = min(len(thread_result_str), error_position + 50)
 
-            my_logger.error(f"100 chars around the error position:")
-            my_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
-            my_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
+            primary_logger.error(f"100 chars around the error position:")
+            primary_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
+            primary_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
 
         except Exception as e:
-            my_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
+            primary_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
             pass
 
 
@@ -310,14 +310,14 @@ class CTScanner(Scanner):
             # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
             self.data_save_thread.start()
 
-            my_logger.info(f"Scanning...")
+            primary_logger.info(f"Scanning...")
             with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
                 start = self.entry_start
                 while start < self.entry_end:
 
                     # Check if there is signals
                     if self.crtl_c_event.is_set():
-                        my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                        primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                         break
 
                     end = start + self.thread_workload
@@ -330,7 +330,7 @@ class CTScanner(Scanner):
                     start = end
 
                 executor.shutdown(wait=True)
-                my_logger.info("All threads finished.")
+                primary_logger.info("All threads finished.")
         
             # Wait for all elements in queue to be handled
             self.ca_cert_queue.join()
@@ -347,12 +347,12 @@ class CTScanner(Scanner):
             self.timer_thread.join()
 
         if self.is_killed:
-            my_logger.info(f"Scan Terminated")
+            primary_logger.info(f"Scan Terminated")
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
                 self.scan_status_data.status = ScanStatusType.KILLED
         else:
-            my_logger.info(f"Scan Completed")
+            primary_logger.info(f"Scan Completed")
             with self.scan_status_data_lock:
                 self.scan_status_data.end_time = datetime.now(timezone.utc)
                 self.scan_status_data.status = ScanStatusType.COMPLETED
@@ -360,7 +360,7 @@ class CTScanner(Scanner):
 
 
     def terminate(self):
-        my_logger.info("Terminating CT scan task...")
+        primary_logger.info("Terminating CT scan task...")
         self.crtl_c_event.set()  # 触发退出事件
         self.is_killed = True
 
@@ -375,12 +375,12 @@ class CTScanner(Scanner):
         while not self.crtl_c_event.is_set():
             self.sync_update_scan_process_info()
             time.sleep(15)
-        my_logger.info("Thread for tracking the scan status terminates normally")
+        primary_logger.info("Thread for tracking the scan status terminates normally")
 
 
     def sync_update_scan_process_info(self):
 
-        my_logger.info(f"Updating...")
+        primary_logger.info(f"Updating...")
         if self.scan_status_data.status == ScanStatusType.RUNNING:
             scan_time = (datetime.now(timezone.utc) - self.scan_status_data.start_time).seconds
         elif self.scan_status_data.status == ScanStatusType.COMPLETED:

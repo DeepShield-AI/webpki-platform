@@ -8,7 +8,7 @@ from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
 
 from backend import app, db
 from backend.models import CertStore
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 from backend.utils.cert import get_cert_sha256_hex_from_str
 
 data = {}
@@ -52,7 +52,7 @@ if __name__ == "__main__":
                     #     data[get_cert_sha256_hex_from_str(c["raw"])] = c["raw"]
 
                 except Exception as e:
-                    my_logger.debug(f"Domain has no cert received")
+                    primary_logger.debug(f"Domain has no cert received")
 
                 count += 1
                 progress.update(progress_task, description=f"[green]Completed: {count}")
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     with app.app_context():
 
-        my_logger.info(f"Saving {len(list(data.keys()))} results...")
+        primary_logger.info(f"Saving {len(list(data.keys()))} results...")
 
         for key, value in data.items():
             try:
@@ -72,5 +72,5 @@ if __name__ == "__main__":
                 db.session.commit()
 
             except Exception as e:
-                my_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
+                primary_logger.error(f"Error insertion domain Scan data: {e} \n {e.with_traceback()}")
                 pass

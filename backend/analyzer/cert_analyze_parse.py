@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import cryptography.hazmat.bindings
 from cryptography.hazmat.primitives.asymmetric import dsa as primitive_dsa, rsa as primitive_rsa, ec as primitive_ec, dh as primitive_dh
 
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..parser.cert_parser_base import X509CertParser
 from ..parser.cert_parser_extension import (
     AIAResult,
@@ -338,7 +338,7 @@ class CertParseAnalyzer():
 
     def sync_update_cert_info(self):
         with self.cert_result_list_lock:
-            my_logger.info(f"Updating cert parsing data...")
+            primary_logger.info(f"Updating cert parsing data...")
 
             with app.app_context():
                 cert_store_data_to_insert = []
@@ -353,7 +353,7 @@ class CertParseAnalyzer():
                     cryptography.hazmat.bindings._rust.openssl.ed25519.Ed25519PublicKey : 2
                 }
 
-                my_logger.info(f"Converting {len(self.cert_result_list)} data...")
+                primary_logger.info(f"Converting {len(self.cert_result_list)} data...")
                 for result in self.cert_result_list:
                     parse_result : X509ParsedInfo = result[0]
                     if not parse_result: continue
@@ -366,7 +366,7 @@ class CertParseAnalyzer():
                     try:
                         key_type = KEY_TYPE_MAPPING[parse_result.subject_pub_key_algo.__class__]
                     except KeyError:
-                        my_logger.warning(f"Unknown key type {parse_result.subject_pub_key_algo.__class__}")
+                        primary_logger.warning(f"Unknown key type {parse_result.subject_pub_key_algo.__class__}")
                         key_type = -1
 
                     cert_store_data = {
@@ -479,7 +479,7 @@ class CertParseAnalyzer():
                     db.session.execute(insert_ca_key_store_statement)
                     db.session.commit()
                 except Exception as e:
-                    my_logger.error(f"Error inserting cert parsing data: {e} \n {e.with_traceback()}")
+                    primary_logger.error(f"Error inserting cert parsing data: {e} \n {e.with_traceback()}")
 
             print("end")
             self.cert_result_list = []
@@ -521,5 +521,5 @@ class CertParseAnalyzer():
                         db.session.execute(on_duplicate_key_statement)
                         db.session.commit()
                     except Exception as e:
-                        my_logger.error(f"Error inserting ca parsing data: {e} \n {e.with_traceback()}")
+                        primary_logger.error(f"Error inserting ca parsing data: {e} \n {e.with_traceback()}")
             print("ca end")

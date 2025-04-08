@@ -19,7 +19,7 @@ from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.config.analysis_config import ZLINT_PATH
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.json import custom_serializer
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 
 output_file = open("certs.json", "w", encoding='utf-8')
 existing_domain = set()
@@ -120,13 +120,13 @@ class Analyzer():
     def analyze(self):
         if os.path.isfile(self.input_file):
             with open(self.input_file, "r", encoding='utf-8') as file:
-                my_logger.info(f"Reading file: {self.input_file}")
+                primary_logger.info(f"Reading file: {self.input_file}")
 
                 with ThreadPoolExecutor(max_workers=10) as executor:
                     for line in file:
                         # Check if there is signals
                         if self.crtl_c_event.is_set():
-                            my_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
+                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
                             break
 
                         json_obj = json.loads(line.strip())
@@ -135,7 +135,7 @@ class Analyzer():
                         # executor.submit(self.analyze_single, json_obj).result()
 
                     executor.shutdown(wait=True)
-                    my_logger.info("All threads finished.")
+                    primary_logger.info("All threads finished.")
 
         # Wait for all elements in queue to be handled
         self.data_queue.join()
@@ -304,7 +304,7 @@ class Analyzer():
                 "has_cert": False
             }
         except Exception as e:
-            my_logger.error(e)
+            primary_logger.error(e)
             info_data = {
                 "domain": domain,
                 "entity_type": self._type,
@@ -321,7 +321,7 @@ class Analyzer():
                 final_data["name"] = name
                 self.data_queue.put(final_data)
             except KeyError as e:
-                my_logger.error(e)
+                primary_logger.error(e)
                 pass
 
 
@@ -331,7 +331,7 @@ class Analyzer():
             entry = self.data_queue.get()
 
             if entry is None:  # Poison pill to shut down the thread
-                my_logger.info("Poision detected")
+                primary_logger.info("Poision detected")
                 for e in data.values():
                     json_str = json.dumps(e, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
                     output_file.write(json_str + '\n')
@@ -352,7 +352,7 @@ class Analyzer():
                 data[entry["domain"]] = entry
 
             except Exception as e:
-                my_logger.error(f"Save {entry} failed, got exception {e}")
+                primary_logger.error(f"Save {entry} failed, got exception {e}")
                 pass
 
             self.data_queue.task_done()
@@ -361,7 +361,7 @@ class Analyzer():
 if __name__ == "__main__":
 
     def signal_handler(sig, frame, analyzer : Analyzer):
-        my_logger.warning("Ctrl+C detected")
+        primary_logger.warning("Ctrl+C detected")
         analyzer.crtl_c_event.set()
         sys.exit(0)
 
@@ -372,7 +372,7 @@ if __name__ == "__main__":
         domain_to_name_file = r"/root/pki-internet-platform/data/school_domains/cn/data20230918.csv",
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()
 
     analyzer = Analyzer(
@@ -382,7 +382,7 @@ if __name__ == "__main__":
         domain_to_name_file = r"/root/pki-internet-platform/data/gov_domains/cn/cn_gov_20241106_map_central",
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()
 
     analyzer = Analyzer(
@@ -392,5 +392,5 @@ if __name__ == "__main__":
         domain_to_name_file = r"/root/pki-internet-platform/data/enterprise_domains/cn/soe.csv"
     )
     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    my_logger.info("Crtl+C signal handler attached!")
+    primary_logger.info("Crtl+C signal handler attached!")
     analyzer.analyze()

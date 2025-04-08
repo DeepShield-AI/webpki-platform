@@ -24,7 +24,7 @@ from backend.config.config_loader import ZGRAB2_PATH, ZMAP_PATH
 from backend.config.scan_config import ScanConfig
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.exception import RetriveError
-from backend.logger.logger import my_logger
+from backend.logger.logger import primary_logger
 from backend.models import ScanStatus
 
 
@@ -182,10 +182,10 @@ class Scanner(ABC):
         try:
             # Determine if the input is an IP
             if (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv4Address) and (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv6Address):
-                my_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+                primary_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
                 return None
         except Exception:
-            my_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+            primary_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
             return None
 
         try:
@@ -224,12 +224,12 @@ class Scanner(ABC):
 
         # Timeout errors result in an empty hash
         except socket.timeout as e:
-            my_logger.debug(f"Timeout when connecting {destination_ip}...")
+            primary_logger.debug(f"Timeout when connecting {destination_ip}...")
             sock.close()
             return "TIMEOUT"
 
         except Exception as e:
-            my_logger.debug(f"Exception {e} happens when connecting {destination_ip}...")
+            primary_logger.debug(f"Exception {e} happens when connecting {destination_ip}...")
             try:
                 sock.close()
             except UnboundLocalError:
@@ -246,7 +246,7 @@ class Scanner(ABC):
 
             # Server hello error
             if data[0] == 21:
-                my_logger.debug("Server hello error")
+                primary_logger.debug("Server hello error")
                 selected_cipher = b""
                 return "|||"
 
@@ -272,11 +272,11 @@ class Scanner(ABC):
                 jarm += extensions
                 return jarm
             else:
-                my_logger.warning("Packet data[0] unknown number")
+                primary_logger.warning("Packet data[0] unknown number")
                 return "|||"
 
         except Exception as e:
-            my_logger.error(f"Exception {e} happens when reading server hello packet, probably the packet is not server hello...")
+            primary_logger.error(f"Exception {e} happens when reading server hello packet, probably the packet is not server hello...")
             return "|||"
 
 
@@ -298,10 +298,10 @@ class Scanner(ABC):
 
         try:
             subprocess.run(zmap_command, capture_output=False, text=True, check=True)
-            my_logger.info(f"Zmap scan completed. Output saved to: {output_file}")
+            primary_logger.info(f"Zmap scan completed. Output saved to: {output_file}")
         except subprocess.CalledProcessError as e:
-            my_logger.error("Error occurred while running Zmap:")
-            my_logger.error(e.stderr)
+            primary_logger.error("Error occurred while running Zmap:")
+            primary_logger.error(e.stderr)
 
 
     def run_zgrab2(self, input_file, output_file):
@@ -317,10 +317,10 @@ class Scanner(ABC):
 
         try:
             subprocess.run(command, capture_output=False, text=True, check=True)
-            my_logger.info(f"Zgrab2 scan completed. Output saved to: {output_file}")
+            primary_logger.info(f"Zgrab2 scan completed. Output saved to: {output_file}")
         except subprocess.CalledProcessError as e:
-            my_logger.error("Error occurred while running Zgrab2:")
-            my_logger.error(e.stderr)
+            primary_logger.error("Error occurred while running Zgrab2:")
+            primary_logger.error(e.stderr)
 
     '''
         @Methods for all types of scans

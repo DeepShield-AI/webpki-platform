@@ -6,7 +6,7 @@ from ..models import CertAnalysisStats, CertChainRelation, DomainTrustRelation
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 PYTHON_PATH = r"/root/pki-internet-platform/myenv/bin/python3"
 

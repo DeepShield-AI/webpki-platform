@@ -16,7 +16,7 @@ from ..parser.cert_parser_extension import (
 from ..utils.exception import ParseError, UnknownTableError
 from ..models.CaProfiling import generate_ca_fp_table
 from ..parser.cert_parser_base import X509ParsedInfo
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 from typing import Dict, List, Tuple
 from threading import Lock

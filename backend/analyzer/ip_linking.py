@@ -4,7 +4,7 @@ import json
 import threading
 from queue import Queue
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..utils.json import custom_serializer
 from ..utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
 
@@ -103,7 +103,7 @@ class IPSCANANALYSIS():
                     json_str = json.dumps(data, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
                     f.write(json_str + '\n')
                 except Exception as e:
-                    my_logger.error(f"Save {data} failed, got exception {e}")
+                    primary_logger.error(f"Save {data} failed, got exception {e}")
                     pass
 
                 self.queue.task_done()
@@ -126,7 +126,7 @@ class IPSCANANALYSIS():
                         pem_data = base64_to_pem(cert)
                         f.write(pem_data + '\n')
                     except Exception as e:
-                        my_logger.error(f"Save {cert} failed, got exception {e}")
+                        primary_logger.error(f"Save {cert} failed, got exception {e}")
                         pass
 
                 self.queue_ca.task_done()

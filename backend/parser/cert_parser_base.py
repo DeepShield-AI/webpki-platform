@@ -28,7 +28,7 @@ import cryptography.hazmat.bindings
 from cryptography.x509 import Extensions
 from cryptography.x509.oid import NameOID, ExtensionOID, SignatureAlgorithmOID, ExtendedKeyUsageOID
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 
 from ..utils.cert import (
     domain_extract,
@@ -90,8 +90,8 @@ class X509CertParser():
             self.extension_parser = X509CertExtensionParser(self.cert.extensions)
             self.parsed_info = self.parse_cert_base()
         except Exception as e:
-            my_logger.warn(e)
-            my_logger.warn("Meet cert ASN.1 format violation, skip it")
+            primary_logger.warn(e)
+            primary_logger.warn("Meet cert ASN.1 format violation, skip it")
             raise ParseError
 
 

@@ -4,7 +4,7 @@ from sqlalchemy import MetaData
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..task_manager import g_thread_executor
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..utils.exception import ParseError, UnknownTableError
 from ..config.analysis_config import CertAnalysisConfig
 
@@ -42,7 +42,7 @@ class CertScanAnalyzer():
 
 
     def start(self):
-        my_logger.info(f"Starting {self.scan_input_table.name} scan analysis...")
+        primary_logger.info(f"Starting {self.scan_input_table.name} scan analysis...")
         
         with app.app_context():
             query = self.scan_input_table.select()
@@ -56,21 +56,21 @@ class CertScanAnalyzer():
 
                     from threading import Thread
                     if self.parse_analyzer:
-                        my_logger.info("Allocate one thread for parse analyzer")
+                        primary_logger.info("Allocate one thread for parse analyzer")
                         executor.submit(self.parse_analyzer.analyze_cert_parse, rows)
                         # g_thread_executor.submit(self.parse_analyzer.analyze_cert_parse, rows)
                         # _thread = Thread(target=self.parse_analyzer.analyze_cert_parse, args=(rows,))
                         # _thread.start()
 
                     if self.chain_analyzer:
-                        my_logger.info("Allocate one thread for chain analyzer")
+                        primary_logger.info("Allocate one thread for chain analyzer")
                         pass
 
                     if self.revoke_analyzer:
-                        my_logger.info("Allocate one thread for revocation analyzer")
+                        primary_logger.info("Allocate one thread for revocation analyzer")
                         executor.submit(self.revoke_analyzer.analyze_cert_revocation, rows)
                     
                     if self.ca_analyzer:
-                        my_logger.info("Allocate one thread for ca analyzer")
+                        primary_logger.info("Allocate one thread for ca analyzer")
                         pass
                 executor.shutdown(wait=True)

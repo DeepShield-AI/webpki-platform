@@ -4,7 +4,7 @@ from sqlalchemy import MetaData
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..task_manager import g_thread_executor
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..utils.exception import ParseError, UnknownTableError
 from ..config.analysis_config import CaAnalysisConfig
 from .ca_analyze_parse import CaParseAnalyzer
@@ -34,7 +34,7 @@ class CaMetricAnalyzer():
 
 
     def start(self):
-        my_logger.info(f"Starting {self.cert_store_content_table.name} CA analysis...")
+        primary_logger.info(f"Starting {self.cert_store_content_table.name} CA analysis...")
         
         with app.app_context():
             query = self.cert_store_content_table.select()
@@ -53,7 +53,7 @@ class CaMetricAnalyzer():
                         # executor.submit(self.parse_analyzer.analyze_ca_parse, rows)
 
                     if self.profiling_analyzer:
-                        my_logger.info("Allocate one thread for ca profiling analyzer")
+                        primary_logger.info("Allocate one thread for ca profiling analyzer")
                         executor.submit(self.profiling_analyzer.analyze_ca_fp_track, rows)
 
                 executor.shutdown(wait=True)

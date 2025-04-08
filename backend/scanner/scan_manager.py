@@ -12,7 +12,7 @@ from backend import db, app
 from .scan_by_domain import DomainScanner
 from .scan_by_ip import IPScanner
 from .scan_by_ct import CTScanner
-from ..logger.logger import my_logger
+from ..logger.logger import primary_logger
 from ..models import ScanStatus, ScanData, CertAnalysisStats
 from ..config.scan_config import DomainScanConfig, IPScanConfig, CTScanConfig
 from ..utils.type import ScanType, ScanStatusType
@@ -68,22 +68,22 @@ class ScanManager(Manager):
 
         r = scan_process.ID
         db.session.expunge(scan_process)
-        my_logger.info(f"New scan process registered")
+        primary_logger.info(f"New scan process registered")
         return r
 
     def start_task(self, task_id : int):
-        my_logger.info(f"Starting scan {task_id}...")
+        primary_logger.info(f"Starting scan {task_id}...")
         self.registry[task_id].start()
 
     def kill_task(self, task_id : int):
-        my_logger.info(f"Killing scan {task_id}...")
+        primary_logger.info(f"Killing scan {task_id}...")
         self.registry[task_id].terminate()
 
     def pause_task(self, task_id : int):
-        my_logger.info(f"Pausing scan {task_id}...")
+        primary_logger.info(f"Pausing scan {task_id}...")
         self.registry[task_id].pause()
 
     def resume_task(self, task_id : int):
-        my_logger.info(f"Resuming scan {task_id}...")
+        primary_logger.info(f"Resuming scan {task_id}...")
         self.registry[task_id].resume()
 
