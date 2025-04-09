@@ -3,12 +3,12 @@ import os
 from dataclasses import dataclass, asdict, fields, field
 from typing import List, Type, TypeVar, Any
 
-from flask import Request
+from flask_app import Request
 from backend.utils.type import ScanType
 
 from backend.config.config_loader import (
     MAX_THREADS_ALLOC, THREAD_WORKLOAD, SCAN_TIMEOUT, MAX_RETRY,
-    DEFAULT_DOMAIN_LIST_FILE, DEFAULT_IP_LIST_FILE, DEFAULT_STORAGE_DIR
+    DEFAULT_INPUT_LIST_FILE, DEFAULT_STORAGE_DIR
 )
 
 # define a template type variable, can be any type
@@ -39,20 +39,11 @@ class ScanConfig:
 
 
 @dataclass
-class DomainScanConfig(ScanConfig):
+class InputScanConfig(ScanConfig):
     scan_tool: str = "zgrab2"
-    input_domain_list_file: str = DEFAULT_DOMAIN_LIST_FILE
+    input_domain_list_file: str = DEFAULT_INPUT_LIST_FILE
     domain_index_start: int = 0
     num_domain_scan: int = 100
-    scan_port: int = 443
-    tls_fp_type: str = "jarm"
-    tls_fp_only: bool = True
-
-
-@dataclass
-class IPScanConfig(ScanConfig):
-    scan_tool: str = "zmap + zgrab2"
-    input_ip_list_file: str = DEFAULT_IP_LIST_FILE
     scan_port: int = 443
     tls_fp_type: str = "jarm"
     tls_fp_only: bool = True
@@ -86,18 +77,12 @@ def create_scan_config_from_frontend_request(request: Request, scan_type: ScanTy
         'proxy_host': request.json.get('proxy_host', '127.0.0.1'),
         'proxy_port': int(request.json.get('proxy_port', 33210)),
     }
-
-    if scan_type == ScanType.SCAN_BY_DOMAIN:
-        return DomainScanConfig(
+    if scan_type == ScanType.SCAN_BY_INPUT:
+        return InputScanConfig(
             **common_args,
             input_domain_list_file=request.json.get('input_domain_list_file'),
             domain_index_start=int(request.json.get('domain_index_start', 0)),
             num_domain_scan=int(request.json.get('num_domain_scan', 100)),
-        )
-    elif scan_type == ScanType.SCAN_BY_IP:
-        return IPScanConfig(
-            **common_args,
-            input_ip_list_file=request.json.get('input_ip_list_file')
         )
     elif scan_type == ScanType.SCAN_BY_CT:
         return CTScanConfig(

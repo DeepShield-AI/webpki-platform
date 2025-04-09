@@ -5,8 +5,8 @@ sys.path.append(r"E:\global_ca_monitor")
 import multiprocessing
 from threading import Thread
 from backend import app, db
-from backend.task_manager import g_manager
-from backend.task_manager.task import TaskBatchTemplate
+from backend.celery import g_manager
+from backend.celery.task import TaskBatchTemplate
 from backend.config.analysis_config import CertAnalysisConfig
 
 if __name__ == "__main__":

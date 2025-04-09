@@ -5,8 +5,8 @@ sys.path.append(r"/root/global_ca_monitor")
 import time
 import signal
 from backend import app, db
-from backend.task_manager import g_manager
-from backend.task_manager.task import TaskBatchTemplate
+from backend.celery import g_manager
+from backend.celery.task import TaskBatchTemplate
 from backend.config.scan_config import DomainScanConfig, CTScanConfig
 
 # log_address = "oak.ct.letsencrypt.org/2024h2"

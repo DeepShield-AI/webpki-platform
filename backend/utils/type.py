@@ -4,9 +4,8 @@ from datetime import datetime, timezone
 
 # Scan method for a particular scan process
 class ScanType(Enum):
-    SCAN_BY_DOMAIN = 0
-    SCAN_BY_IP = 1
-    SCAN_BY_CT = 2
+    SCAN_BY_INPUT = 0
+    SCAN_BY_CT = 1
 
 # Status of a particular scan process
 class ScanStatusType(Enum):

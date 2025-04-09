@@ -6,14 +6,14 @@ import socket
 import threading
 from datetime import datetime, timezone
 from backend import app
-from backend.scanner.scan_by_domain import DomainScanner
+from backend.scanner.scan_by_input import DomainScanner
 from backend.config.scan_config import DomainScanConfig
 from backend.utils.type import ScanType
-from backend.task_manager import g_manager
-from backend.task_manager.task import TaskBatchTemplate
+from backend.celery import g_manager
+from backend.celery.task import TaskBatchTemplate
 
 with app.app_context():
-    scan_type = ScanType(ScanType.SCAN_BY_DOMAIN)
+    scan_type = ScanType(ScanType.SCAN_BY_INPUT)
     scan_args = {
         'SCAN_PROCESS_NAME': "20240718 0-1M",
         'SCAN_TIMEOUT' : 2,

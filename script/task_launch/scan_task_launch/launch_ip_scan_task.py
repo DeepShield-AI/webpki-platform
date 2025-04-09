@@ -6,8 +6,8 @@ import time
 from backend import app
 from backend.config.scan_config import IPScanConfig
 from backend.utils.type import ScanType
-from backend.task_manager import g_manager
-from backend.task_manager.task import TaskBatchTemplate
+from backend.celery import g_manager
+from backend.celery.task import TaskBatchTemplate
 
 if __name__ == "__main__":
     with app.app_context():

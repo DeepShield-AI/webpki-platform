@@ -6,7 +6,7 @@ sys.path.append(r"E:\global_ca_monitor")
 import socket
 from datetime import datetime, timezone
 from backend import app
-from backend.scanner.scan_by_domain import DomainScanner
+from backend.scanner.scan_by_input import DomainScanner
 from backend.config.scan_config import DomainScanConfig
 
 # domain = "0-courier.push.apple.com"

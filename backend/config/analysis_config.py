@@ -1,5 +1,5 @@
 
-from flask import Request
+from flask_app import Request
 
 class CertAnalysisConfig:
 

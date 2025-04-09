@@ -8,24 +8,43 @@ import codecs
 import ipaddress
 import http.client
 import subprocess
+import redis
 
 from abc import ABC, abstractmethod
-from threading import Lock
-from rich.progress import Progress, TaskID
-from rich.console import Console
-
 from datetime import datetime, timezone
 from OpenSSL import SSL
 from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
 from dataclasses import dataclass
+from celery.app.task import Task
+from celery.result import AsyncResult
 
-from .jarm_fp_utils import *
-from backend.config.config_loader import ZGRAB2_PATH, ZMAP_PATH
-from backend.config.scan_config import ScanConfig
+from backend.celery import celery_app
+from backend.scanner.jarm_fp_utils import *
+from backend.scanner.scan_monitor import monitor_scan_task
+from backend.scanner.scan_by_input import InputScanner
+from backend.scanner.scan_by_ct import CTScanner
+from backend.config.config_loader import ZGRAB2_PATH
+from backend.config.scan_config import ScanConfig, InputScanConfig, CTScanConfig
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.exception import RetriveError
-from backend.logger.logger import primary_logger
-from backend.models import ScanStatus
+from backend.logger.logger import primary_logger, get_logger
+
+r = redis.Redis()
+
+@celery_app.task(bind=True)
+def launch_scan_task(self : Task, config : ScanConfig):
+
+    # get the scan task id for the scan
+    # init config info for the scan
+    # set up unique logger for the scan
+    # set up monitor task for the scan
+    if isinstance(config, InputScanConfig):
+        scanner = InputScanner(self.request.id, config)
+    elif isinstance(config, CTScanConfig):
+        scanner = CTScanner(self.request.id, config)
+
+    scanner.start()
+    return True
 
 
 @dataclass
@@ -56,42 +75,53 @@ tls_version_map = {
     SSL.TLS1_3_VERSION : 3
 }
 
+# This class is the one that performs big scanning,
+# has two modes: scan by input list and scan CT log
+# constructed when there is an scan task generated
 class Scanner(ABC):
 
     def __init__(
             self,
-            scan_id : str,
-            start_time : datetime,
+            task_id : str,
             scan_config : ScanConfig,
         ) -> None:
 
+        self.scan_id = task_id
+        self.scan_start_time = datetime.now(timezone.utc)
+
         # scan settings from scan config
-        self.scan_id = scan_id
-        self.scan_name = scan_config.SCAN_PROCESS_NAME
-        self.scan_start_time = start_time
+        self.scan_name = scan_config.scan_process_name
+        self.storage_dir = scan_config.storage_dir
+        self.max_threads_alloc = scan_config.max_threads_alloc
+        self.thread_workload = scan_config.thread_workload
 
-        self.storage_dir = scan_config.STORAGE_DIR
-        self.max_threads_alloc = scan_config.MAX_THREADS_ALLOC
-        self.thread_workload = scan_config.THREAD_WORKLOAD
-
-        self.proxy_host = scan_config.PROXY_HOST
-        self.proxy_port = scan_config.PROXY_PORT
-        self.scan_timeout = scan_config.SCAN_TIMEOUT
-        self.max_retry = scan_config.MAX_RETRY
-
-        self.scan_status_data_lock = Lock()
-        self.scan_status_data = ScanStatusData(start_time=start_time)
-        self.scan_status_entry : ScanStatus = ScanStatus.query.filter_by(ID=scan_id).first()
-
-        # Console
-        # @Debug only
-        self.progress = Progress()
-        self.progress_task = TaskID(-1)
-        self.console = Console()
+        self.proxy_host = scan_config.proxy_host
+        self.proxy_port = scan_config.proxy_port
+        self.scan_timeout = scan_config.scan_timeout
+        self.max_retry = scan_config.max_retry
 
         # Crtl+C and other signals
         self.crtl_c_event = threading.Event()
         self.is_killed = False
+
+        # logger
+        self.logger = get_logger(f"scan-task-{self.scan_id}")
+
+        # monitor task
+        self.monitor_task_id = self._start_monitor_loop()
+
+
+    def _start_monitor_loop(self):
+        def monitor_loop():
+            while True:
+                monitor_scan_task.delay(self.scan_id)
+                time.sleep(30)
+
+        self.monitor_thread = threading.Thread(
+            target=monitor_loop,
+            daemon=True
+        )
+        self.monitor_thread.start()
 
 
     '''
@@ -281,29 +311,7 @@ class Scanner(ABC):
 
 
     # External scan tools caller functions
-    def run_zmap(self, input_file, output_file):
-        # handle input_file here
-        if input_file: return
-        
-        zmap_command = [
-            ZMAP_PATH,
-            '-p', '443',
-            '-o', output_file,
-            '-B', '25M',    # can increase to 30M, but might cause server stuck
-            # '-P', '2',      # send two probes to each target
-            '-v', '3',      # set log level to 3, in the future to 0
-            # '-q',           # run in quiet mode
-            '0.0.0.0/0'     # scan all IPv4
-        ]
-
-        try:
-            subprocess.run(zmap_command, capture_output=False, text=True, check=True)
-            primary_logger.info(f"Zmap scan completed. Output saved to: {output_file}")
-        except subprocess.CalledProcessError as e:
-            primary_logger.error("Error occurred while running Zmap:")
-            primary_logger.error(e.stderr)
-
-
+    # @DEPRECATED NOW
     def run_zgrab2(self, input_file, output_file):
         command = [
             ZGRAB2_PATH,
@@ -326,6 +334,7 @@ class Scanner(ABC):
         @Methods for all types of scans
         @Use abstract methods here
     '''
+    # here we init a new monitor task for this scan
     @abstractmethod
     def start(self):
         pass
@@ -338,14 +347,6 @@ class Scanner(ABC):
     @abstractmethod
     def resume(self):
         pass
-    @abstractmethod
-    def async_update_scan_process_info(self):
-        pass
-    @abstractmethod
-    def sync_update_scan_process_info(self):
-        pass
-
-    # The scan data needs to be stored in files now
     @abstractmethod
     def save_results(self):
         pass

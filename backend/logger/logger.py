@@ -31,7 +31,7 @@ def get_logger(name="Root",
     logger.setLevel(level)
 
     if not logger.handlers:
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s')
 
         # Console handler (with color)
         ch = ColoredConsoleHandler()

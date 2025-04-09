@@ -15,9 +15,18 @@ SCAN_TIMEOUT = int(os.getenv("SCAN_TIMEOUT", 5))
 MAX_RETRY = int(os.getenv("MAX_RETRY", 3))
 
 # 默认输入文件
-DEFAULT_DOMAIN_LIST_FILE = os.getenv("INPUT_DOMAIN_LIST_FILE")
-DEFAULT_IP_LIST_FILE = os.getenv("INPUT_IP_LIST_FILE")
+DEFAULT_INPUT_LIST_FILE = os.getenv("INPUT_LIST_FILE")
 DEFAULT_STORAGE_DIR = os.getenv("STORAGE_DIR")
 
 # IP 黑名单
 IP_BLACKLIST = [ip.strip() for ip in os.getenv("IP_BLACKLIST", "").split(",") if ip.strip()]
+
+# 数据库配置
+DB_CONFIG = {
+    "host": "127.0.0.1",
+    "user": "tianyu",
+    "password": "Password123!",
+    "database": "authbase",
+    "charset": "utf8mb4",  # 你原来是 utf8，也可以换成 utf8mb4 支持 emoji
+    "port": 3306
+}

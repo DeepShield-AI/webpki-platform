@@ -1,0 +1,4 @@
+/data/*.csv
+/data/log
+/data/masscan_output
+/data/raw_cert_data/*_scan
