@@ -53,8 +53,9 @@ class Scanner(ABC):
         self.scan_config = scan_config
         self.scan_start_time = datetime.now(timezone.utc)
 
-        # scan settings from scan config
-        self.storage_dir = scan_config.output_file_dir
+        # ouptput path
+        if not os.path.exists(self.scan_config.output_file_dir):
+            os.makedirs(self.scan_config.output_file_dir)
 
         # Crtl+C and other signals
         self.crtl_c_event = threading.Event()
@@ -66,13 +67,11 @@ class Scanner(ABC):
         # monitor task
         self.monitor_task_id = self._start_monitor_loop()
 
-        if not os.path.exists(self.storage_dir):
-            os.makedirs(self.storage_dir)
 
     def _start_monitor_loop(self):
         def monitor_loop():
             while True:
-                monitor_scan_task.delay(self.scan_id)
+                monitor_scan_task.delay(self.scan_id, self.scan_config.scan_task_name)
                 time.sleep(30)
 
         self.monitor_thread = threading.Thread(
@@ -119,7 +118,8 @@ class InputScanner(Scanner):
         from backend.scanner.celery_scan_task import single_scan_task
         with open(self.input_file, 'r', encoding='utf-8') as input_file:
             for row in input_file:
-                single_scan_task.delay(row, self.scan_config.to_dict())
+                row : str
+                single_scan_task.delay(row.strip(), self.scan_config.to_dict())
 
     def terminate(self):
         primary_logger.info("Terminating domain scan task...")

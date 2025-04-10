@@ -15,8 +15,9 @@ def get_host_dns_records(
             'AAAA',
             'CNAME',
         ],
-        lifetime : float = 10.0,
-        timeout : float = 2.0
+        # the thu server behaves really badly on resolving dns...
+        lifetime : float = 20.0,
+        timeout : float = 10.0
     ) -> dict:
 
     resolver = dns.resolver.Resolver()
@@ -62,8 +63,8 @@ def resolve_host_dns(
             '11.11.1.1',
             '11.11.1.3'
         ],
-        lifetime : float = 10.0,
-        timeout : float = 5.0
+        lifetime : float = 20.0,
+        timeout : float = 10.0
 ) -> tuple[list, list]:
     
     record_dict = get_host_dns_records(host, dns_servers, ['A', 'AAAA'], lifetime, timeout)

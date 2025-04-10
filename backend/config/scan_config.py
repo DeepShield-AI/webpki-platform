@@ -18,7 +18,7 @@ def from_dict(cls: Type[T], data: dict) -> T:
 
 @dataclass
 class ScanConfig:
-    scan_process_name: str = ""
+    scan_task_name: str = ""
     output_file_dir: str = OUTPUT_DIR
     max_tasks_parallel: int = MAX_TASKS_PARALLEL
     single_task_workload: int = SINGLE_TASK_WORKLOAD

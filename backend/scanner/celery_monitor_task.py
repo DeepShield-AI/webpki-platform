@@ -10,9 +10,9 @@ from backend.celery.celery_app import celery_app
 r = redis.Redis()
 
 @shared_task
-def monitor_scan_task(scan_task_id : str):
+def monitor_scan_task(scan_task_id : str, scan_task_name : str):
     result = AsyncResult(scan_task_id)
-    status = result.status
+    status = result.status.lower()
     progress = r.get(f"task:{scan_task_id}:progress")
     start_time_raw = r.get(f"task:{scan_task_id}:start_time")
 
@@ -20,13 +20,15 @@ def monitor_scan_task(scan_task_id : str):
         start_time = datetime.fromisoformat(start_time_raw.decode())
         run_time = (datetime.now(timezone.utc) - start_time).total_seconds()
     else:
+        # TODO:
+        # means the monitoring task is finished?
         run_time = None
 
     progress_str = progress.decode() if progress else "N/A"
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     try:
-        conn = pymysql.connect(**DB_CONFIG)
+        conn = pymysql.connect(**DB_CONFIG, database="scan_status")
         cursor = conn.cursor()
 
         # 尝试更新，找不到就插入
@@ -39,15 +41,20 @@ def monitor_scan_task(scan_task_id : str):
 
         if rows == 0:
             insert_sql = """
-                INSERT INTO scan_status (task_id, status, progress, run_time, start_time, last_update)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO scan_status (task_id, task_name, status, progress, run_time, start_time, last_update)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(insert_sql, (scan_task_id, status, progress_str, run_time, now, now))
+            cursor.execute(insert_sql, (scan_task_id, scan_task_name, status, progress_str, run_time, now, now))
 
         conn.commit()
+        error_msg = None
     except Exception as e:
         error_msg = (f"[ERROR] MySQL error: {e}")
     finally:
         cursor.close()
         conn.close()
         return error_msg
+
+
+# TODO: add exiting logic
+# such as when the scan status is complete

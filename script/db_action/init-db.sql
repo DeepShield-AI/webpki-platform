@@ -9,7 +9,9 @@ USE `scan_status`;
 -- 创建 scan_status 表
 CREATE TABLE IF NOT EXISTS `scan_status` (
     `task_id` VARCHAR(64) PRIMARY KEY,       -- 任务ID
-    `status` ENUM('pending', 'running', 'completed', 'failed') NOT NULL,  -- 状态
+    `task_name` VARCHAR(64),                 -- 任务名称
+    `status` VARCHAR(64) NOT NULL,           -- 状态
+    -- `status` ENUM('pending', 'running', 'completed', 'failed') NOT NULL,  -- 状态
     `progress` VARCHAR(32),                  -- 进度
     `run_time` FLOAT,                        -- 运行时长
     `start_time` DATETIME,                   -- 启动时间
