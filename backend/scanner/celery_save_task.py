@@ -36,6 +36,7 @@ from backend.celery.celery_app import celery_app
 
 @celery_app.task
 def input_scan_save_result(result: dict):
+    primary_logger.debug("enter")
     try:
         conn = pymysql.connect(**DB_CONFIG, database="tls_handshake")
         cert_conn = pymysql.connect(**DB_CONFIG, database="cert")
@@ -58,6 +59,7 @@ def input_scan_save_result(result: dict):
             for cert_pem in peer_certs
         ]
 
+        primary_logger.debug(f"Saving data for {destination_host} : {destination_ip}")
         # === Step 1: 存入 cert 数据库 cert 表 ===
         for cert_hash, cert_pem in zip(cert_hashes, peer_certs):
             with cert_conn.cursor() as cursor:

@@ -1,0 +1,16 @@
+[Unit]
+Description=Celery Worker Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/pki-internet-platform
+Environment="PYTHONPATH=/root/pki-internet-platform"
+ExecStart=/root/pki-internet-platform/venv/bin/celery -A backend.celery.celery_app:celery_app worker --loglevel=info
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

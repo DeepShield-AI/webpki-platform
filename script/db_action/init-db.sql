@@ -1,5 +1,6 @@
 
 -- 创建 scan_status 数据库
+DROP DATABASE IF EXISTS `scan_status`;
 CREATE DATABASE IF NOT EXISTS `scan_status` 
     /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ 
     /*!80016 DEFAULT ENCRYPTION='N' */;
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `scan_status` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 创建 cert 数据库
+DROP DATABASE IF EXISTS `cert`;
 CREATE DATABASE IF NOT EXISTS `cert` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `cert`;
 
@@ -26,13 +28,14 @@ CREATE TABLE IF NOT EXISTS `cert` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 创建 tls_handshake 数据库
+DROP DATABASE IF EXISTS `tls_handshake`;
 CREATE DATABASE IF NOT EXISTS `tls_handshake` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `tls_handshake`;
 
 -- 创建 tlshandshake 表
 CREATE TABLE IF NOT EXISTS `tlshandshake` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,  -- 自增ID
-    `destination_host` VARCHAR(255) NOT NULL,  -- 目标主机名
+    `destination_host` VARCHAR(255),         -- 目标主机名 can be NULL if only ip is provided
     `destination_ip` VARCHAR(45) NOT NULL,   -- 目标IP地址
     `scan_time` DATETIME NOT NULL,           -- 扫描时间
     `jarm` VARCHAR(128),                     -- JARM 指纹

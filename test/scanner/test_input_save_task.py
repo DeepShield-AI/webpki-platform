@@ -4,6 +4,7 @@
 import pymysql
 import json
 from datetime import datetime
+from celery.result import AsyncResult
 from backend.scanner.celery_save_task import input_scan_save_result
 from backend.config.config_loader import DB_CONFIG
 from backend.utils.cert import get_cert_sha256_hex_from_str
@@ -33,7 +34,9 @@ def test_input_scan_save_result():
     }
 
     # 执行保存任务
-    input_scan_save_result(test_result)
+    result : AsyncResult = input_scan_save_result.delay(test_result)
+    assert result.get(timeout=50) is None
+    assert result.successful()
 
     # 计算 hash
     cert_hashes = [get_cert_sha256_hex_from_str(pem) for pem in fake_certs]

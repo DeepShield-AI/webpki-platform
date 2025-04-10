@@ -18,14 +18,13 @@ from backend.utils.domain import check_input_type
 from backend.config.config_loader import ZGRAB2_PATH, DEFAULT_IP_BLACKLIST
 from backend.config.scan_config import InputScanConfig, CTScanConfig
 from backend.scanner.jarm_fp_utils import *
-from backend.scanner.scan_manager import InputScanner
-from backend.scanner.scan_by_ct import CTScanner
+from backend.scanner.scan_manager import InputScanner, CTScanner
 from backend.scanner.celery_save_task import input_scan_save_result
 
 r = redis.Redis()
 
 @celery_app.task(bind=True)
-def launch_scan_task(scan_config: Task, config_dict: dict):
+def launch_scan_task(self: Task, config_dict: dict):
 
     # get the scan task id for the scan
     # init config info for the scan
@@ -33,10 +32,10 @@ def launch_scan_task(scan_config: Task, config_dict: dict):
     # set up monitor task for the scan
     if config_dict.get("input_list_file"):
         config = InputScanConfig.from_dict(config_dict)
-        scanner = InputScanner(scan_config.request.id, config)
+        scanner = InputScanner(self.request.id, config)
     elif config_dict.get("ct_log_address"):
         config = CTScanConfig.from_dict(config_dict)
-        scanner = CTScanner(scan_config.request.id, config)
+        scanner = CTScanner(self.request.id, config)
     else:
         primary_logger.error(f"Can not distinguish the config type: {config_dict}")
 
@@ -89,11 +88,12 @@ def single_scan_task(destination : str, config_dict: dict):
         ip_queue = ipv4 + ipv6
     else:
         primary_logger.error(f"Invalid input dest format: {destination}")
-        return None
+        return False
     
     # Iterate through all the IPs
     for destination_ip in ip_queue:
 
+        primary_logger.debug(f"{destination} : {destination_ip}")
         # # Detect signal
         # if scan_config.crtl_c_event.is_set():
         #     # my_logger.info("Terminating scan thread because of Ctrl + C signal")
@@ -124,7 +124,7 @@ def single_scan_task(destination : str, config_dict: dict):
         _jarm_hash = jarm_hash(jarm) if jarm else None
 
         # do handshake and save results
-        process_target.delay(destination, destination_ip, scan_config, jarm, _jarm_hash)
+        process_target.delay(destination, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 
     return True
 
@@ -132,7 +132,8 @@ def single_scan_task(destination : str, config_dict: dict):
 @celery_app.task
 def process_target(destination, destination_ip, scan_config, jarm, jarm_hash):
     # Now try to make ssl handshake, use blocking celery task
-    ssl_result = _do_ssl_handshake(destination, destination_ip, scan_config)
+    primary_logger.debug(f"Processing on {destination} : {destination_ip}...")
+    ssl_result = _do_ssl_handshake(destination, destination_ip, InputScanConfig.from_dict(scan_config))
     input_scan_save_result.delay({
         "destination_host": destination,
         "destination_ip": destination_ip,
@@ -165,6 +166,24 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
         proxy_conn.connect()
         proxy_socket = proxy_conn.sock
 
+    # sometimes, this connect can fail (especially for ipv6 scenarios)
+    # TODO: handle this case
+    except OSError as e:
+        tls_version = None
+        tls_cipher = None
+        cert_pem = []
+        last_error = str(e)
+    
+        ssl_result = {
+            "tls_version" : tls_version,
+            "tls_cipher" : tls_cipher,
+            "peer_certs" : cert_pem,
+            "error" : last_error
+        }
+        # primary_logger.debug(ssl_result)
+        return ssl_result
+
+    try:
         # We will construct multiple CHs in the futrue with a custom TLS library
         ctx = SSL.Context(SSL.TLS_CLIENT_METHOD)
         ctx.set_verify(SSL.VERIFY_NONE)
@@ -185,6 +204,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
             if retry_count >= scan_config.max_retry:
                 raise RetriveError
             try:
+                primary_logger.debug(f"performing handshake on {host} : {ip}...")
                 sock_ssl.do_handshake()
                 break
             except SSL.WantReadError as e:
@@ -219,23 +239,25 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
         # my_logger.error(f"Error fetching certificate for {host}: {last_error} {last_error.__class__}")
         tls_version = None
         tls_cipher = None
-        cert_pem = None
+        cert_pem = []
 
     except Exception as e:
         # my_logger.error(f"Error fetching certificate for {host}: {e} {e.__class__}")
         tls_version = None
         tls_cipher = None
-        cert_pem = None
-        last_error = e
+        cert_pem = []
+        last_error = str(e)
     
     finally:
         proxy_socket.close()
-        return {
+        ssl_result = {
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
             "peer_certs" : cert_pem,
             "error" : last_error
         }
+        # primary_logger.debug(ssl_result)
+        return ssl_result
 
 
 # External scan tools caller functions

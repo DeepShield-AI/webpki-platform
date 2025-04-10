@@ -6,7 +6,16 @@ from celery import Celery
 BROKER_URL = 'redis://localhost:6379/0'
 RESULT_BACKEND = 'redis://localhost:6379/1'
 
-celery_app = Celery('task_manager', broker=BROKER_URL, backend=RESULT_BACKEND)
+celery_app = Celery(
+    'task_manager',
+    broker=BROKER_URL,
+    backend=RESULT_BACKEND,
+    include=[
+        'backend.scanner.celery_scan_task',
+        'backend.scanner.celery_save_task',
+        'backend.scanner.celery_monitor_task',
+    ]
+)
 
 # 可选：加载配置文件
 celery_app.conf.update(
