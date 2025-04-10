@@ -6,7 +6,7 @@ import socket
 import threading
 from datetime import datetime, timezone
 from backend import app
-from backend.scanner.scan_by_input import DomainScanner
+from backend.scanner.scan_manager import DomainScanner
 from backend.config.scan_config import DomainScanConfig
 from backend.utils.type import ScanType
 from backend.celery import g_manager

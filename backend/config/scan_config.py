@@ -1,14 +1,11 @@
 
-import os
-from dataclasses import dataclass, asdict, fields, field
+# scan_config
 from typing import List, Type, TypeVar, Any
-
-from flask_app import Request
-from backend.utils.type import ScanType
-
+from dataclasses import dataclass, asdict, fields, field
 from backend.config.config_loader import (
-    MAX_THREADS_ALLOC, THREAD_WORKLOAD, SCAN_TIMEOUT, MAX_RETRY,
-    DEFAULT_INPUT_LIST_FILE, DEFAULT_STORAGE_DIR
+    MAX_TASKS_PARALLEL, SINGLE_TASK_WORKLOAD, SCAN_TIMEOUT, MAX_RETRY, ENABLE_JARM,
+    INPUT_LIST_FILE, OUTPUT_DIR,
+    PROXY_HOST, PROXY_PORT
 )
 
 # define a template type variable, can be any type
@@ -22,11 +19,11 @@ def from_dict(cls: Type[T], data: dict) -> T:
 @dataclass
 class ScanConfig:
     scan_process_name: str = ""
-    storage_dir: str = DEFAULT_STORAGE_DIR
-    max_threads_alloc: int = MAX_THREADS_ALLOC
-    thread_workload: int = THREAD_WORKLOAD
-    proxy_host: str = "127.0.0.1"
-    proxy_port: int = 33210
+    output_file_dir: str = OUTPUT_DIR
+    max_tasks_parallel: int = MAX_TASKS_PARALLEL
+    single_task_workload: int = SINGLE_TASK_WORKLOAD
+    proxy_host: str = PROXY_HOST
+    proxy_port: int = PROXY_PORT
     scan_timeout: int = SCAN_TIMEOUT
     max_retry: int = MAX_RETRY
 
@@ -37,17 +34,11 @@ class ScanConfig:
     def from_dict(cls: Type[T], data: dict) -> T:
         return from_dict(cls, data)
 
-
 @dataclass
 class InputScanConfig(ScanConfig):
-    scan_tool: str = "zgrab2"
-    input_domain_list_file: str = DEFAULT_INPUT_LIST_FILE
-    domain_index_start: int = 0
-    num_domain_scan: int = 100
+    input_list_file: str = INPUT_LIST_FILE
+    enable_jarm: bool = ENABLE_JARM
     scan_port: int = 443
-    tls_fp_type: str = "jarm"
-    tls_fp_only: bool = True
-
 
 @dataclass
 class CTScanConfig(ScanConfig):
@@ -57,7 +48,6 @@ class CTScanConfig(ScanConfig):
     entry_end: int = 1000
     window_size: int = 10
 
-
 # field(default_factory=...) 是 dataclasses 中的语法，用来设置可变类型（如 list、dict）的默认值。不能写成：
 # ns: List[str] = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]  # 会导致所有实例共享同一个列表对象
 @dataclass
@@ -65,33 +55,3 @@ class DNSScanConfig(ScanConfig):
     ns: List[str] = field(default_factory=lambda: ["1.1.1.1", "8.8.8.8", "9.9.9.9"])
     record_types: List[str] = field(default_factory=lambda: ["A", "AAAA", "TXT"])
 
-
-def create_scan_config_from_frontend_request(request: Request, scan_type: ScanType) -> ScanConfig:
-    common_args = {
-        'scan_process_name': request.json.get('scan_process_name'),
-        'storage_dir': request.json.get('storage_dir'),
-        'max_threads_alloc': int(request.json.get('max_threads_alloc')),
-        'thread_workload': int(request.json.get('thread_workload')),
-        'scan_timeout': int(request.json.get('scan_timeout')),
-        'max_retry': int(request.json.get('max_retry')),
-        'proxy_host': request.json.get('proxy_host', '127.0.0.1'),
-        'proxy_port': int(request.json.get('proxy_port', 33210)),
-    }
-    if scan_type == ScanType.SCAN_BY_INPUT:
-        return InputScanConfig(
-            **common_args,
-            input_domain_list_file=request.json.get('input_domain_list_file'),
-            domain_index_start=int(request.json.get('domain_index_start', 0)),
-            num_domain_scan=int(request.json.get('num_domain_scan', 100)),
-        )
-    elif scan_type == ScanType.SCAN_BY_CT:
-        return CTScanConfig(
-            **common_args,
-            ct_log_name=request.json.get('ct_log_name'),
-            ct_log_address=request.json.get('ct_log_address'),
-            entry_start=int(request.json.get('entry_start', 0)),
-            entry_end=int(request.json.get('entry_end', 1000)),
-            window_size=int(request.json.get('window_size', 10)),
-        )
-    else:
-        raise ValueError(f"Unsupported scan_type: {scan_type}")

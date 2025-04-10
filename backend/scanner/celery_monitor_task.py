@@ -1,15 +1,15 @@
 
+import redis
 import pymysql
 from celery import shared_task
 from celery.result import AsyncResult
 from datetime import datetime, timezone
 from backend.config.config_loader import DB_CONFIG
-import redis
 
 r = redis.Redis()
 
 @shared_task
-def monitor_scan_task(scan_task_id):
+def monitor_scan_task(scan_task_id : str):
     result = AsyncResult(scan_task_id)
     status = result.status
     progress = r.get(f"task:{scan_task_id}:progress")
@@ -50,4 +50,3 @@ def monitor_scan_task(scan_task_id):
         cursor.close()
         conn.close()
         return error_msg
-    

@@ -30,6 +30,115 @@ import random
 import argparse
 import hashlib
 import ipaddress
+import socks
+
+from backend.logger.logger import primary_logger
+
+# Send the assembled client hello using a socket
+# We directly connect to destination ip as the SNI extension has already added to the CH packet
+def send_packet(self, packet, destination_ip, destination_port, proxyhost=None, proxyport=None):
+    try:
+        # Determine if the input is an IP
+        if (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv4Address) and (type(ipaddress.ip_address(destination_ip)) != ipaddress.IPv6Address):
+            primary_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+            return None
+    except Exception:
+        primary_logger.error(f"Passing a non-IP string into the send_packet function: {destination_ip}")
+        return None
+
+    try:
+        if ":" in destination_ip:
+            if proxyhost and proxyport:
+                sock = socks.socksocket(socket.AF_INET6, socket.SOCK_STREAM)
+                sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+            else:
+                sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.settimeout(self.scan_timeout)
+            sock.connect((destination_ip, destination_port, 0, 0))
+        else:
+            if proxyhost and proxyport:
+                sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.set_proxy(socks.SOCKS5, proxyhost, proxyport)
+            else:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(self.scan_timeout)
+            sock.connect((destination_ip, destination_port))
+
+        # Receive SH, however, this might now be complete SH
+        sock.sendall(packet)
+        server_hello_data = sock.recv(1484)
+        
+        '''
+            This is where we make something new
+            Ideas:
+                1. Receive more packets, and build FP based on that
+                2. Try to analyze certificates from the raw packet
+        '''
+        # certifiate_data = sock.recv(10000)
+        
+        sock.shutdown(socket.SHUT_RDWR)
+        sock.close()
+        return bytearray(server_hello_data)
+
+    # Timeout errors result in an empty hash
+    except socket.timeout as e:
+        primary_logger.debug(f"Timeout when connecting {destination_ip}...")
+        sock.close()
+        return "TIMEOUT"
+
+    except Exception as e:
+        primary_logger.debug(f"Exception {e} happens when connecting {destination_ip}...")
+        try:
+            sock.close()
+        except UnboundLocalError:
+            pass
+        return None
+
+
+# If a packet is received, decipher the details
+def read_packet(self, data):
+    try:
+        if data == None:
+            return "|||"
+        jarm = ""
+
+        # Server hello error
+        if data[0] == 21:
+            primary_logger.debug("Server hello error")
+            selected_cipher = b""
+            return "|||"
+
+        # Check for server hello
+        elif (data[0] == 22) and (data[5] == 2):
+            server_hello_length = int.from_bytes(data[3:5], "big")
+            counter = data[43]
+
+            # Find server's selected cipher
+            selected_cipher = data[counter+44:counter+46]
+
+            # Find server's selected version
+            version = data[9:11]
+
+            # Format
+            jarm += codecs.encode(selected_cipher, 'hex').decode('ascii')
+            jarm += "|"
+            jarm += codecs.encode(version, 'hex').decode('ascii')
+            jarm += "|"
+
+            # Extract extensions
+            extensions = (extract_extension_info(data, counter, server_hello_length))
+            jarm += extensions
+            return jarm
+        else:
+            primary_logger.warning("Packet data[0] unknown number")
+            return "|||"
+
+    except Exception as e:
+        primary_logger.error(f"Exception {e} happens when reading server hello packet, probably the packet is not server hello...")
+        return "|||"
+
+
+
 
 #Randomly choose a grease value
 def choose_grease():

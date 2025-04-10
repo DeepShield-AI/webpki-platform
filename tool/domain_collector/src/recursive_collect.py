@@ -1,5 +1,5 @@
 
-from backend.scanner.scan_by_input import DomainScanner
+from backend.scanner.scan_manager import DomainScanner
 from backend.config.scan_config import DomainScanConfig
 from backend.parser.cert_parser_base import X509CertParser
 from backend.parser.cert_parser_extension import SANResult
