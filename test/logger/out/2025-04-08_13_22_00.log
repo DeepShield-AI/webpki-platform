@@ -1,3 +1,0 @@
-2025-04-08 13:22:00,869 - INFO - test_custom_logger.py:19 - LoggerInitialized.
-2025-04-08 13:22:00,869 - WARNING - test_custom_logger.py:20 - SomethingMightGoWrong.
-2025-04-08 13:22:00,869 - ERROR - test_custom_logger.py:21 - SomethingWentWrong!

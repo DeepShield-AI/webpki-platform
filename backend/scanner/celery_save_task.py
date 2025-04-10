@@ -4,7 +4,7 @@ import pymysql
 from backend.config.config_loader import DB_CONFIG
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.logger.logger import primary_logger
-from backend.celery import celery_app
+from backend.celery.celery_app import celery_app
 
 '''
     result:
@@ -59,7 +59,7 @@ def input_scan_save_result(result: dict):
         ]
 
         # === Step 1: 存入 cert 数据库 cert 表 ===
-        for cert_hash, cert_pem in cert_hashes, peer_certs:
+        for cert_hash, cert_pem in zip(cert_hashes, peer_certs):
             with cert_conn.cursor() as cursor:
                 cursor.execute(
                     """

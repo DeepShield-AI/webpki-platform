@@ -5,6 +5,7 @@ from celery import shared_task
 from celery.result import AsyncResult
 from datetime import datetime, timezone
 from backend.config.config_loader import DB_CONFIG
+from backend.celery.celery_app import celery_app
 
 r = redis.Redis()
 

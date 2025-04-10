@@ -10,7 +10,7 @@ from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
 from celery.app.task import Task
 from datetime import datetime, timezone
 
-from backend.celery import celery_app
+from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
 from backend.utils.exception import RetriveError
 from backend.utils.network import resolve_host_dns
