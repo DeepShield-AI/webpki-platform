@@ -2,7 +2,7 @@
 import os
 import csv, json
 import IP2Location
-from backend.config.analysis_config import IP2LOCATIONDB1_DIR, IP2LOCATIONDB3_DIR, IP2LOCATIONASN_DIR
+from backend.config.analyze_config import IP2LOCATIONDB1_DIR, IP2LOCATIONDB3_DIR, IP2LOCATIONASN_DIR
 
 database = IP2Location.IP2Location(IP2LOCATIONDB3_DIR)
 result = database.get_all("8.8.8.8")

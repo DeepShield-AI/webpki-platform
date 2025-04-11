@@ -115,7 +115,7 @@ def get_cert_sha256_hex_from_str(cert : str) -> str:
 # Certificate Policy Dict
 # The input file comes from Zmap
 class CertificatePolicyLookup():
-    def __init__(self, input_path=os.path.join(os.path.dirname(__file__), r"../data/certificate_policies.csv")) -> None:
+    def __init__(self, input_path=os.path.join(os.path.dirname(__file__), r"../../data/cert_policies/certificate_policies.csv")) -> None:
         self.policy_look_up_dict = {}
 
         with open(input_path, 'r') as file:

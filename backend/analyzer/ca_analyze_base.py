@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from ..celery import g_thread_executor
 from ..logger.logger import primary_logger
 from ..utils.exception import ParseError, UnknownTableError
-from ..config.analysis_config import CaAnalysisConfig
+from ..config.analyze_config import CaAnalysisConfig
 from .ca_analyze_parse import CaParseAnalyzer
 from .ca_analyze_clustering import CaSignedCertProfilingAnalyzer
 

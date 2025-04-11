@@ -7,7 +7,7 @@ from threading import Thread
 from backend import app, db
 from backend.celery import g_manager
 from backend.celery.task import TaskBatchTemplate
-from backend.config.analysis_config import CaAnalysisConfig
+from backend.config.analyze_config import CaAnalysisConfig
 
 with app.app_context():
     analyze_args = {

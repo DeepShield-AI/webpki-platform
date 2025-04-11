@@ -2,7 +2,7 @@
 import sys
 sys.path.append(r"D:\global_ca_monitor")
 from backend.parser.pem_parser import PEMParser
-from backend.parser.cert_asn1_struct_fp import ASN1StructFP
+from backend.analyzer.cert_asn1_struct_fp import ASN1StructFP
 from backend.utils.json import custom_serializer
 
 import json

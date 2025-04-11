@@ -9,7 +9,7 @@ import tempfile
 import subprocess
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
-from backend.config.analysis_config import ZLINT_PATH
+from backend.config.analyze_config import ZLINT_PATH
 
 def get_error_fatal_count(data):
     # 使用正则表达式匹配 'error' 和 'fatal' 对应的数量

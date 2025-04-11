@@ -29,6 +29,14 @@ CREATE TABLE IF NOT EXISTS `cert` (
     `cert_pem` MEDIUMTEXT NOT NULL            -- 证书内容
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 创建 cert_fp 表，用于存储 cert_hash 和其对应的指纹（cert_fp）
+CREATE TABLE IF NOT EXISTS `cert_fp` (
+    `cert_hash` VARCHAR(64) NOT NULL,      -- 证书哈希值
+    `cert_fp` VARCHAR(128) NOT NULL,       -- 证书指纹
+    PRIMARY KEY (`cert_hash`),             -- 保证每个证书只有一个指纹
+    FOREIGN KEY (`cert_hash`) REFERENCES `cert`(`cert_hash`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 创建 tls_handshake 数据库
 DROP DATABASE IF EXISTS `tls_handshake`;
 CREATE DATABASE IF NOT EXISTS `tls_handshake` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

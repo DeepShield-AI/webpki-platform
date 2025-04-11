@@ -13,7 +13,7 @@ from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.config.analysis_config import ZLINT_PATH
+from backend.config.analyze_config import ZLINT_PATH
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.logger.logger import primary_logger

@@ -22,7 +22,7 @@ from OpenSSL.crypto import (
 )
 
 from backend import app, db
-from ..config.analysis_config import CA_CERT_DIR, TRUST_ROOT_DIR
+from ..config.analyze_config import CA_CERT_DIR, TRUST_ROOT_DIR
 from ..logger.logger import primary_logger
 from ..models import CaCertStore, CertChainRelation, DomainTrustRelation
 from ..utils.cert import (

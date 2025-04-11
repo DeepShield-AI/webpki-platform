@@ -181,7 +181,7 @@ def batch_flush_results(max_batch_size=2000):
             tls_conn.commit()
 
     except Exception as e:
-        print(f"[batch_flush_results] Error: {e}")
+        primary_logger.error(f"[batch_flush_results] Error: {e}")
     finally:
         cert_conn.close()
         tls_conn.close()

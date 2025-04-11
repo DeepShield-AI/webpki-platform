@@ -9,7 +9,7 @@ import threading
 from queue import PriorityQueue, Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
-from backend.config.analysis_config import TRUST_ROOT_DIR
+from backend.config.analyze_config import TRUST_ROOT_DIR
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.utils.cert import get_cert_sha256_hex_from_str, is_issuer
 from backend.utils.json import custom_serializer
