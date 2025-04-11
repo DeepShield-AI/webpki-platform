@@ -115,7 +115,7 @@ def input_scan_save_result(result: dict):
 
 
 @celery_app.task
-def batch_flush_results(max_batch_size=100):
+def batch_flush_results(max_batch_size=2000):
     results = []
     for _ in range(max_batch_size):
         raw = r.lpop("tls_results_queue")

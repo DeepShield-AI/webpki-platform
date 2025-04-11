@@ -253,7 +253,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
         tls_version = None
         tls_cipher = None
         cert_pem = []
-        last_error = str(e)
+        last_error = e
     
     finally:
         proxy_socket.close()
@@ -261,7 +261,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
             "peer_certs" : cert_pem,
-            "error" : last_error
+            "error" : str(last_error)
         }
         # primary_logger.debug(ssl_result)
         return ssl_result
