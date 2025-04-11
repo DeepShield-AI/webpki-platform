@@ -34,8 +34,8 @@ PROXY_PORT = int(os.getenv("PROXY_PORT", 33210))
 
 # 数据库配置
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
+    "host": os.getenv("DB_HOST", "127.0.0.1"),
+    "user": os.getenv("DB_USER", "tianyu"),
     "password": os.getenv("DB_PASSWORD"),
     "charset": os.getenv("DB_CHARSET", "utf8mb4"),
     "port": int(os.getenv("DB_PORT", 3306))

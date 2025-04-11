@@ -35,6 +35,7 @@ from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.scanner.jarm_fp_utils import *
 from backend.scanner.celery_monitor_task import monitor_scan_task
+from backend.scanner.celery_save_task import batch_flush_results
 from backend.parser.ct_parser import *
 
 
@@ -112,8 +113,23 @@ class InputScanner(Scanner):
         # scan settings from scan config
         self.input_file = scan_config.input_list_file
 
+    def _start_batch_flush(self):
+        def flush_loop():
+            while True:
+                batch_flush_results.delay()
+                time.sleep(10)
+
+        self.monitor_thread = threading.Thread(
+            target=flush_loop,
+            daemon=True
+        )
+        self.monitor_thread.start()
+        primary_logger.info(f"Save thread started!")
 
     def start(self):
+        # start save task
+        self._start_batch_flush()
+
         # avoid loop import
         from backend.scanner.celery_scan_task import single_scan_task
         with open(self.input_file, 'r', encoding='utf-8') as input_file:

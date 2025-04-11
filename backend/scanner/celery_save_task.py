@@ -1,10 +1,14 @@
 
 import json
+import redis
 import pymysql
 from backend.config.config_loader import DB_CONFIG
 from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.logger.logger import primary_logger
 from backend.celery.celery_app import celery_app
+from backend.celery.celery_db_pool import engine_cert, engine_tls
+
+r = redis.Redis()
 
 '''
     result:
@@ -108,3 +112,75 @@ def input_scan_save_result(result: dict):
             cert_conn.close()
         except:
             pass
+
+
+@celery_app.task
+def batch_flush_results(max_batch_size=100):
+    results = []
+    for _ in range(max_batch_size):
+        raw = r.lpop("tls_results_queue")
+        if raw:
+            results.append(json.loads(raw))
+
+    if not results:
+        return
+
+    cert_conn = engine_cert.raw_connection()
+    tls_conn = engine_tls.raw_connection()
+
+    try:
+        # --- Step 1: 批量写入 cert 表 ---
+        cert_data = []
+        for result in results:
+            peer_certs = result.get("ssl_result", {}).get("peer_certs", [])
+            for cert_pem in peer_certs:
+                cert_hash = get_cert_sha256_hex_from_str(cert_pem)
+                cert_data.append((cert_hash, cert_pem))
+
+        if cert_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO cert (cert_hash, cert_pem) VALUES (%s, %s)",
+                    cert_data
+                )
+            cert_conn.commit()
+
+        # --- Step 2: 批量写入 tlshandshake 表 ---
+        tls_data = []
+        for result in results:
+            ssl_result = result.get("ssl_result", {})
+            peer_certs = ssl_result.get("peer_certs", [])
+            cert_hashes = [
+                get_cert_sha256_hex_from_str(cert_pem)
+                for cert_pem in peer_certs
+            ]
+            tls_data.append((
+                result.get("destination_host"),
+                result.get("destination_ip"),
+                result.get("scan_time"),
+                result.get("jarm"),
+                result.get("jarm_hash"),
+                ssl_result.get("tls_version"),
+                ssl_result.get("tls_cipher"),
+                json.dumps(cert_hashes),
+                ssl_result.get("error")
+            ))
+
+        if tls_data:
+            with tls_conn.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO tlshandshake (
+                        destination_host, destination_ip, scan_time, jarm, jarm_hash,
+                        tls_version, tls_cipher, cert_hash_list, error
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    tls_data
+                )
+            tls_conn.commit()
+
+    except Exception as e:
+        print(f"[batch_flush_results] Error: {e}")
+    finally:
+        cert_conn.close()
+        tls_conn.close()

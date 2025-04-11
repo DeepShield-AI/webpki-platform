@@ -1,4 +1,5 @@
 
+import json
 import time
 import select
 import subprocess
@@ -129,12 +130,18 @@ def single_scan_task(destination : str, config_dict: dict):
     return True
 
 
+# Redis 只能存储字符串或字节
+def enqueue_result(result: dict):
+    r.rpush("tls_results_queue", json.dumps(result))
+
+
 @celery_app.task
 def process_target(destination, destination_ip, scan_config, jarm, jarm_hash):
     # Now try to make ssl handshake, use blocking celery task
     primary_logger.debug(f"Processing on {destination} : {destination_ip}...")
     ssl_result = _do_ssl_handshake(destination, destination_ip, InputScanConfig.from_dict(scan_config))
-    input_scan_save_result.delay({
+
+    enqueue_result({
         "destination_host": destination,
         "destination_ip": destination_ip,
         "scan_time" : datetime.now(timezone.utc).isoformat(),

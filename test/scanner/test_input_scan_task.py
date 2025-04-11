@@ -19,7 +19,7 @@ def test_launch_scan_task():
     assert isinstance(result.get(timeout=50), bool)
     assert result.successful()
 
-    time.sleep(10)
+    time.sleep(15)
     conn = pymysql.connect(**DB_CONFIG)
     with conn.cursor() as cursor:
         cursor.execute("USE tls_handshake;")
