@@ -122,6 +122,7 @@ def batch_flush_results(max_batch_size=100):
         if raw:
             results.append(json.loads(raw))
 
+    primary_logger.debug(f"Insert batch with len {len(results)}")
     if not results:
         return
 
