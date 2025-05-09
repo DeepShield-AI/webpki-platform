@@ -36,7 +36,10 @@ PROXY_PORT = int(os.getenv("PROXY_PORT", 33210))
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "127.0.0.1"),
     "user": os.getenv("DB_USER", "tianyu"),
-    "password": os.getenv("DB_PASSWORD"),
+    "password": os.getenv("DB_PASSWORD", "123456"),
     "charset": os.getenv("DB_CHARSET", "utf8mb4"),
     "port": int(os.getenv("DB_PORT", 3306))
 }
+
+# Web Page 关联域名递归深度
+RECURSIVE_DEPTH = int(os.getenv("RECURSIVE_DEPTH", 0))

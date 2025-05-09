@@ -4,6 +4,7 @@ import time
 import select
 import subprocess
 import http.client
+import requests
 
 import redis
 from OpenSSL import SSL
@@ -18,11 +19,14 @@ from backend.utils.network import resolve_host_dns
 from backend.utils.domain import check_input_type
 from backend.config.config_loader import ZGRAB2_PATH, DEFAULT_IP_BLACKLIST
 from backend.config.scan_config import InputScanConfig, CTScanConfig
+from backend.parser.webpage_parser import extract_domains_from_response
 from backend.scanner.jarm_fp_utils import *
 from backend.scanner.scan_manager import InputScanner, CTScanner
 from backend.scanner.celery_save_task import input_scan_save_result
 
 r = redis.Redis()
+r.expire("crawled_domains", 1 * 24 * 3600)  # 1 天过期
+r.expire("tls_results_queue", 1 * 24 * 3600)  # 1 天过期
 
 @celery_app.task(bind=True)
 def launch_scan_task(self: Task, config_dict: dict):
@@ -45,7 +49,16 @@ def launch_scan_task(self: Task, config_dict: dict):
 
 
 @celery_app.task
-def single_scan_task(destination : str, config_dict: dict):
+def single_scan_task(destination : str, config_dict: dict, current_recursive_depth : int):
+
+    # check recursive depth
+    if current_recursive_depth < 0:
+        return True
+
+    # Redis 去重，SADD 返回 1 表示添加成功（即未爬过）
+    if r.sadd("crawled_domains", destination) == 0:
+        primary_logger.info("Has been scanned, skip...")
+        return True
 
     scan_config : InputScanConfig = InputScanConfig.from_dict(config_dict)
 
@@ -126,6 +139,21 @@ def single_scan_task(destination : str, config_dict: dict):
 
         # do handshake and save results
         process_target.delay(destination, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
+
+
+    # For now, we only use high-level APIs for webpage crawling...
+    headers = {
+        'User-Agent': 'Mozilla/5.0',
+    }
+    response = requests.get(destination, headers=headers)
+    related_domains = extract_domains_from_response(destination, response)
+    # enqueue_web_result({
+    #     "destination_host": destination,
+    #     "related_domains": related_domains
+    # })
+
+    for d in related_domains:
+        single_scan_task.delay(d, config_dict, current_recursive_depth - 1)
 
     return True
 

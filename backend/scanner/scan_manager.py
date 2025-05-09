@@ -112,6 +112,21 @@ class InputScanner(Scanner):
 
         # scan settings from scan config
         self.input_file = scan_config.input_list_file
+        self.recursive_depth = scan_config.recursive_depth
+
+    def _start_recursive_handler(self):
+        def flush_loop():
+            while True:
+                batch_flush_related_domain_results.delay()
+                time.sleep(2)
+
+        self.recursive_thread = threading.Thread(
+            target=flush_loop,
+            daemon=True
+        )
+        self.recursive_thread.start()
+        primary_logger.info(f"Recursive thread started!")
+
 
     def _start_batch_flush(self):
         def flush_loop():
@@ -130,12 +145,16 @@ class InputScanner(Scanner):
         # start save task
         self._start_batch_flush()
 
+        # start related domain save task
+        # 暂时先不存储相关联域名
+        # self._start_recursive_handler()
+
         # avoid loop import
         from backend.scanner.celery_scan_task import single_scan_task
         with open(self.input_file, 'r', encoding='utf-8') as input_file:
             for row in input_file:
                 row : str
-                single_scan_task.delay(row.strip(), self.scan_config.to_dict())
+                single_scan_task.delay(row.strip(), self.scan_config.to_dict(), self.recursive_depth)
 
     def terminate(self):
         primary_logger.info("Terminating domain scan task...")
