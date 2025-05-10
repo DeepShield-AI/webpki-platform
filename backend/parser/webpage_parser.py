@@ -6,23 +6,34 @@ from bs4 import BeautifulSoup
 
 # 常见公共域名（可扩展）
 COMMON_DOMAINS = {
-    'fonts.googleapis.com',
-    'fonts.gstatic.com',
-    'ajax.googleapis.com',
-    'www.google-analytics.com',
+    'google.com',
+    'googleapis.com',
+    'google-analytics.com',
+    'googletagmanager.com',
     'googleads.g.doubleclick.net',
-    'cdn.jsdelivr.net',
-    'cdnjs.cloudflare.com',
-    'use.fontawesome.com',
-    'code.jquery.com',
-    'www.googletagmanager.com',
-    'connect.facebook.net',
-    'static.xx.fbcdn.net',
-    'www.youtube.com',
+    'gstatic.com',
+    
+    'cloudflare.com',
+    'cloudflareinsights.com',
+
+    'youtube.com',
+    'facebook.com',
+    'facebook.net',
+    'twitter.com'
+    
+    'instagram.com',
+    'github.com',
     'i.ytimg.com',
-    'player.vimeo.com',
-    'static.cloudflareinsights.com',
-    'tags.tiqcdn.com'
+    
+    # 'cdn.jsdelivr.net',
+    # 'use.fontawesome.com',
+    # 'code.jquery.com',
+    # 'static.xx.fbcdn.net',
+    # 'player.vimeo.com',
+    # 'tags.tiqcdn.com'
+    
+    'schema.org',
+    'www.w3.org'
 }
 
 def extract_domains_from_response(dest, response):
@@ -55,6 +66,7 @@ def extract_domains_from_response(dest, response):
 
         # 移除常见公共域名
         domains.difference_update(COMMON_DOMAINS)
+        domains = {d for d in domains if not any(d == root or d.endswith(f".{root}") for root in COMMON_DOMAINS)}
 
         # 移除自身
         domains.remove(dest)

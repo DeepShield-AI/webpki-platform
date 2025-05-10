@@ -16,6 +16,7 @@ celery_app = Celery(
         'backend.scanner.celery_monitor_task',
         'backend.analyzer.celery_save_task',
         'backend.analyzer.celery_cert_fp_task',
+        'backend.analyzer.celery_cag_task',
     ]
 )
 
