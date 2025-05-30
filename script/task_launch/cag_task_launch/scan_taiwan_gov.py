@@ -9,7 +9,7 @@ if __name__ == "__main__":
         "Taiwan_Gov 20250509",
         proxy_host=None,
         proxy_port=None,
-        input_list_file=r"seed",
+        input_list_file=r"/home/tianyu/pki-internet-platform/script/task_launch/cag_task_launch/seed",
         recursive_depth=3
     )
 

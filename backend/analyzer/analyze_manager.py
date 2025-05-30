@@ -5,6 +5,7 @@ from backend.logger.logger import primary_logger
 from backend.config.analyze_config import AnalyzeConfig
 from backend.analyzer.celery_save_task import batch_flush_results
 from backend.analyzer.celery_cert_fp_task import build_all_from_table
+from backend.analyzer.celery_cag_task import build_all
 
 class AnalyzeManager():
 
@@ -35,7 +36,9 @@ class AnalyzeManager():
         # check flags
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_FP:
             build_all_from_table.delay(self.config.cert_table)
-        
+        if self.config.task_flag & AnalyzeConfig.TASK_CAG:
+            build_all.delay(self.config.out_dir)
+
         while True:
             pass
         
