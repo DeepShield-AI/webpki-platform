@@ -98,7 +98,10 @@ def resolve_ip_reverse_dns_records(
     try:
         answer = resolver.resolve(rev_name, "PTR")
         for rdata in answer:
-            result.append(rdata.to_text())
+            text_data = rdata.to_text()
+            if text_data.endswith("."):
+                text_data = text_data[:-1]
+            result.append(text_data)
             # primary_logger.debug(f"PTR record for {ip}: {rdata.to_text()}")
     except dns.resolver.NXDOMAIN:
         primary_logger.debug(f"No PTR record found for {ip}")

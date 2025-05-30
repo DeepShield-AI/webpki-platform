@@ -101,7 +101,11 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
         if destination.startswith("*."):
             destination = destination[2:]
         # resolve the host
-        ipv4, ipv6 = resolve_host_dns(destination, dns_servers=['114.114.114.114'])
+        ipv4, ipv6 = resolve_host_dns(destination, dns_servers=[
+            '114.114.114.114',
+            '114.114.115.115',
+            '223.5.5.5',
+        ])
         ip_queue = ipv4 + ipv6
     else:
         primary_logger.error(f"Invalid input dest format: {destination}")
@@ -147,9 +151,14 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
     # see if we need reverse dns scan
     if dest_type == "IP address" and scan_config.reverse_dns:
         destination_ip = ip_queue[0]
-        reverse_results = resolve_ip_reverse_dns_records(destination_ip)
+        reverse_results = resolve_ip_reverse_dns_records(destination_ip, dns_servers=[
+            '114.114.114.114',
+            '114.114.115.115',
+            '223.5.5.5',
+        ])
 
         for reverse_host in reverse_results:
+            primary_logger.debug(f"Reverse DNS: {reverse_host}")
             single_scan_task.delay(reverse_host, config_dict, current_recursive_depth)
             # process_target.delay(reverse_host, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 

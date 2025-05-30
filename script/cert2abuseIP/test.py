@@ -15,7 +15,10 @@ print(answer)
 try:
     # answer = dns.resolver.resolve(rev_name, "PTR")
     for rdata in answer:
-        print(rdata)
-        print(f"PTR record for {ip}: {rdata.to_text()}")
+        text_data = rdata.to_text()
+        if text_data.endswith("."):
+            text_data = text_data[:-1]
+        print(rdata.to_text()[:-1])
+        print(f"PTR record for {ip}: {text_data}")
 except dns.resolver.NXDOMAIN:
     print(f"No PTR record found for {ip}")
