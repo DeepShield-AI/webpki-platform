@@ -44,6 +44,9 @@ class InputScanConfig(ScanConfig):
     # this is for recursive scanning in web page
     recursive_depth : int = RECURSIVE_DEPTH
 
+    # this is for reverse DNS option
+    reverse_dns: bool = False
+
 @dataclass
 class CTScanConfig(ScanConfig):
     ct_log_name: str = ""

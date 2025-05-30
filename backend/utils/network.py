@@ -1,7 +1,7 @@
 
 import dns.resolver
-from typing import Dict, Tuple, List
-from ..logger.logger import primary_logger
+import dns.reversename
+from backend.logger.logger import primary_logger
 
 def get_host_dns_records(
         host : str = "www.tsinghua.edu.cn",
@@ -69,3 +69,40 @@ def resolve_host_dns(
     
     record_dict = get_host_dns_records(host, dns_servers, ['A', 'AAAA'], lifetime, timeout)
     return (record_dict['A'], record_dict['AAAA'])
+
+
+def resolve_ip_reverse_dns_records(
+        ip : str = "114.114.114.114",
+        dns_servers = [
+            '114.114.114.114',
+            '114.114.115.115',
+            '1.1.1.1',  # Cloudflare DNS
+            '8.8.8.8',  # Google DNS
+            '9.9.9.9',  # Quad9 DNS
+            '223.5.5.5',
+            '11.11.1.2',
+            '11.11.1.1',
+            '11.11.1.3'
+        ],
+        lifetime : float = 20.0,
+        timeout : float = 10.0
+) -> list:
+    
+    rev_name = dns.reversename.from_address(ip)
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = dns_servers
+    resolver.timeout = timeout  # 单个查询的超时时间
+    resolver.lifetime = lifetime  # 整个查询过程的最大时长
+
+    result = []
+    try:
+        answer = resolver.resolve(rev_name, "PTR")
+        for rdata in answer:
+            result.append(rdata.to_text())
+            # primary_logger.debug(f"PTR record for {ip}: {rdata.to_text()}")
+    except dns.resolver.NXDOMAIN:
+        primary_logger.debug(f"No PTR record found for {ip}")
+    except Exception as e:
+        primary_logger.debug(f"Error: {e}")
+
+    return result

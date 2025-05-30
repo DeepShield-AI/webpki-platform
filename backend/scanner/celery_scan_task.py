@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
 from backend.utils.exception import RetriveError
-from backend.utils.network import resolve_host_dns
+from backend.utils.network import resolve_host_dns, resolve_ip_reverse_dns_records
 from backend.utils.domain import check_input_type
 from backend.config.config_loader import ZGRAB2_PATH, DEFAULT_IP_BLACKLIST
 from backend.config.scan_config import InputScanConfig, CTScanConfig
@@ -50,6 +50,9 @@ def launch_scan_task(self: Task, config_dict: dict):
 
 @celery_app.task
 def single_scan_task(destination : str, config_dict: dict, current_recursive_depth : int):
+    '''
+        destination: possibly domain or IP
+    '''
 
     # check recursive depth
     if current_recursive_depth < 0:
@@ -139,6 +142,16 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
 
         # do handshake and save results
         process_target.delay(destination, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
+
+
+    # see if we need reverse dns scan
+    if dest_type == "IP address" and scan_config.reverse_dns:
+        destination_ip = ip_queue[0]
+        reverse_results = resolve_ip_reverse_dns_records(destination_ip)
+
+        for reverse_host in reverse_results:
+            single_scan_task.delay(reverse_host, config_dict, current_recursive_depth)
+            # process_target.delay(reverse_host, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 
 
     # For now, we only use high-level APIs for webpage crawling...

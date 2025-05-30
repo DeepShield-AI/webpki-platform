@@ -117,7 +117,7 @@ class InputScanner(Scanner):
     def _start_recursive_handler(self):
         def flush_loop():
             while True:
-                batch_flush_related_domain_results.delay()
+                batch_flush_results.delay()
                 time.sleep(2)
 
         self.recursive_thread = threading.Thread(
