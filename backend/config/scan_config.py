@@ -5,7 +5,8 @@ from dataclasses import dataclass, asdict, fields, field
 from backend.config.config_loader import (
     MAX_TASKS_PARALLEL, SINGLE_TASK_WORKLOAD, SCAN_TIMEOUT, MAX_RETRY, ENABLE_JARM,
     INPUT_LIST_FILE, OUTPUT_DIR,
-    PROXY_HOST, PROXY_PORT
+    PROXY_HOST, PROXY_PORT,
+    RECURSIVE_DEPTH
 )
 
 # define a template type variable, can be any type
@@ -39,6 +40,12 @@ class InputScanConfig(ScanConfig):
     input_list_file: str = INPUT_LIST_FILE
     enable_jarm: bool = ENABLE_JARM
     scan_port: int = 443
+
+    # this is for recursive scanning in web page
+    recursive_depth : int = RECURSIVE_DEPTH
+
+    # this is for reverse DNS option
+    reverse_dns: bool = False
 
 @dataclass
 class CTScanConfig(ScanConfig):

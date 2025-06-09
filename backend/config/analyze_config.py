@@ -8,6 +8,11 @@ class AnalyzeConfig:
     TASK_CHAIN: int = field(init=False, default=0b0010)  # for building chains
     TASK_REVOKE: int = field(init=False, default=0b0100) # for checking revocation
 
+    TASK_CAG: int = field(init=False, default=0b1000) # for building CAG for certain webpages
+
+    # the output_dir if applies
+    out_dir: str = r"out"
+
     # cert_table determines which certificate table to analyze.
     cert_table: str = "cert"
 

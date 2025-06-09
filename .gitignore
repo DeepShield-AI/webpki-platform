@@ -31,6 +31,6 @@ script/fig_generation/attack_result/*.txt
 script/fig_generation/attack_result/*.png
 
 # python venv
-.env
+# .env
 myenv/
 pki_internet_platform.egg-info/

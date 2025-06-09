@@ -21,6 +21,7 @@ from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
 
 r = redis.Redis()
+r.expire("analyze_results_queue", 1 * 24 * 3600)  # 1 天过期
 
 # Redis 只能存储字符串或字节
 def enqueue_result(result: dict):
