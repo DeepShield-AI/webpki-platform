@@ -156,6 +156,9 @@ class InputScanner(Scanner):
                 row : str
                 single_scan_task.delay(row.strip(), self.scan_config.to_dict(), self.recursive_depth)
 
+                # This is necessary for hosts that on low memory
+                time.sleep(0.5)
+
     def terminate(self):
         primary_logger.info("Terminating domain scan task...")
         self.crtl_c_event.set()  # 触发退出事件

@@ -6,10 +6,10 @@ from backend.scanner.celery_scan_task import launch_scan_task
 
 if __name__ == "__main__":
     test_config = InputScanConfig(
-        "AbuseIPDB Blacklist 20250530 0-10k",
+        "AbuseIPDB Blacklist 20250609 1-2k",
         proxy_host=None,
         proxy_port=None,
-        input_list_file=r"/home/tianyu/pki-internet-platform/script/cert2abuseIP/blacklist_plain_20250530",
+        input_list_file=r"/root/pki-internet-platform/script/cert2abuseIP/blacklist_plain_20250530",
         reverse_dns=True
     )
 

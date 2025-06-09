@@ -13,7 +13,7 @@ __pycache__
 uwsgi.pid
 
 # Large data files
-data/
+data/*.csv
 test/test_scan/out
 script/task_launch/out
 
