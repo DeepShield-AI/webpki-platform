@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 
 from flask_login import current_user
 from ..blueprint import base
-from ..models import DictData, DictType
-from flask_app import render_template, request, jsonify
+from flask_app.models import DictData, DictType
+from flask import Blueprint, jsonify, request
 from sqlalchemy import asc
 from sqlalchemy import desc
 from .. import  db

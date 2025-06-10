@@ -1,13 +1,13 @@
 from ..blueprint import base
-from ..models import Resource
-from ..models import Role
-from ..models import User
-from ..models import Organization
-from flask_app import g, jsonify, request
+from flask_app.models import Resource
+from flask_app.models import Role
+from flask_app.models import User
+from flask_app.models import Organization
+from flask import g, jsonify, request
 from flask_login import current_user, login_required
 import json
 from .. import db
-from flask_app import render_template
+from flask import render_template
 from datetime import datetime, timezone
 import uuid
 

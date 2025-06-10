@@ -1,6 +1,6 @@
 
 from ..blueprint import base
-from ..models import ScanStatus
+from flask_app.models import ScanStatus
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from requests import Request

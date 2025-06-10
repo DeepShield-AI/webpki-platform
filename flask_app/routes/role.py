@@ -2,12 +2,12 @@
 import importlib
 from operator import or_
 
-from backend.models.Organization import Organization
+from flask_app.models.Organization import Organization
 from ..blueprint import base
-from ..models import Role, Resource, User
-from flask_app import render_template, request
+from flask_app.models import Role, Resource, User
+from flask import render_template, request
 from flask_login import current_user
-from flask_app import jsonify
+from flask import jsonify
 from datetime import datetime, timezone
 from .. import  db
 import uuid

@@ -3,8 +3,8 @@ from distutils.command.config import config
 
 from flask_login import current_user
 from ..blueprint import base
-from ..models import Config
-from flask_app import render_template, request, jsonify
+from flask_app.models import Config
+from flask import render_template, request, jsonify
 from sqlalchemy import asc
 from sqlalchemy import desc
 from .. import  db

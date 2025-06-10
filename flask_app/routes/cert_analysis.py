@@ -2,11 +2,11 @@
 import json
 import subprocess
 from ..blueprint import base
-from ..models import CertAnalysisStats, CertChainRelation, DomainTrustRelation
+from flask_app.models import CertAnalysisStats, CertChainRelation, DomainTrustRelation
 from datetime import datetime
-from flask_app import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from ..logger.logger import primary_logger
+from ..logger.logger import flask_logger
 
 PYTHON_PATH = r"/root/pki-internet-platform/myenv/bin/python3"
 

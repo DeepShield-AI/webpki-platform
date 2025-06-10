@@ -1,5 +1,5 @@
 
-from backend import app, db
+from flask_app import app, db
 from typing import List, Dict
 from threading import Lock
 from sqlalchemy import MetaData, Table
