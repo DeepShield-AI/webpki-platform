@@ -10,7 +10,7 @@ if __name__ == "__main__":
         proxy_host=None,
         proxy_port=None,
         input_list_file=r"/root/pki-internet-platform/script/task_launch/cag_task_launch/seed",
-        recursive_depth=2
+        recursive_depth=1
     )
 
     launch_scan_task.delay(test_config.to_dict())

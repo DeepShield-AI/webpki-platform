@@ -33,6 +33,12 @@ def batch_flush_results(max_batch_size=2000):
     cag_edge_file = None
     cag_edge_file_writer = None
 
+    # cert_security
+    cert_security_file = None
+
+    # web-security
+    web_security_file = None
+
     for result in results:
         try:
             if result.get("flag", "") == AnalyzeConfig.TASK_CERT_FP:
@@ -40,7 +46,7 @@ def batch_flush_results(max_batch_size=2000):
                 cert_fp = result.get("cert_fp", "")
                 cert_fp_data.append((cert_hash, cert_fp))
 
-            if result.get("flag", "") == AnalyzeConfig.TASK_CAG:
+            elif result.get("flag", "") == AnalyzeConfig.TASK_CAG:
 
                 out_dir = result.get("out_dir", "/data/default_out")
                 if not os.path.exists(out_dir):
@@ -66,6 +72,41 @@ def batch_flush_results(max_batch_size=2000):
                     target = result.get("target", "")
                     cag_edge_file_writer.writerow([relation, source, target])
 
+            elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_SECURITY:
+
+                out_dir = result.get("out_dir", "/data/default_out")
+                if not os.path.exists(out_dir):
+                    os.makedirs(out_dir)
+
+                if not cert_security_file:
+                    cert_security_file = open(os.path.join(out_dir, "cert_security.json"), "a", encoding='utf-8', newline='')
+
+                json_result = json.dumps({
+                    "hash" : result.get("cert_hash", ""),
+                    "error_code" : result.get("error_code", ""),
+                    "error_info" : result.get("error_info", "")
+                })
+                cert_security_file.write(json_result + '\n')
+
+            elif result.get("flag", "") == AnalyzeConfig.TASK_WEB_SECURITY:
+
+                out_dir = result.get("out_dir", "/data/default_out")
+                if not os.path.exists(out_dir):
+                    os.makedirs(out_dir)
+
+                if not web_security_file:
+                    web_security_file = open(os.path.join(out_dir, "web_security.json"), "a", encoding='utf-8', newline='')
+
+                json_result = json.dumps({
+                    "domain" : result.get("domain", ""),
+                    "ip" : result.get("ip", ""),
+                    "tls_version" : result.get("tls_version", ""),
+                    "tls_cipher" : result.get("tls_cipher", ""),
+                    "cert_hash_list" : result.get("cert_hash_list", ""),
+                    "error_code" : result.get("error_code", "")
+                })
+                web_security_file.write(json_result + '\n')
+
         except Exception as e:
             primary_logger.error(f"[batch_flush_results] Error: {e}")
 
@@ -82,5 +123,8 @@ def batch_flush_results(max_batch_size=2000):
         primary_logger.error(f"[batch_flush_results] Error: {e}")
 
     cert_conn.close()
-    cag_node_file.close()
-    cag_edge_file.close()
+
+    if cag_node_file: cag_node_file.close()
+    if cag_edge_file: cag_edge_file.close()
+    if cert_security_file: cert_security_file.close()
+    if web_security_file: web_security_file.close()

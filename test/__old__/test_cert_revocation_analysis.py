@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 from backend import app, db
-from backend.analyzer.cert_analyze_revocation import CertRevocationAnalyzer
+from backend.analyzer.celery_revocation_task import CertRevocationAnalyzer
 from sqlalchemy import create_engine, MetaData, Table
 
 with app.app_context():

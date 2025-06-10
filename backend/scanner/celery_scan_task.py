@@ -165,24 +165,26 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
             # process_target.delay(reverse_host, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 
 
-    # try:
-    #     # For now, we only use high-level APIs for webpage crawling...
-    #     headers = {
-    #         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    #                     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    #     }
-    #     url = f"https://{destination}"
-    #     response = requests.get(url, headers=headers)
-    #     related_domains = extract_domains_from_response(destination, response)
-    #     # enqueue_web_result({
-    #     #     "destination_host": destination,
-    #     #     "related_domains": related_domains
-    #     # })
-    #     print(related_domains)
-    #     for d in related_domains:
-    #         single_scan_task.delay(d, config_dict, current_recursive_depth - 1)
-    # except Exception as e:
-    #     primary_logger.error(f"Fail to get the website content: {e}")
+    # if we want recursive scanning via web crawling...
+    try:
+        if current_recursive_depth > 0:
+            # For now, we only use high-level APIs for webpage crawling...
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            }
+            url = f"https://{destination}"
+            response = requests.get(url, headers=headers)
+            related_domains = extract_domains_from_response(destination, response)
+            # enqueue_web_result({
+            #     "destination_host": destination,
+            #     "related_domains": related_domains
+            # })
+            print(related_domains)
+            for d in related_domains:
+                single_scan_task.delay(d, config_dict, current_recursive_depth - 1)
+    except Exception as e:
+        primary_logger.error(f"Fail to get the website content: {e}")
 
     return True
 

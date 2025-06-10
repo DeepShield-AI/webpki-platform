@@ -14,7 +14,7 @@ class ResourceInsufficientError(Exception):
         super().__init__(self.message)
 
 class ParseError(Exception):
-    def __init__(self, message="Failed to parse certificate in ASN.1 formar."):
+    def __init__(self, message="Failed to parse certificate in ASN.1 format."):
         self.message = message
         super().__init__(self.message)
 
