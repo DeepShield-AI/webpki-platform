@@ -1,5 +1,5 @@
 
-from backend import db
+from flask_app import db
 from sqlalchemy import MetaData
 
 def generate_ca_analysis_table(table_name):

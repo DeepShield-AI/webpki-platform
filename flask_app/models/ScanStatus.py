@@ -3,7 +3,7 @@
     MySQL Model for Scan Status
 '''
 
-from backend import db
+from flask_app import db
 from datetime import datetime, timezone
 
 class ScanStatus(db.Model):

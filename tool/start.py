@@ -5,8 +5,8 @@
     Template from authbase
 '''
 
-from backend import app
-from flask_app import request, render_template, jsonify
+from flask_app import app
+from flask import request, render_template, jsonify
 from flask_login import current_user
 
 @app.errorhandler(404)
@@ -15,13 +15,13 @@ def page_not_found(e):
 
 @app.before_request
 def before():
-    print("请求地址：" + str(request.path))
-    print("请求方法：" + str(request.method))
+    print("请求地址:" + str(request.path))
+    print("请求方法:" + str(request.method))
     # print("---请求headers--start--")
     # print(str(request.headers).rstrip())
     # print("---请求headers--end----")
-    print("GET参数：" + str(request.args))
-    print("POST参数：" + str(request.form))
+    print("GET参数:" + str(request.args))
+    print("POST参数:" + str(request.form))
 
     # print(f"Is Authenticated: {current_user.is_authenticated}")
     # print(f"Current User: {current_user}")

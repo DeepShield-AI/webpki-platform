@@ -1,4 +1,4 @@
-from backend import db
+from flask_app import db
 from datetime import datetime, timezone
 
 class DictData(db.Model):

@@ -1,7 +1,7 @@
-from backend import db
+from flask_app import db
 from flask_login import UserMixin, AnonymousUserMixin
 from datetime import datetime, timezone
-from flask_app import jsonify
+from flask import jsonify
 
 
 class Resource(db.Model, UserMixin):

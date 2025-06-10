@@ -1,5 +1,5 @@
 
-from backend import db
+from flask_app import db
 from sqlalchemy import MetaData, PrimaryKeyConstraint
 
 def generate_ca_fp_table(ca_org : str):

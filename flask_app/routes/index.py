@@ -1,10 +1,10 @@
 from ..blueprint import base
-from flask_app import render_template
+from flask import render_template
 from flask_login import login_user, logout_user, login_required, \
     current_user
-from flask_app import g, jsonify
-from ..models import Resource, Organization, ResourceType
-from ..logger.logger import primary_logger
+from flask import g, jsonify
+from flask_app.models import Resource, Organization, ResourceType
+from ..logger.logger import flask_logger
 
 @base.route('/getRouters')
 @login_required
@@ -18,6 +18,6 @@ def getRouters():
 
 @base.route('/')
 def index():
-    primary_logger.info("hello")
+    flask_logger.info("hello")
     return render_template('index.html')
 

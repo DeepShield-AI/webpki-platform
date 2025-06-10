@@ -2,7 +2,7 @@
 import sys
 sys.path.append(r"E:\global_ca_monitor")
 
-from backend import app, db
+from flask_app import app, db
 from sqlalchemy import MetaData
 from backend.utils.exception import UnknownTableError
 

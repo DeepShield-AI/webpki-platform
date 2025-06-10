@@ -3,7 +3,7 @@ import sys
 sys.path.append(r"E:\global_ca_monitor")
 
 import json
-from backend import app, db
+from flask_app import app, db
 from sqlalchemy import MetaData
 from backend.utils.exception import UnknownTableError
 from src.retrieve_ca_domain_from_cert import retrieve_ca_owned_domains_from_cert, get_domain

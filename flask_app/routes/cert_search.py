@@ -3,20 +3,20 @@ import json
 import tempfile
 import subprocess
 from ..blueprint import base
-from ..models import CertStoreContent, CertScanMeta, CertStore
-from ..config.analysis_config import ZLINT_PATH
-from flask_app import Blueprint, jsonify, request
+from flask_app.models import CertStoreContent, CertScanMeta, CertStore
+from backend.config.analyze_config import ZLINT_PATH
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from ..parser.cert_parser_base import X509CertParser
-from ..parser.pem_parser import PEMParser
-from ..logger.logger import primary_logger
-from ..analyzer.cert_analyze_chain import CertChainAnalyzer
+from backend.parser.cert_parser_base import X509CertParser
+from backend.parser.pem_parser import PEMParser
+from ..logger.logger import flask_logger
+from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
 
 
 @base.route('/system/cert_search/list', methods=['GET'])
 @login_required
 def cert_search_list():
-    primary_logger.info(f"{request.args}")
+    flask_logger.info(f"{request.args}")
 
     filters = []
     if 'certID' in request.args:
@@ -116,7 +116,7 @@ def get_cert_chain():
         pem_chain = analyzer.find_cross_sign_certs_from_store(pem_data)
         parsed_chain = [PEMParser.parse_native_pretty(cert) for cert in pem_chain]
 
-        primary_logger.info(parsed_chain)
+        flask_logger.info(parsed_chain)
         return jsonify({'code': 200, 'msg': '操作成功', 'chain': parsed_chain})
 
     except ValueError as e:

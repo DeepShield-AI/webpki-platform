@@ -1,4 +1,4 @@
-from backend import db, loginmanager
+from flask_app import db, loginmanager
 from flask_login import UserMixin, AnonymousUserMixin
 from datetime import datetime, timezone
 

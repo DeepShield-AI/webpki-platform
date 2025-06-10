@@ -1,8 +1,8 @@
 # coding:utf-8
 from ..blueprint import base
-from ..models import User, Organization, Role, OnLine
-from flask_app import render_template, request
-from flask_app import g, jsonify
+from flask_app.models import User, Organization, Role, OnLine
+from flask import render_template, request
+from flask import g, jsonify
 import hashlib
 from flask_login import login_user, logout_user, login_required, \
     current_user
