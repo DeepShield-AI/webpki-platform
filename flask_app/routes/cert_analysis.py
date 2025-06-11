@@ -1,284 +1,152 @@
 
+import os
+import csv
 import json
-import subprocess
-from ..blueprint import base
-from flask_app.models import CertAnalysisStats, CertChainRelation, DomainTrustRelation
-from datetime import datetime
-from flask import Blueprint, jsonify, request
+import re
+
+from collections import defaultdict, deque
+from flask import jsonify, request
 from flask_login import login_required, current_user
-from ..logger.logger import flask_logger
 
-PYTHON_PATH = r"/root/pki-internet-platform/myenv/bin/python3"
+from flask_app.blueprint import base
+from flask_app.config.db_pool import engine_cert
+from flask_app.logger.logger import flask_logger    
 
-@base.route('/system/web_analysis', methods=['GET'])
+from backend.config.path_config import ROOT_DIR
+
+# Get the total number of certificates
+@base.route('/system/cert_analysis/certs_total', methods=['GET'])
 @login_required
-def web_analysis():
-    domain = request.args.get('domain').strip()
-    if not domain:
-        return jsonify({'msg': '域名不能为空', 'code': 400})
+def get_total_certs():
+    conn = engine_cert.raw_connection()
+    cursor = conn.cursor()
     
     try:
-        command = [
-            PYTHON_PATH, "-m",
-            "sslyze",
-            # "--json_out=-",  # 输出 JSON 格式到标准输出
-            domain
-        ]
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        analysis_data = json.loads(result.stdout)
-        return jsonify({'msg': '操作成功', 'code': 200, "data": analysis_data})
+        cursor.execute("SELECT COUNT(*) FROM cert")
+        count = cursor.fetchone()[0]  # fetch one row and get the count
+    finally:
+        cursor.close()
+        conn.close()
 
-    except subprocess.CalledProcessError as e:
-        return jsonify({'msg': f"SSLyze 执行错误: {e.stderr}", 'code': 500})
-    except json.JSONDecodeError:
-        return jsonify({'msg': "解析 SSLyze 输出时出错", 'code': 500})
-    
+    return jsonify({'msg': 'Success', 'code': 200, 'data': count})
 
-@base.route('/system/cert_analysis/timeline', methods=['GET'])
+
+# Get all cert analysis status
+@base.route('/system/cert_analysis/cert_security_stats', methods=['GET'])
 @login_required
-def get_domain_trust_timeline():
+def get_cert_security_stats():
 
-    root_domain = request.args.get('rootDomain', '')
-    date_time_str = request.args.get('selectedDate', '')
+    error_code_list_result = defaultdict(int)
+    cert_total = 0
+    cert_wo_error = 0
 
-    # Parse date_time to datetime object if provided
-    date_time = None
-    if date_time_str:
-        try:
-            date_time = datetime.strptime(date_time_str, '%Y-%m-%d')  # Adjust the format as necessary
-        except ValueError:
-            # Handle invalid date format
-            pass
+    try:
+        with open(os.path.join(ROOT_DIR, "data/frontend_result/cert_security_out/cert_security.json"), "r", encoding='utf-8-sig') as stat_file:
+            for line in stat_file:
+                if not line.strip():
+                    continue
+                try:
+                    data = json.loads(line)
+                    cert_total += 1
 
-    # Set up filters
-    filters = []
-    if root_domain:
-        filters.append(DomainTrustRelation.DOMAIN.like(f'%.{root_domain}'))
-    if date_time:
-        filters.append(DomainTrustRelation.NOT_VALID_BEFORE <= date_time)
-        filters.append(DomainTrustRelation.NOT_VALID_AFTER >= date_time)
+                    error_codes = data.get("error_code", [])
+                    if not error_codes:
+                        cert_wo_error += 1
+                    else:
+                        for code in error_codes:
+                            error_code_list_result[code] += 1
 
-    # Query with filters
-    domain_group = DomainTrustRelation.query.filter(*filters).all()
+                except json.JSONDecodeError as e:
+                    # Skip malformed lines
+                    continue
+    except FileNotFoundError:
+        return jsonify({"msg": "cert_security.json file not found", 'code': 404})
+    except Exception as e:
+        return jsonify({"msg": str(e), 'code': 500})
 
-    # Check if the number of matching items exceeds 500
-    if len(domain_group) > 500:
-        return jsonify({'code': 200, 'msg': "Too many matching items. Please refine your search."})
+    result = {
+        "total_certificates": cert_total,
+        "certificates_without_error": cert_wo_error,
+        "error_statistics": dict(error_code_list_result)
+    }
 
-    # Step 2: Extract all DOMAIN and CERT_ID values from the query results
-    domains = [item.DOMAIN for item in domain_group]
-    cert_ids = [item.CERT_ID for item in domain_group]
+    return jsonify({'msg': 'Success', 'code': 200, "data": result})
 
-    # Step 3: Query CertChainRelation using the CERT_IDs to get CERT_PARENT_IDs
-    cert_parent_ids = CertChainRelation.query.filter(
-        CertChainRelation.CERT_ID.in_(cert_ids)
-    ).with_entities(CertChainRelation.CERT_ID, CertChainRelation.CERT_PARENT_ID).all()
 
-    cert_parent_map = {}
-    for cert_id, parent_id in cert_parent_ids:
-        if cert_id not in cert_parent_map:
-            cert_parent_map[cert_id] = []
-        cert_parent_map[cert_id].append(parent_id)
+@base.route('/system/cert_analysis/sub_cag', methods=['GET'])
+@login_required
+def get_sub_cag():
 
-    # `domains` now contains all DOMAINs
-    # `cert_parent_ids` contains all CERT_PARENT_IDs corresponding to the CERT_IDs from DomainTrustRelation
-    # build result
-    data = []
-    for i in range(len(domains)):
-        data.append({
-            "domain": domains[i],
-            "cert_id": cert_ids[i]
+    node_data = {}  # key: node_id -> value: {"name": ..., "type": ...}
+    edge_data = defaultdict(list)  # key: source_node_id -> list of (target_id, edge_type)
+
+    # Load edge data
+    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_edge.csv"), "r", encoding='utf-8-sig') as f:
+        reader = csv.Reader(f)
+        for row in reader:
+            edge_type = row[0]
+            n1 = row[1]
+            n2 = row[2]
+            edge_data[n1].append((n2, edge_type))
+
+    # Load node data
+    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_node.csv"), "r", encoding='utf-8-sig') as f:
+        reader = csv.Reader(f)
+        for row in reader:
+            node_id = row[0]
+            node_data[node_id] = {
+                "name": row[1],
+                "type": row[2]
+            }
+
+    # Find all domain nodes matching *.gov.tw
+    root_nodes = set()
+    for node_id, info in node_data.items():
+        if info["type"].lower() == "domain" and re.search(r"\.gov\.tw$", info["name"], re.IGNORECASE):
+            root_nodes.add(node_id)
+
+    # BFS for depth = 2 from each root node
+    visited = set()
+    sub_cag_nodes = {}
+    sub_cag_edges = set()
+
+    for root_id in root_nodes:
+        queue = deque([(root_id, 0)])
+        visited.add(root_id)
+
+        while queue:
+            current, depth = queue.popleft()
+            if current not in node_data:
+                continue
+            sub_cag_nodes[current] = node_data[current]
+
+            if depth < 2:
+                for neighbor, e_type in edge_data.get(current, []):
+                    sub_cag_edges.add((current, neighbor, e_type))
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append((neighbor, depth + 1))
+
+    # Build final graph
+    graph_data = {
+        "nodes": [],
+        "links": []
+    }
+
+    for node_id, info in sub_cag_nodes.items():
+        graph_data["nodes"].append({
+            "id": node_id,
+            "name": info["name"],
+            "type": info["type"].lower(),
+            "root": node_id in root_nodes
         })
 
-    # 生成 Graph 数据结构
-    graph_data = {"links": [], "nodes": []}
-
-    # 生成 nodes 部分
-    for item in data:
-        domain_node = {
-            "id": item["domain"],
-            "root": "true" if item["domain"] == root_domain else "false",
-            "status": "Good",
-            "type": "domain"
-        }
-        cert_node = {
-            "id": item["cert_id"],
-            "type": "certificate"
-        }
-        if domain_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(domain_node)
-        if cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(cert_node)
-
-    for child, parents in cert_parent_map:
-        cert_node = {
-            "id": item["cert_id"],
-            "type": "certificate"
-        }
-        parent_cert_node = {
-            "id": item["parent_id"],
-            "type": "certificate"
-        }
-        if cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(cert_node)
-        if parent_cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(parent_cert_node)
-
-
-    # 生成 links 部分
-    for item in data:
-        uses_link = {
-            "source": item["domain"],
-            "target": item["cert_id"],
-            "type": "uses"
-        }
-        sans_link = {
-            "source": item["cert_id"],
-            "target": item["domain"],
-            "type": "sans"
-        }
-        if uses_link not in graph_data["links"]:
-            graph_data["links"].append(uses_link)
-        if sans_link not in graph_data["links"]:
-            graph_data["links"].append(sans_link)
-
-    for child, parents in cert_parent_map:
-        chain_link = {
-            "source": item["parent_id"],
-            "target": item["cert_id"],
-            "type": "uses"
-        }
-        if chain_link not in graph_data["links"]:
-            graph_data["links"].append(chain_link)
-
-
-
-    print(json.dumps(graph_data, indent=4))
-    return jsonify({'msg': '操作成功', 'code': 200, "data": graph_data})
-
-
-
-
-
-
-@base.route('/system/cert_analysis/trust', methods=['GET'])
-@login_required
-def get_root_trust_tree():
-
-    root_domain = request.args.get('rootDomain', '')
-    date_time_str = request.args.get('selectedDate', '')
-
-    # Parse date_time to datetime object if provided
-    date_time = None
-    if date_time_str:
-        try:
-            date_time = datetime.strptime(date_time_str, '%Y-%m-%d')  # Adjust the format as necessary
-        except ValueError:
-            # Handle invalid date format
-            pass
-
-    # Set up filters
-    filters = []
-    if root_domain:
-        filters.append(DomainTrustRelation.DOMAIN.like(f'%.{root_domain}'))
-    if date_time:
-        filters.append(DomainTrustRelation.NOT_VALID_BEFORE <= date_time)
-        filters.append(DomainTrustRelation.NOT_VALID_AFTER >= date_time)
-
-    # Query with filters
-    domain_group = DomainTrustRelation.query.filter(*filters).all()
-
-    # Check if the number of matching items exceeds 500
-    if len(domain_group) > 500:
-        return jsonify({'code': 200, 'msg': "Too many matching items. Please refine your search."})
-
-    # Step 2: Extract all DOMAIN and CERT_ID values from the query results
-    domains = [item.DOMAIN for item in domain_group]
-    cert_ids = [item.CERT_ID for item in domain_group]
-
-    # Step 3: Query CertChainRelation using the CERT_IDs to get CERT_PARENT_IDs
-    cert_parent_ids = CertChainRelation.query.filter(
-        CertChainRelation.CERT_ID.in_(cert_ids)
-    ).with_entities(CertChainRelation.CERT_ID, CertChainRelation.CERT_PARENT_ID).all()
-
-    cert_parent_map = {}
-    for cert_id, parent_id in cert_parent_ids:
-        if cert_id not in cert_parent_map:
-            cert_parent_map[cert_id] = []
-        cert_parent_map[cert_id].append(parent_id)
-
-    # `domains` now contains all DOMAINs
-    # `cert_parent_ids` contains all CERT_PARENT_IDs corresponding to the CERT_IDs from DomainTrustRelation
-    # build result
-    data = []
-    for i in range(len(domains)):
-        data.append({
-            "domain": domains[i],
-            "cert_id": cert_ids[i]
+    for src, tgt, e_type in sub_cag_edges:
+        graph_data["links"].append({
+            "source": src,
+            "target": tgt,
+            "type": e_type
         })
 
-    # 生成 Graph 数据结构
-    graph_data = {"links": [], "nodes": []}
-
-    # 生成 nodes 部分
-    for item in data:
-        domain_node = {
-            "id": item["domain"],
-            "root": "true" if item["domain"] == root_domain else "false",
-            "status": "Good",
-            "type": "domain"
-        }
-        cert_node = {
-            "id": item["cert_id"],
-            "type": "certificate"
-        }
-        if domain_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(domain_node)
-        if cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(cert_node)
-
-    for item in trust_relation:
-        cert_node = {
-            "id": item["cert_id"],
-            "type": "certificate"
-        }
-        parent_cert_node = {
-            "id": item["parent_id"],
-            "type": "certificate"
-        }
-        if cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(cert_node)
-        if parent_cert_node not in graph_data["nodes"]:
-            graph_data["nodes"].append(parent_cert_node)
-
-
-    # 生成 links 部分
-    for item in data:
-        uses_link = {
-            "source": item["domain"],
-            "target": item["cert_id"],
-            "type": "uses"
-        }
-        sans_link = {
-            "source": item["cert_id"],
-            "target": item["domain"],
-            "type": "sans"
-        }
-        if uses_link not in graph_data["links"]:
-            graph_data["links"].append(uses_link)
-        if sans_link not in graph_data["links"]:
-            graph_data["links"].append(sans_link)
-
-    for item in trust_relation:
-        chain_link = {
-            "source": item["parent_id"],
-            "target": item["cert_id"],
-            "type": "uses"
-        }
-        if chain_link not in graph_data["links"]:
-            graph_data["links"].append(chain_link)
-
-
-
-    print(json.dumps(graph_data, indent=4))
-    return jsonify({'msg': '操作成功', 'code': 200, "data": graph_data})
+    flask_logger.info(json.dumps(graph_data, indent=4))
+    return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})

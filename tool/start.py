@@ -1,7 +1,7 @@
 
 '''
     Created on 01/24/24
-    Backend Start Entry
+    Flask Backend Start Entry
     Template from authbase
 '''
 
@@ -15,14 +15,10 @@ def page_not_found(e):
 
 @app.before_request
 def before():
-    print("请求地址:" + str(request.path))
-    print("请求方法:" + str(request.method))
-    # print("---请求headers--start--")
-    # print(str(request.headers).rstrip())
-    # print("---请求headers--end----")
-    print("GET参数:" + str(request.args))
-    print("POST参数:" + str(request.form))
-
+    print("Request Address:" + str(request.path))
+    print("Request Method:" + str(request.method))
+    print("GET Arg:" + str(request.args))
+    print("POST Arg:" + str(request.form))
     # print(f"Is Authenticated: {current_user.is_authenticated}")
     # print(f"Current User: {current_user}")
 
@@ -39,7 +35,6 @@ def before():
     #         pass
 
 def main():
-    #app.run(debug=True)
     app.run(debug=True, host='0.0.0.0',port=5000)
 
 if __name__ == "__main__":

@@ -1,10 +1,7 @@
+
 import os
-#import sys
-#reload(sys)
-#sys.setdefaultencoding('utf-8')
 
 basedir = os.path.abspath(os.path.dirname(__file__))
-
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'hard to guess string'

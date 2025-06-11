@@ -1,24 +1,21 @@
-from flask import Flask, render_template
-from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
-from flask_app.config.flask_config import flask_config
-from flask_login import LoginManager
-import flask_excel as excel
-from flask_cors import CORS
 
 import os
 import json, base64
 from datetime import datetime, date
+
+import flask_excel as excel
+from flask import Flask, render_template
+from flask_cors import CORS
+from flask_moment import Moment
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
 from flask.json.provider import DefaultJSONProvider
+from flask_app.config.flask_config import flask_config
 
 class CustomJSONProvider(DefaultJSONProvider):
     def default(self, obj):
-        # if isinstance(obj, datetime):
-        #     return obj.isoformat()  # 或者用 obj.strftime("%Y-%m-%d %H:%M:%S") 等其他格式
-        # else:
-        #     return JSONEncoder.default(self, obj)
         if isinstance(obj, datetime):
-            return obj.strftime('%Y-%m-%d %H:%M:%S')
+            return obj.isoformat()  # 或者用 obj.strftime("%Y-%m-%d %H:%M:%S") 等其他格式
         if isinstance(obj, date):
             return obj.strftime('%Y-%m-%d')
         if isinstance(obj, set):
@@ -37,10 +34,11 @@ moment = Moment()
 db = SQLAlchemy()
 
 def create_app(config_name):
-    app = Flask(__name__, template_folder=r"..\ui\templates", static_folder=r"..\ui\static")
+    app = Flask(__name__, template_folder=r"../ui/templates", static_folder=r"../ui/static")
     CORS(app, resources={r"/api/*": {"origins": ["http://localhost:8080", "http://118.229.43.254:4080"]}})
     # CORS(app)
     # CORS(app, origins="http://118.229.43.254:4080")
+
     #  替换默认的json编码器
     app.json = CustomJSONProvider(app)
     app.config.from_object(flask_config[config_name])
