@@ -1,3 +1,4 @@
+
 import os
 import csv
 import json
@@ -8,20 +9,21 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
+from flask_app.config.db_pool import engine_cert, engine_tls
 from flask_app.logger.logger import flask_logger    
 
 from backend.config.path_config import ROOT_DIR
 
-# Get the total number of certificates
-@base.route('/system/cert_analysis/certs_total', methods=['GET'])
+
+# Get the total number of tls connections
+@base.route('/system/host_analysis/hosts_total', methods=['GET'])
 @login_required
-def get_total_certs():
-    conn = engine_cert.raw_connection()
+def get_total_host():
+    conn = engine_tls.raw_connection()
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT COUNT(*) FROM cert")
+        cursor.execute("SELECT COUNT(*) FROM tlshandshake")
         count = cursor.fetchone()[0]  # fetch one row and get the count
     finally:
         cursor.close()
@@ -30,27 +32,27 @@ def get_total_certs():
     return jsonify({'msg': 'Success', 'code': 200, 'data': count})
 
 
-# Get all cert analysis status
-@base.route('/system/cert_analysis/cert_security_stats', methods=['GET'])
+# Get all web analysis status
+@base.route('/system/host_analysis/host_security_stats', methods=['GET'])
 @login_required
-def get_cert_security_stats():
+def get_host_security_stats():
 
     error_code_list_result = defaultdict(int)
-    cert_total = 0
-    cert_wo_error = 0
+    web_total = 0
+    web_wo_error = 0
 
     try:
-        with open(os.path.join(ROOT_DIR, "data/frontend_result/cert_security_out/cert_security.json"), "r", encoding='utf-8-sig') as stat_file:
+        with open(os.path.join(ROOT_DIR, "data/frontend_result/web_security_out/web_security.json"), "r", encoding='utf-8-sig') as stat_file:
             for line in stat_file:
                 if not line.strip():
                     continue
                 try:
                     data = json.loads(line)
-                    cert_total += 1
+                    web_total += 1
 
                     error_codes = data.get("error_code", [])
                     if not error_codes:
-                        cert_wo_error += 1
+                        web_wo_error += 1
                     else:
                         for code in error_codes:
                             error_code_list_result[code] += 1
@@ -59,13 +61,13 @@ def get_cert_security_stats():
                     # Skip malformed lines
                     continue
     except FileNotFoundError:
-        return jsonify({"msg": "cert_security.json file not found", 'code': 404})
+        return jsonify({"msg": "web_security.json file not found", 'code': 404})
     except Exception as e:
         return jsonify({"msg": str(e), 'code': 500})
 
     result = {
-        "total_certificates": cert_total,
-        "certificates_without_error": cert_wo_error,
+        "total_webs": web_total,
+        "webs_without_error": web_wo_error,
         "error_statistics": dict(error_code_list_result)
     }
 

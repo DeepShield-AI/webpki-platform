@@ -10,3 +10,5 @@ from . import dicttype
 from . import scan_process
 from . import cert_analysis
 from . import cert_search
+from . import host_analysis
+from . import host_search

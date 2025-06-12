@@ -38,6 +38,11 @@ def build_all_from_table(output_dir: str) -> str:
 
 @celery_app.task
 def web_security_analyze(row: list, output_dir: str) -> str:
+    enqueue_result(_web_security_analyze(row, output_dir))
+    return True
+
+
+def _web_security_analyze(row: list, output_dir: str) -> str:
 
     domain = row[1] # domain could be none
     ip = row[2]
@@ -178,7 +183,7 @@ def web_security_analyze(row: list, output_dir: str) -> str:
         primary_logger.error(e)
 
     finally:
-        enqueue_result({
+        return {
             "flag" : AnalyzeConfig.TASK_WEB_SECURITY,
             "out_dir" : output_dir,
             "domain" : domain,
@@ -187,6 +192,4 @@ def web_security_analyze(row: list, output_dir: str) -> str:
             "tls_cipher" : tls_cipher,
             "cert_hash_list" : cert_hash_list,
             "error_code" : list(error_code)
-        })
-
-        return True
+        }

@@ -1,17 +1,26 @@
 
 import request from '@/utils/request'
 
-export function getWebAnalysisResult(query) {
+export function getCertSecurityStats(query) {
   return request({
-    url: '/system/web_analysis',
+    url: '/system/cert_analysis/cert_security_stats',
     method: 'get',
     params: query
   })
 }
 
-export function getDomainTrustRelation(query) {
+
+export function getTotalCerts(query) {
   return request({
-    url: '/system/cert_analysis/trust',
+    url: '/system/cert_analysis/certs_total',
+    method: 'get',
+    params: query
+  })
+}
+
+export function getSubCag(query) {
+  return request({
+    url: '/system/cert_analysis/sub_cag',
     method: 'get',
     params: query
   })

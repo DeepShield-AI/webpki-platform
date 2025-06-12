@@ -1,3 +1,4 @@
+
 import tempfile
 import subprocess
 import json
@@ -6,9 +7,9 @@ import csv
 import json
 import re
 
-from collections import defaultdict, deque
 from flask import jsonify, request
 from flask_login import login_required, current_user
+from collections import defaultdict, deque
 
 from flask_app.blueprint import base
 from flask_app.config.db_pool import engine_cert
@@ -17,48 +18,28 @@ from flask_app.logger.logger import flask_logger
 from backend.config.path_config import ROOT_DIR
 from backend.parser.cert_parser_base import X509CertParser
 from backend.parser.pem_parser import PEMParser
+from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 
 
-@base.route('/system/cert_search/', methods=['GET'])
+@base.route('/system/cert_retrieve/<cert_sha256>', methods=['GET'])
 @login_required
-def cert_search():
+def get_cert_info(cert_sha256):
+
     flask_logger.info(f"{request.args}")
 
-    if 'certID' in request.args:
-
-        conn = engine_cert.raw_connection()
-        cursor = conn.cursor()
-        query = f"""
-            SELECT * FROM tlshandshake
-            WHERE JSON_CONTAINS (cert_hash_list, %s)
-            LIMIT 200
+    conn = engine_cert.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT * FROM cert
+            WHERE cert_hash = %s
         """
-        cursor.execute(query, (json.dumps([cert_sha256]), ))
-        rows = cursor.fetchall()
-        cursor.close()
+        cursor.execute(query, (cert_sha256,))
+        row = cursor.fetchone()
 
-        return [row[2] for row in rows]
+    cert_parsed = PEMParser.parse_native_pretty(row[1])
+    analyze_result = _cert_security_analyze(row, "/")
 
-    cert_parsed = PEMParser.parse_native_pretty(cert_raw)
-
-    return jsonify({'msg': '操作成功', 'code': 200, "data": })
-
-
-
-# @deprecated
-# @base.route('/system/cert_retrive/<cert_id>', methods=['GET'])
-# @login_required
-# def get_cert_info(cert_id):
-
-#     cert_raw = CertStore.query.get(cert_id).get_raw()
-#     cert_parsed = PEMParser.parse_native_pretty(cert_raw)
-
-#     # filters = []
-#     # filters.append(CertScanMeta.CERT_ID == cert_id)
-#     # scan_metas = CertScanMeta.query.filter(*filters)
-
-#     return jsonify({'code': 200, 'msg': '操作成功', "cert_data" : cert_parsed, "scan_info" : []})
-#     # return jsonify({'code': 200, 'msg': '操作成功', "cert_data" : parser.to_json(), "scan_info" : [scan_meta.to_json() for scan_meta in scan_metas]})
+    return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result})
 
 
 # @deprecated

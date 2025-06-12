@@ -26,8 +26,14 @@ def build_all_from_table(output_dir: str) -> str:
         cert_security_analyze.delay(row, output_dir)
     return True
 
+
 @celery_app.task
 def cert_security_analyze(row: list, output_dir: str) -> str:
+    enqueue_result(_cert_security_analyze(row, output_dir))
+    return True
+
+
+def _cert_security_analyze(row: list, output_dir: str) -> str:
 
     try:
         cert: str = row[1]
@@ -162,15 +168,13 @@ def cert_security_analyze(row: list, output_dir: str) -> str:
 
     finally:
         # only add cert node if the cert structure is broken
-        enqueue_result({
+        return {
             "flag" : AnalyzeConfig.TASK_CERT_SECURITY,
             "out_dir" : output_dir,
             "cert_hash" : row[0],
             "error_code" : list(error_code),
             "error_info" : error_info
-        })
-
-        return True
+        }
 
 
 # go through the cert table
