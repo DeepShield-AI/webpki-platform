@@ -50,4 +50,5 @@ def get_host_info(host):
         final_result.add(json.dumps(_web_security_analyze(row, "/")))
 
     final_result = [json.loads(i) for i in final_result]
-    return jsonify({'msg': 'Success', 'code': 200, "web_security" : final_result})
+    print(final_result)
+    return jsonify({'msg': 'Success', 'code': 200, "host_security" : final_result})

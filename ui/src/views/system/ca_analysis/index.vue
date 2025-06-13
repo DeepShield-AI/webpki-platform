@@ -102,7 +102,7 @@
 import { listCertAnalysisResult } from "@/api/system/cert_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
-import MultiEChartsPieChart from '../components/piechart/MultiPieChart';
+import MultiEChartsPieChart from '@/views/components/pieChart/MultiPieChart';
 
 export default {
   name: "Cert Analysis",

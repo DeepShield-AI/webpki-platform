@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# clear redis
-redis-cli flushall
+source ./myenv/bin/activate
 
-# start Celery Worker
-celery -A backend.celery.celery_app:celery_app worker --loglevel=info --concurrency=20
+pki-internet-platform

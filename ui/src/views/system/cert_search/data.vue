@@ -2,13 +2,16 @@
   <div class="app-container main">
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>证书详细信息</h2>
+        <!-- <h2>证书详细信息</h2> -->
+        <el-card>
+          <div slot="header">Certificate Information</div>
+          <RecursiveDict :data="certData" />
+        </el-card>
 
-        <template>
+        <!-- <template>
           <el-card>
             <div slot="header">Certificate Information</div>
             <div class="certificate-item">
-              <strong>Certificate:</strong>
 
               <div class="indent">
                 <div v-for="(value, key) in certData" :key="key">
@@ -41,12 +44,12 @@
 
             </div>
           </el-card>
-        </template>
+        </template> -->
 
       </el-col>
     </el-row>
 
-    <el-divider />
+    <!-- <el-divider />
 
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
@@ -91,11 +94,59 @@
         </template>
 
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <el-divider />
 
     <el-row :gutter="20">
+      <el-col :sm="24" :lg="24" style="padding-left: 20px">
+        <h2>Certificate Security Analysis</h2>
+      </el-col>
+    </el-row>
+
+    <el-table
+      v-if="refreshTable"
+      v-loading="loading"
+      :data="certSecurity"
+      :default-expand-all="isExpandAll"
+      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+      style="width: 100%"
+    >
+      <el-table-column label="错误代码">
+        <template #default="scope">
+          <el-tag type="danger" class="tag-item">
+            {{ scope.row.error_code }}
+          </el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="错误信息">
+        <template #default="scope">
+          <div v-if="Object.keys(scope.row.error_info || {}).length === 0">
+            <span style="color: #999;">—</span>
+          </div>
+          <div v-else>
+            <div
+              v-for="(val, key) in scope.row.error_info"
+              :key="key"
+              class="error-info-item"
+            >
+              <strong>{{ key }}:</strong>
+              <span>{{ formatInfo(val) }}</span>
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+
+      <!-- <el-table-column label="调试">
+        <template #default="scope">
+          {{ scope.row }}
+        </template>
+      </el-table-column> -->
+
+    </el-table>
+
+    <!-- <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
         <h2>证书历史扫描记录</h2>
       </el-col>
@@ -110,7 +161,7 @@
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       >
 
-      <el-table-column prop="cert_id" label="扫描ID" width="200"></el-table-column>
+      <el-table-column prop="cert_id" label="扫描ID" width="200"></el-table-column> -->
       <!-- <el-table-column prop="scan_date" label="扫描名称" width="100"></el-table-column> -->
       <!-- <el-table-column prop="scanType" label="扫描类型" align="center" width="100">
         <template slot-scope="scope">
@@ -118,14 +169,14 @@
         </template>
       </el-table-column> -->
 
-      <el-table-column prop="scan_date" label="扫描时间" align="center" width="230">
+      <!-- <el-table-column prop="scan_date" label="扫描时间" align="center" width="230"> -->
         <!-- <template slot-scope="scope">
           <span>{{ parseTime(scope.row.startTime) }}</span>
         </template> -->
-      </el-table-column>
+      <!-- </el-table-column>
       <el-table-column prop="scan_domain" label="来源域名" align="center" width="300"></el-table-column>
 
-    </el-table>
+    </el-table> -->
 
     <!-- <el-divider />
 
@@ -147,9 +198,13 @@
 </template>
 
 <script>
-import { getCertInfo, getCertZlintInfo } from "@/api/system/cert_search";
+import { getCertInfo } from "@/api/system/cert_search";
+import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
 
 export default {
+  components: {
+    RecursiveDict
+  },
   name: "CertView",
   dicts: ['sys_cert_type', 'sys_key_type'],
   data() {
@@ -163,33 +218,42 @@ export default {
       // 是否显示弹出层
       open: false,
       // 证书信息
-      certData: {},
-      zlintData: {},
-      scanInfoList: [],
+      certData: {
+        type: Object, // 👈 dict 类型
+        required: true,
+      },
+      certSecurity: {
+        type: Object, // 👈 dict 类型
+        required: true,
+      },
+      // zlintData: {},
+      // scanInfoList: [],
     };
   },
   created() {
-    const certId = this.$route.params && this.$route.params.cert_id;
-    this.getCert(certId);
-    this.getCertZlint(certId);
+    const certSha256 = this.$route.params && this.$route.params.certSha256;
+    this.getCert(certSha256);
+    // this.getCertZlint(certSha256);
   },
   methods: {
     /** 查询证书详细 */
-    getCert(certId) {
+    getCert(certSha256) {
       this.loading = true;
-      getCertInfo(certId).then(response => {
-        this.certData = response.cert_data
-        this.scanInfoList = response.scan_info
+      // {'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result}
+      getCertInfo(certSha256).then(response => {
+        this.certData = response.cert_data;
+        this.certSecurity = response.cert_security;
+        // this.scanInfoList = response.scan_info
         this.loading = false;
       });
     },
-    getCertZlint(certId) {
-      this.loading = true;
-      getCertZlintInfo(certId).then(response => {
-        this.zlintData = response.zlint_result
-        this.loading = false;
-      });
-    },
+    // getCertZlint(certId) {
+    //   this.loading = true;
+    //   getCertZlintInfo(certId).then(response => {
+    //     this.zlintData = response.zlint_result
+    //     this.loading = false;
+    //   });
+    // },
     isObject(value) {
       return value !== null && typeof value === 'object';
     },
@@ -201,7 +265,16 @@ export default {
       } else {
         return [false, ''];
       }
-    }
+    },
+    formatInfo(val) {
+      if (Array.isArray(val)) {
+        return val.join(', ');
+      } else if (typeof val === 'object' && val !== null) {
+        return JSON.stringify(val);
+      } else {
+        return String(val);
+      }
+    },
   }
 };
 </script>
@@ -283,6 +356,14 @@ export default {
     padding: 2px 4px;
     border-radius: 4px;
     display: inline-block;
+  }
+
+  .tag-item {
+    margin: 2px;
+  }
+  .error-info-item {
+    margin-bottom: 4px;
+    line-height: 1.4;
   }
 
 }

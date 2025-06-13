@@ -18,10 +18,3 @@ export function getTotalCerts(query) {
   })
 }
 
-export function getSubCag(query) {
-  return request({
-    url: '/system/cert_analysis/sub_cag',
-    method: 'get',
-    params: query
-  })
-}

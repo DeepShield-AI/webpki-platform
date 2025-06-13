@@ -17,3 +17,11 @@ export function getTotalHosts(query) {
     params: query
   })
 }
+
+export function getSubCag(query) {
+  return request({
+    url: '/system/host_analysis/sub_cag',
+    method: 'get',
+    params: query
+  })
+}

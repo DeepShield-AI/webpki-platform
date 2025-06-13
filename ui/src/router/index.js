@@ -169,10 +169,24 @@ export const dynamicRoutes = [
     permissions: ['system:cert:list'],
     children: [
       {
-        path: ':cert_id(.*)',
+        path: ':certSha256(.*)',
         component: () => import('@/views/system/cert_search/data'),
         name: 'CertSearchData',
         meta: { title: '证书详情', activeMenu: '/system/cert_search' }
+      }
+    ]
+  },
+  {
+    path: '/system/host_view',
+    component: Layout,
+    hidden: true,
+    permissions: ['system:host:list'],
+    children: [
+      {
+        path: ':host(.*)',
+        component: () => import('@/views/system/host_search/data'),
+        name: 'HostSearchData',
+        meta: { title: 'Host详情', activeMenu: '/system/host_search' }
       }
     ]
   },

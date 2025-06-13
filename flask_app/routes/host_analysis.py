@@ -38,8 +38,8 @@ def get_total_host():
 def get_host_security_stats():
 
     error_code_list_result = defaultdict(int)
-    web_total = 0
-    web_wo_error = 0
+    tls_total = 0
+    tls_wo_error = 0
 
     try:
         with open(os.path.join(ROOT_DIR, "data/frontend_result/web_security_out/web_security.json"), "r", encoding='utf-8-sig') as stat_file:
@@ -48,11 +48,11 @@ def get_host_security_stats():
                     continue
                 try:
                     data = json.loads(line)
-                    web_total += 1
+                    tls_total += 1
 
                     error_codes = data.get("error_code", [])
                     if not error_codes:
-                        web_wo_error += 1
+                        tls_wo_error += 1
                     else:
                         for code in error_codes:
                             error_code_list_result[code] += 1
@@ -66,9 +66,88 @@ def get_host_security_stats():
         return jsonify({"msg": str(e), 'code': 500})
 
     result = {
-        "total_webs": web_total,
-        "webs_without_error": web_wo_error,
+        "total_hosts": tls_total,
+        "hosts_without_error": tls_wo_error,
         "error_statistics": dict(error_code_list_result)
     }
 
     return jsonify({'msg': 'Success', 'code': 200, "data": result})
+
+
+@base.route('/system/host_analysis/sub_cag', methods=['GET'])
+@login_required
+def get_sub_cag():
+
+    node_data = {}  # key: node_id -> value: {"name": ..., "type": ...}
+    edge_data = defaultdict(list)  # key: source_node_id -> list of (target_id, edge_type)
+
+    # Load edge data
+    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_edge.csv"), "r", encoding='utf-8-sig') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            edge_type = row[0]
+            n1 = row[1]
+            n2 = row[2]
+            edge_data[n1].append((n2, edge_type))
+
+    # Load node data
+    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_node.csv"), "r", encoding='utf-8-sig') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            node_id = row[0]
+            node_data[node_id] = {
+                "name": row[1],
+                "type": row[2]
+            }
+
+    # Find all domain nodes matching *.gov.tw
+    root_nodes = set()
+    for node_id, info in node_data.items():
+        if info["type"].lower() == "domain" and re.search(r"\.gov\.tw$", info["name"], re.IGNORECASE):
+            root_nodes.add(node_id)
+
+    # BFS for depth = 2 from each root node
+    visited = set()
+    sub_cag_nodes = {}
+    sub_cag_edges = set()
+
+    for root_id in root_nodes:
+        queue = deque([(root_id, 0)])
+        visited.add(root_id)
+
+        while queue:
+            current, depth = queue.popleft()
+            if current not in node_data:
+                continue
+            sub_cag_nodes[current] = node_data[current]
+
+            if depth < 2:
+                for neighbor, e_type in edge_data.get(current, []):
+                    sub_cag_edges.add((current, neighbor, e_type))
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append((neighbor, depth + 1))
+
+    # Build final graph
+    graph_data = {
+        "nodes": [],
+        "links": []
+    }
+
+    for node_id, info in sub_cag_nodes.items():
+        graph_data["nodes"].append({
+            "id": node_id,
+            "name": info["name"],
+            "type": info["type"].lower(),
+            "root": node_id in root_nodes
+        })
+
+    for src, tgt, e_type in sub_cag_edges:
+        graph_data["links"].append({
+            "source": src,
+            "target": tgt,
+            "type": e_type
+        })
+
+    flask_logger.info(json.dumps(graph_data, indent=4))
+    return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})

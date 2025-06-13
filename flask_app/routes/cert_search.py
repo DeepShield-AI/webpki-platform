@@ -36,10 +36,23 @@ def get_cert_info(cert_sha256):
         cursor.execute(query, (cert_sha256,))
         row = cursor.fetchone()
 
+    # print(row)
+    if not row:
+        return jsonify({'msg': 'No Such Cert', 'code': 404})
+
     cert_parsed = PEMParser.parse_native_pretty(row[1])
     analyze_result = _cert_security_analyze(row, "/")
 
-    return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result})
+    final_data = []
+    for error_code in analyze_result["error_code"]:
+        error_info = analyze_result["error_info"].get(error_code, "")
+        final_data.append({
+            "error_code" : error_code,
+            "error_info" : error_info
+        })
+
+    print(final_data)
+    return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : final_data})
 
 
 # @deprecated

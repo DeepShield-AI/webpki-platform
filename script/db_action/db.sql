@@ -158,9 +158,11 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 
 	('zscx', '2015-08-25 10:34:53', '证书查询', 'tree', '证书查询', 2, '', '2022-05-25 00:48:32', 'cert_search', 'system/cert_search/index', 'system:cert:list', 'xtgl', '0', '0'),
 	('cacx', '2015-08-25 10:34:53', 'CA查询', 'tree', 'CA查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'system/ca_search/index', 'system:ca:list', 'xtgl', '0', '0'),
+	('hostcx', '2015-08-25 10:34:53', 'Host查询', 'tree', 'Host查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'system/host_search/index', 'system:host:list', 'xtgl', '0', '0'),
 
-	('zsjggl', '2015-08-25 10:34:53', '管理证书分析结果', 'tree', '证书结果管理', 4, '', '2022-05-25 00:48:32', 'cert_analysis', 'system/cert_analysis/index', 'system:cert_analysis:list', 'xtgl', '0', '0'),
-	('cajggl', '2015-08-25 10:34:53', '管理CA分析结果', 'tree', 'CA结果管理', 5, '', '2022-05-25 00:48:32', 'ca_analysis', 'system/ca_analysis/index', 'system:ca_analysis:list', 'xtgl', '0', '0');
+	('zsjggl', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'system/cert_analysis/index', 'system:cert_analysis:list', 'xtgl', '0', '0'),
+	('cajggl', '2015-08-25 10:34:53', 'CA分析结果', 'tree', 'CA结果', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'system/ca_analysis/index', 'system:ca_analysis:list', 'xtgl', '0', '0'),
+	('hostjggl', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'system/host_analysis/index', 'system:host_analysis:list', 'xtgl', '0', '0');
 
 
 -- 导出  表 authbase.SYRESOURCETYPE 结构
@@ -300,10 +302,18 @@ INSERT INTO `SYROLE_SYRESOURCE` (`SYROLE_ID`, `SYRESOURCE_ID`) VALUES
 	('f4e1b151-a171-4705-9154-503a046cb72a', 'zscx'),
 	('0', 'cacx'),
 	('f4e1b151-a171-4705-9154-503a046cb72a', 'cacx'),
+
+	('0', 'hostcx'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostcx'),
+
 	('0', 'zsjggl'),
 	('f4e1b151-a171-4705-9154-503a046cb72a', 'zsjggl'),
 	('0', 'cajggl'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'cajggl');
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'cajggl'),
+	
+	('0', 'hostjggl'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostjggl');
+
 
 -- 导出  表 authbase.SYS_CONFIG 结构
 CREATE TABLE IF NOT EXISTS `SYS_CONFIG` (

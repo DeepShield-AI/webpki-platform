@@ -28,6 +28,7 @@ def get_total_certs():
         cursor.close()
         conn.close()
 
+    print(count)
     return jsonify({'msg': 'Success', 'code': 200, 'data': count})
 
 
@@ -72,81 +73,3 @@ def get_cert_security_stats():
 
     return jsonify({'msg': 'Success', 'code': 200, "data": result})
 
-
-@base.route('/system/cert_analysis/sub_cag', methods=['GET'])
-@login_required
-def get_sub_cag():
-
-    node_data = {}  # key: node_id -> value: {"name": ..., "type": ...}
-    edge_data = defaultdict(list)  # key: source_node_id -> list of (target_id, edge_type)
-
-    # Load edge data
-    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_edge.csv"), "r", encoding='utf-8-sig') as f:
-        reader = csv.Reader(f)
-        for row in reader:
-            edge_type = row[0]
-            n1 = row[1]
-            n2 = row[2]
-            edge_data[n1].append((n2, edge_type))
-
-    # Load node data
-    with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_node.csv"), "r", encoding='utf-8-sig') as f:
-        reader = csv.Reader(f)
-        for row in reader:
-            node_id = row[0]
-            node_data[node_id] = {
-                "name": row[1],
-                "type": row[2]
-            }
-
-    # Find all domain nodes matching *.gov.tw
-    root_nodes = set()
-    for node_id, info in node_data.items():
-        if info["type"].lower() == "domain" and re.search(r"\.gov\.tw$", info["name"], re.IGNORECASE):
-            root_nodes.add(node_id)
-
-    # BFS for depth = 2 from each root node
-    visited = set()
-    sub_cag_nodes = {}
-    sub_cag_edges = set()
-
-    for root_id in root_nodes:
-        queue = deque([(root_id, 0)])
-        visited.add(root_id)
-
-        while queue:
-            current, depth = queue.popleft()
-            if current not in node_data:
-                continue
-            sub_cag_nodes[current] = node_data[current]
-
-            if depth < 2:
-                for neighbor, e_type in edge_data.get(current, []):
-                    sub_cag_edges.add((current, neighbor, e_type))
-                    if neighbor not in visited:
-                        visited.add(neighbor)
-                        queue.append((neighbor, depth + 1))
-
-    # Build final graph
-    graph_data = {
-        "nodes": [],
-        "links": []
-    }
-
-    for node_id, info in sub_cag_nodes.items():
-        graph_data["nodes"].append({
-            "id": node_id,
-            "name": info["name"],
-            "type": info["type"].lower(),
-            "root": node_id in root_nodes
-        })
-
-    for src, tgt, e_type in sub_cag_edges:
-        graph_data["links"].append({
-            "source": src,
-            "target": tgt,
-            "type": e_type
-        })
-
-    flask_logger.info(json.dumps(graph_data, indent=4))
-    return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})

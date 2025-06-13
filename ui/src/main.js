@@ -31,6 +31,10 @@ import './permission' // permission control
 import { getDicts } from "@/api/system/dict/data";
 import { getConfigKey } from "@/api/system/config";
 import { parseTime, resetForm, addDateRange, selectDictLabel, selectDictLabels, handleTree } from "@/utils/ruoyi";
+
+import ECharts from 'vue-echarts';
+import 'echarts'; // 引入 ECharts 主库（非按需）
+
 // 分页组件
 import Pagination from "@/components/Pagination";
 // 自定义表格工具组件
@@ -69,6 +73,7 @@ Vue.component('Editor', Editor)
 Vue.component('FileUpload', FileUpload)
 Vue.component('ImageUpload', ImageUpload)
 Vue.component('ImagePreview', ImagePreview)
+Vue.component('v-chart', ECharts);
 
 Vue.use(directive)
 Vue.use(plugins)
