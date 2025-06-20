@@ -1,8 +1,5 @@
 
-import sys
-sys.path.append(r"D:\global_ca_monitor")
 from backend.parser.pem_parser import PEMParser
-from backend.analyzer.cert_asn1_struct_fp import ASN1StructFP
 from backend.utils.json import custom_serializer
 
 import json
@@ -15,10 +12,10 @@ with open(r'test_certs/baidu.com_single.pem', 'r') as f:
     with open("out.json", 'w') as f:
         json.dump(cert, f, indent=4, default=custom_serializer)
 
-    fp_constructor = ASN1StructFP()
-    fp, fp_raw = fp_constructor.build_fp(pem_parser.parse_native(data))
-    print(fp)
-    print(fp_raw)
+    # fp_constructor = ASN1StructFP()
+    # fp, fp_raw = fp_constructor.build_fp(pem_parser.parse_native(data))
+    # print(fp)
+    # print(fp_raw)
 
     # for ext in extensions:
     #     ext_id = ext['extn_id']
