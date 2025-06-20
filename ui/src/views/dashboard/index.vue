@@ -7,89 +7,84 @@
       <div style="font-size: 16px; color: #666;">总 TLS 数量</div>
     </el-card>
 
-    <!-- <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card shadow="hover" style="background: #f0f9eb;">
-          <div style="display: flex; align-items: center;">
-            <el-icon size="36" style="color: #67c23a;">
-              <i class="el-icon-document" />
-            </el-icon>
-            <div style="margin-left: 12px;">
-              <div style="font-size: 14px; color: #909399;">总证书数量</div>
-              <div style="font-size: 24px; font-weight: bold;">{{ totalHostNum }}</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row> -->
-
     <!-- hostSecurityStat -->
 
     <!-- 1. 错误占比文字展示 -->
     <el-card class="stat-card">
       <div class="error-ratio-box">
         <div class="ratio-title">Host 错误占比</div>
-        <div class="ratio-value">{{ errorPercentage }}%</div>
+        <div class="ratio-value">{{ errorHostPercentage }}%</div>
         <div class="ratio-desc">共 {{ hostSecurityStat.total_hosts }} 个 Host, 其中 {{ hostSecurityStat.hosts_without_error }} 个无错误</div>
       </div>
     </el-card>
 
     <!-- 2. 错误代码饼图展示 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col
-        v-for="(count, code) in hostSecurityStat.error_statistics"
-        :key="code"
-        :span="24"
-      >
+      <el-col :span="6" v-for="(count, code) in hostSecurityStat.error_statistics" :key="code">
         <el-card shadow="hover" style="margin-bottom: 20px;">
-          <div slot="header">
-            <strong>{{ code }}</strong> 错误占比
+          <div slot="header"><strong>{{ code }}</strong> 错误占比</div>
+          <div style="display: flex; justify-content: center; align-items: center; height: 250px;">
+            <v-chart
+              :options="getPieOption(code, count)"
+              autoresize
+              style="width: 100%; height: 100%; max-width: 250px;"
+            />
           </div>
-          <v-chart
-            :options="getPieOption(code, count)"
-            autoresize
-            style="height: 300px;"
-          />
         </el-card>
       </el-col>
     </el-row>
 
     <el-divider />
+    <el-divider />
+    <el-divider />
 
-    <!-- CAG -->
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch">
-      <el-form-item label="根域名" prop="rootDomain">
-        <el-input
-          v-model="queryParams.rootDomain"
-          placeholder="请输入查询根域名组"
-          clearable
-        />
-      </el-form-item>
+    <!-- totalCertNum  -->
+    <el-card shadow="always" style="text-align: center;">
+      <div style="font-size: 32px; font-weight: bold; color: #409EFF;">{{ totalCertNum }}</div>
+      <div style="font-size: 16px; color: #666;">总证书数量</div>
+    </el-card>
 
-      <el-form-item>
-        <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
-        <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
-      </el-form-item>
-    </el-form>
+    <!-- certSecurityStat -->
 
-    <!-- main stuff here -->
-    <cag :graph-data="certGraphData" />
+    <!-- 1. 错误占比文字展示 -->
+    <el-card class="stat-card">
+      <div class="error-ratio-box">
+        <div class="ratio-title">证书错误占比</div>
+        <div class="ratio-value">{{ errorCertPercentage }}%</div>
+        <div class="ratio-desc">共 {{ certSecurityStat.total_certificates }} 个证书，其中 {{ certSecurityStat.certificates_without_error }} 个无错误</div>
+      </div>
+    </el-card>
+
+    <!-- 2. 错误代码饼图展示 -->
+    <el-row :gutter="20" style="margin-top: 20px;">
+      <el-col :span="6" v-for="(count, code) in certSecurityStat.error_statistics" :key="code">
+        <el-card shadow="hover" style="margin-bottom: 20px;">
+          <div slot="header"><strong>{{ code }}</strong> 错误占比</div>
+          <div style="display: flex; justify-content: center; align-items: center; height: 250px;">
+            <v-chart
+              :options="getPieOption(code, count)"
+              autoresize
+              style="width: 100%; height: 100%; max-width: 250px;"
+            />
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
 
   </div>
 </template>
 
 <script>
-import { getTotalHosts, getHostSecurityStats, getSubCag } from "@/api/system/host_analysis";
+import { getTotalCerts, getCertSecurityStats } from "@/api/cert/cert_analysis";
+import { getTotalHosts, getHostSecurityStats } from "@/api/host/host_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
-import Cag from '@/views/system/host_analysis/cag';
 import EChart from 'vue-echarts';
-// import Cag from "./cag.vue";
 
 export default {
-  name: "HostAnalysis",
+  name: "Dashboard",
   dicts: ['sys_normal_disable'],
-  components: { Treeselect, Cag, 'v-chart': EChart },
+  components: { Treeselect, 'v-chart': EChart },
   data() {
     return {
       // 遮罩层
@@ -107,27 +102,25 @@ export default {
 
       // host analysis
       totalHostNum: 0,
-      errorPercentage: 0,
+      errorHostPercentage: 0,
       hostSecurityStat: {
         type: Object, // 👈 dict 类型
         required: true,
       },
 
-      certGraphData: {
+      totalCertNum: 0,
+      errorCertPercentage: 0,
+      certSecurityStat: {
         type: Object, // 👈 dict 类型
         required: true,
-      },
-
-      // 查询参数
-      queryParams: {
-        rootDomain: undefined,
       },
     };
   },
   created() {
     this.getTotalNum();
     this.getSecurityStats();
-    this.getCag();
+    this.getTotalNum();
+    this.getSecurityStats();
   },
   methods: {
     getTotalNum(){
@@ -135,25 +128,25 @@ export default {
       // return jsonify({'msg': 'Success', 'code': 200, 'data': count})
       getTotalHosts().then(response => {
         this.totalHostNum = response.data;
-        this.loading = false;
       });
+      getTotalCerts().then(response => {
+        this.totalCertNum = response.data;
+      });
+      this.loading = false;
     },
+
     getSecurityStats(){
       this.loading = true;
       // return jsonify({'msg': 'Success', 'code': 200, 'data': result})
       getHostSecurityStats().then(response => {
         this.hostSecurityStat = response.data;
-        this.errorPercentage = (1 - (this.hostSecurityStat.hosts_without_error / this.hostSecurityStat.total_hosts)) * 100;
-        this.loading = false;
+        this.errorHostPercentage = (1 - (this.hostSecurityStat.hosts_without_error / this.hostSecurityStat.total_hosts)) * 100;
       })
-    },
-    getCag(){
-      this.loading = true;
-      // return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
-      getSubCag().then(response => {
-        this.certGraphData = response.data;
-        this.loading = false;
-      });
+      getCertSecurityStats().then(response => {
+        this.certSecurityStat = response.data;
+        this.errorCertPercentage = (1 - (this.certSecurityStat.certificates_without_error / this.certSecurityStat.total_certificates)) * 100;
+      })
+      this.loading = false;
     },
 
     getPieOption(code, count) {
@@ -161,26 +154,25 @@ export default {
       return {
         title: {
           text: `${((count / total) * 100).toFixed(1)}%`,
-          left: 'center',
-          top: '40%',
+          left: 'center', // 居中标题
+          top: '45%',
           textStyle: {
-            fontSize: 20
+            fontSize: 14
           }
         },
-        tooltip: {
-          trigger: 'item'
-        },
+        tooltip: { trigger: 'item' },
         series: [
           {
             name: code,
             type: 'pie',
-            radius: ['50%', '70%'],
+            radius: ['30%', '50%'],
+            center: ['50%', '50%'], // 确保图表居中
             avoidLabelOverlap: false,
             label: { show: false },
             emphasis: {
               label: {
                 show: true,
-                fontSize: '16',
+                fontSize: 12,
                 fontWeight: 'bold'
               }
             },

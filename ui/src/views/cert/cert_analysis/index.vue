@@ -59,7 +59,7 @@
 </template>
 
 <script>
-import { getTotalCerts, getCertSecurityStats } from "@/api/system/cert_analysis";
+import { getTotalCerts, getCertSecurityStats } from "@/api/cert/cert_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import EChart from 'vue-echarts';

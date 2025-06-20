@@ -158,12 +158,12 @@
 </template>
 
 <script>
-import { listCert, getCertChain } from "@/api/system/cert_search";
+import { listCert, getCertChain } from "@/api/cert/cert_search";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 
 export default {
-  name: "CertSearch",
+  name: "HostSearch",
   dicts: ['sys_cert_type'],
   components: { Treeselect },
   data() {

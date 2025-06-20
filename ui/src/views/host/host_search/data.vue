@@ -65,7 +65,7 @@
 </template>
 
 <script>
-import { getHostInfo } from "@/api/system/host_search";
+import { getHostInfo } from "@/api/host/host_search";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
 
 export default {

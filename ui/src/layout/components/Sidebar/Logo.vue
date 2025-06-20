@@ -35,7 +35,7 @@ export default {
   },
   data() {
     return {
-      title: '权限管理系统',
+      title: 'PKI Monitor Platform',
       logo: logoImg
     }
   }

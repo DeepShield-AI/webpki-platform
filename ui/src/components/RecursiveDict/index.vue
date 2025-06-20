@@ -1,39 +1,37 @@
 <template>
-  <div :style="{ paddingLeft: depth * 20 + 'px' }">
-    <div v-for="(value, key) in data" :key="key">
-      <strong>{{ key }}:</strong>
+  <div :style="{ paddingLeft: depth * 12 + 'px' }" class="recursive-container">
+    <div v-for="(value, key) in orderedData" :key="key" class="dict-item">
+      <span class="recursive-key">{{ key }}:</span>
 
-      <!-- ✅ 如果是对象：递归展开 -->
+      <!-- ✅ 对象递归 -->
       <template v-if="isObject(value)">
-        <RecursiveDict :data="value" :depth="depth + 1" />
+        <RecursiveDict :data="value" :depth="depth + 1" :fieldOrder="fieldOrder" />
       </template>
 
-      <!-- ✅ 如果是 list of dicts：逐项递归展开 -->
+      <!-- ✅ List of dicts -->
       <template v-else-if="isListOfObjects(value)">
-        <div v-for="(item, index) in value" :key="index">
-          <div :style="{ paddingLeft: (depth + 1) * 20 + 'px' }">
-            <strong>[{{ index }}]</strong>
-            <RecursiveDict :data="item" :depth="depth + 2" />
-          </div>
+        <div v-for="(item, index) in value" :key="index" class="indent">
+          <RecursiveDict :data="item" :depth="depth + 1" :fieldOrder="fieldOrder" />
         </div>
       </template>
 
-      <!-- ✅ 如果是普通数组 -->
+      <!-- ✅ 普通数组 -->
       <template v-else-if="isArray(value)">
-        <code>{{ value.join(', ') }}</code>
+        <code class="recursive-value">{{ value.join(', ') }}</code>
       </template>
 
-      <!-- ✅ 普通值 -->
+      <!-- ✅ 字符串/值/链接 -->
       <template v-else>
-        <code>{{ value }}</code>
+        <code v-if="isURL(value)" class="recursive-link">
+          <a :href="value" target="_blank" rel="noopener noreferrer">{{ value }}</a>
+        </code>
+        <code v-else class="recursive-value">{{ value }}</code>
       </template>
     </div>
   </div>
 </template>
 
 <script>
-import DictTag from '@/components/DictTag';  // 路径根据你实际文件结构调整
-
 export default {
   name: "RecursiveDict",
   props: {
@@ -44,6 +42,27 @@ export default {
     depth: {
       type: Number,
       default: 0
+    },
+    fieldOrder: {
+      type: Array,
+      default: () => [
+                'Version', 'Serial Number', 'Signature Algorithm',
+                'Issuer', 'Validity', 'Subject', 'Subject Public Key Info',
+                'X509v3 extensions', 'Signature Algorithm (again)', 'Signature'
+              ]
+    }
+  },
+  computed: {
+    orderedData() {
+      if (!this.fieldOrder.length) return this.data;
+      const ordered = {};
+      for (const key of this.fieldOrder) {
+        if (key in this.data) ordered[key] = this.data[key];
+      }
+      for (const key in this.data) {
+        if (!(key in ordered)) ordered[key] = this.data[key];
+      }
+      return ordered;
     }
   },
   methods: {
@@ -56,18 +75,42 @@ export default {
     isListOfObjects(arr) {
       return Array.isArray(arr) && arr.every(i => typeof i === 'object' && i !== null);
     },
-    checkKeyInDict(key) {
-      return [false, null];
+    isURL(val) {
+      return typeof val === 'string' && /^https?:\/\/[\w.-]+/.test(val);
     }
-  },
+  }
 };
 </script>
 
-<style>
-.indent {
-  margin-top: 4px;
+<style scoped>
+.recursive-container {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  color: #2d2d2d;
+  white-space: pre-wrap;
 }
+
+.recursive-key {
+  color: #003366;
+  font-weight: bold;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.recursive-value {
+  color: #333;
+}
+
+.recursive-link a {
+  color: #1a73e8;
+  text-decoration: underline;
+}
+
+.indent {
+  margin-left: 12px;
+}
+
 .dict-item {
-  margin-bottom: 4px;
+  margin: 2px 0;
 }
 </style>

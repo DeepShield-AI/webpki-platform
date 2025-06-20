@@ -64,13 +64,13 @@ export const constantRoutes = [
   {
     path: '',
     component: Layout,
-    redirect: 'index',
+    redirect: 'dashboard',
     children: [
       {
-        path: 'index',
-        component: () => import('@/views/index'),
-        name: 'Index',
-        meta: { title: '首页', icon: 'dashboard', affix: true }
+        path: 'dashboard',
+        component: () => import('@/views/dashboard/index'),
+        name: 'Dashboard',
+        meta: { title: 'DASHBOARD', icon: 'dashboard', affix: true }
       }
     ]
   },
@@ -163,30 +163,46 @@ export const dynamicRoutes = [
     ]
   },
   {
-    path: '/system/cert_view',
+    path: '/cert/cert_view',
     component: Layout,
     hidden: true,
-    permissions: ['system:cert:list'],
+    permissions: ['cert:cert_search:list'],
     children: [
       {
         path: ':certSha256(.*)',
-        component: () => import('@/views/system/cert_search/data'),
+        component: () => import('@/views/cert/cert_search/data'),
         name: 'CertSearchData',
-        meta: { title: '证书详情', activeMenu: '/system/cert_search' }
+        meta: { title: '证书详情', activeMenu: '/cert/cert_search' }
       }
     ]
   },
   {
-    path: '/system/host_view',
+    path: '/host/host_view',
     component: Layout,
+    redirect: 'noredirect',
     hidden: true,
-    permissions: ['system:host:list'],
+    permissions: ['host:host_search:list'],
     children: [
       {
         path: ':host(.*)',
-        component: () => import('@/views/system/host_search/data'),
+        component: () => import('@/views/host/host_search/data'),
         name: 'HostSearchData',
-        meta: { title: 'Host详情', activeMenu: '/system/host_search' }
+        meta: { title: 'Host详情', activeMenu: '/host/host_search' }
+      }
+    ]
+  },
+  {
+    path: '/ca/ca_view',
+    component: Layout,
+    redirect: 'noredirect',
+    hidden: true,
+    permissions: ['ca:ca_search:list'],
+    children: [
+      {
+        path: ':caName(.*)',
+        component: () => import('@/views/ca/ca_search/data'),
+        name: 'CaSearchData',
+        meta: { title: 'CA 详情', activeMenu: '/ca/ca_search' }
       }
     ]
   },

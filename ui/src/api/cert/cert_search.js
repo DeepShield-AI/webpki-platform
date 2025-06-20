@@ -1,18 +1,18 @@
 
 import request from '@/utils/request'
 
-// export function listCert(query) {
-//   return request({
-//     url: '/system/cert_search/list',
-//     method: 'get',
-//     params: query
-//   })
-// }
+export function searchCert(query) {
+  return request({
+    url: '/cert/cert_search/search',
+    method: 'get',
+    params: query
+  })
+}
 
 
 export function getCertInfo(certSha256) {
   return request({
-    url: '/system/cert_retrieve/' + certSha256,
+    url: '/cert/cert_retrieve/' + certSha256,
     method: 'get'
   })
 }

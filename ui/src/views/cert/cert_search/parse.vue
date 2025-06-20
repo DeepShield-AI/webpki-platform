@@ -98,7 +98,7 @@
       @pagination="getList"
     />
 
-    <el-divider />
+    <!-- <el-divider />
 
     <el-form :model="chainParams" ref="chainForm" size="large" :inline="false" v-show="showSearch">
       <el-form-item label="PEM 证书" prop="pemCert">
@@ -152,18 +152,18 @@
         </div>
 
       </div>
-    </el-card>
+    </el-card> -->
 
   </div>
 </template>
 
 <script>
-import { listCert, getCertChain } from "@/api/system/cert_search";
+import { listCert, getCertChain } from "@/api/cert/cert_search";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 
 export default {
-  name: "HostSearch",
+  name: "CertParse",
   dicts: ['sys_cert_type'],
   components: { Treeselect },
   data() {
@@ -214,7 +214,6 @@ export default {
       this.resetForm("queryForm");
       // this.handleQuery();
     },
-    /** 查询扫描进程列表 */
     getList() {
       this.loading = true;
       let queryParams = this.addDateRange(this.queryParams, this.notValidBeforeRange, "NotValidBefore")
@@ -226,20 +225,9 @@ export default {
         this.loading = false;
       });
     },
-    /** 展开/折叠操作 */
-    toggleExpandAll() {
-      this.refreshTable = false;
-      this.isExpandAll = !this.isExpandAll;
-      this.$nextTick(() => {
-        this.refreshTable = true;
-      });
-    },
-
-    /** 搜索按钮操作 */
     handleChainQuery() {
       this.getChain();
     },
-    /** 重置按钮操作 */
     resetChainQuery() {
       this.resetForm("chainForm");
       // this.handleChainQuery();
