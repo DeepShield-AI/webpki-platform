@@ -124,10 +124,42 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	('jssc', '2015-08-25 10:34:53', '删除角色', 'ext-icon-bullet_wrench', '删除角色', 3, '', '2015-08-25 10:34:53', NULL, '/base/syrole!delete', 'system:role:remove', 'jsgl', '1', '0'),
 	('jssq', '2015-08-25 10:34:53', '角色授权', 'ext-icon-bullet_wrench', '角色授权', 5, '', '2015-08-25 10:34:53', NULL, '/base/syrole!grant', NULL, 'jsgl', '1', '0'),
 	('jstj', '2015-08-25 10:34:53', '添加角色', 'ext-icon-bullet_wrench', '添加角色', 1, '', '2015-08-25 10:34:53', NULL, '/base/syrole!save', 'system:role:add', 'jsgl', '1', '0'),
-	('online', '2015-08-25 10:34:53', '监控用户登录、注销', 'ext-icon-chart_line', '登录历史', 1, '', '2022-06-10 00:53:22', 'logininfor', 'monitor/logininfor/index', 'monitor:logininfor:list', 'xtjk', '0', '0'),
-	('onlineGrid', '2015-08-25 10:34:53', '用户登录、注销历史记录列表', 'ext-icon-bullet_wrench', '用户登录历史列表', 1, '', '2022-05-28 13:16:37', NULL, '/base/syonline!grid', 'monitor:logininfor:list', 'online', '1', '0'),
-	('xtgl', '2015-08-25 10:34:53', '管理系统的资源、角色、机构、用户等信息', 'system', '系统管理', 1, '', '2023-05-16 20:03:02', '/system', NULL, NULL, NULL, '3', '0'),
-	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'monitor', '系统监控', 2, '', '2022-06-10 00:48:47', '/system/log', '', '', NULL, '0', '0'),
+
+	-- (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAME`, `SEQ`, `TARGET`, `UPDATEDATETIME`, `PATH`, `URL`, `PERMS`, `SYRESOURCE_ID`, `SYRESOURCETYPE_ID`, `STATUS`) VALUES
+	-- here PATH is the real path shown in the browser
+	-- here the URL is actually the "component" path to render
+
+	-- Dashboard Tab
+	-- see router/index.js
+
+	-- Host Analysis Tab
+	('host', '2015-08-25 10:34:53', 'Host Analysis', 'monitor', 'Host Analysis', 1, '', '2023-05-16 20:03:02', '/host', NULL, NULL, NULL, '3', '0'),
+	('hostSearch', '2015-08-25 10:34:53', 'Host查询', 'tree', 'Host查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'host/host_search/index', 'host:host_search:list', 'host', '0', '0'),
+	('hostOverview', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'host/host_analysis/index', 'host:host_analysis:list', 'host', '0', '0'),
+	('hostCag', '2015-08-25 10:34:53', 'Host CAG', 'tree', 'Host CAG', 7, '', '2022-05-25 00:48:32', 'host_cag', 'host/host_cag/index', 'host:host_cag:list', 'host', '0', '0'),
+
+	-- CA Analysis Tab
+	('ca', '2015-08-25 10:34:53', 'CA Analysis', 'monitor', 'CA Analysis', 2, '', '2023-05-16 20:03:02', '/ca', NULL, NULL, NULL, '3', '0'),
+	('caOverview', '2015-08-25 10:34:53', 'CA分析结果', 'tree', 'CA结果', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'ca/ca_analysis/index', 'ca:ca_analysis:list', 'ca', '0', '0'),
+	('caSearch', '2015-08-25 10:34:53', 'CA查询', 'tree', 'CA查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'ca/ca_search/index', 'ca:ca_search:list', 'ca', '0', '0'),
+	('caService', '2015-08-25 10:34:53', 'CA Service', 'tree', 'CA Service', 3, '', '2022-05-25 00:48:32', 'ca_service', 'ca/ca_service_monitor/index', 'ca:ca_service:list', 'ca', '0', '0'),
+
+	-- Client Analysis Tab
+	('client', '2015-08-25 10:34:53', 'Client Analysis', 'monitor', 'Client Analysis', 3, '', '2023-05-16 20:03:02', '/client', NULL, NULL, NULL, '3', '0'),
+	('clientOverview', '2015-08-25 10:34:53', 'Cient分析结果', 'tree', 'Client结果', 7, '', '2022-05-25 00:48:32', 'client_analysis', 'client/client_analysis/index', 'client:client_analysis:list', 'client', '0', '0'),
+	('clientSearch', '2015-08-25 10:34:53', 'Client查询', 'tree', 'Client查询', 4, '', '2022-05-25 00:48:32', 'client_search', 'client/client_search/index', 'client:client_search:list', 'client', '0', '0'),
+
+	-- Cert Analysis Tab
+	('cert', '2015-08-25 10:34:53', 'Certificate Analysis', 'monitor', 'Certificate Analysis', 4, '', '2023-05-16 20:03:02', '/cert', NULL, NULL, NULL, '3', '0'),
+	('certSearch', '2015-08-25 10:34:53', '证书查询', 'tree', '证书查询', 2, '', '2022-05-25 00:48:32', 'cert_search', 'cert/cert_search/index', 'cert:cert_search:list', 'cert', '0', '0'),
+	('certOverview', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'cert/cert_analysis/index', 'cert:cert_analysis:list', 'cert', '0', '0'),
+
+	-- CT Monitoring Tab
+	('ct', '2015-08-25 10:34:53', 'Certificate Transparency Analysis', 'monitor', 'CT Analysis', 5, '', '2023-05-16 20:03:02', '/ct', NULL, NULL, NULL, '3', '0'),
+	('ctMonitor', '2015-08-25 10:34:53', 'CT Monitor', 'tree', 'CT Monitor', 5, '', '2022-05-25 00:48:32', 'ct_monitor', 'ct/ct_monitor/index', 'ct:ct_monitor:list', 'ct', '0', '0'),
+
+	-- System Management Tab
+	('xtgl', '2015-08-25 10:34:53', '管理系统的资源、角色、机构、用户等信息', 'system', '系统管理', 6, '', '2023-05-16 20:03:02', '/system', NULL, NULL, NULL, '3', '0'),
 	('yhbj', '2015-08-25 10:34:53', '编辑用户', 'ext-icon-bullet_wrench', '编辑用户', 2, '', '2015-08-25 10:34:53', NULL, '/base/syuser!update', 'system:user:edit', 'yhgl', '1', '0'),
 	('yhck', '2015-08-25 10:34:53', '查看用户', 'ext-icon-bullet_wrench', '查看用户', 4, '', '2015-08-25 10:34:53', NULL, '/base/syuser!getById', 'system:user:query', 'yhgl', '1', '0'),
 	('yhgl', '2015-08-25 10:34:53', '管理系统中用户的用户', 'user', '用户管理', 1, '', '2023-05-16 20:08:40', 'user', 'system/user/index', 'system:user:list', 'xtgl', '0', '0'),
@@ -144,6 +176,12 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	('zysc', '2015-08-25 10:34:53', '删除资源', 'ext-icon-bullet_wrench', '删除资源', 3, '', '2015-08-25 10:34:53', NULL, '/base/syresource!delete', 'system:menu:remove', 'zygl', '1', '0'),
 	('zytj', '2015-08-25 10:34:53', '添加资源', 'ext-icon-bullet_wrench', '添加资源', 1, '', '2015-08-25 10:34:53', NULL, '/base/syresource!save', 'system:menu:add', 'zygl', '1', '0'),
 
+	-- System Monitoring Tab
+	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'eye', '系统监控', 7, '', '2022-06-10 00:48:47', '/monitor', NULL, NULL, NULL, '0', '0'),
+	('log', '2015-08-25 10:34:53', '监控 Log', 'tree', 'System Log', 1, '', '2022-06-10 00:53:22', 'log', 'monitor/log/index', 'monitor:log:list', 'xtjk', '0', '0'),
+	('online', '2015-08-25 10:34:53', '监控用户登录、注销', 'tree', '登录历史', 1, '', '2022-06-10 00:53:22', 'logininfor', 'monitor/logininfor/index', 'monitor:logininfor:list', 'xtjk', '0', '0'),
+	('onlineGrid', '2015-08-25 10:34:53', '用户登录、注销历史记录列表', 'ext-icon-bullet_wrench', '用户登录历史列表', 1, '', '2022-05-28 13:16:37', NULL, '/base/syonline!grid', 'monitor:logininfor:list', 'online', '1', '0'),
+
 	-- 这里添加想要新增的可访问的路由(左侧菜单栏的项目)
   -- ('xtgl', '2015-08-25 10:34:53', '管理系统的资源、角色、机构、用户等信息', 'system', '系统管理', 1, '', '2023-05-16 20:03:02', '/system', NULL, NULL, NULL, '3', '0'),
 
@@ -154,15 +192,7 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	('hfjc', '2015-08-25 10:34:53', '恢复进程', 'ext-icon-bullet_wrench', '恢复进程', 7, '', '2015-08-25 10:34:53', NULL, '/base/scan_process!resume', 'system:scan_process:resume', 'smjcgl', '1', '0'),
 	('xgjc', '2015-08-25 10:34:53', '修改进程参数', 'ext-icon-bullet_wrench', '修改进程参数', 4, '', '2015-08-25 10:34:53', NULL, '/base/scan_process!edit', 'system:scan_process:edit', 'smjcgl', '1', '0'),
 	('ckjg', '2015-08-25 10:34:53', '查看扫描结果', 'ext-icon-bullet_wrench', '查看扫描结果', 3, '', '2015-08-25 10:34:53', NULL, '/base/scan_process!view', 'system:scan_process:view', 'smjcgl', '1', '0'),
-	('scjc', '2015-08-25 10:34:53', '删除进程', 'ext-icon-bullet_wrench', '删除进程', 2, '', '2015-08-25 10:34:53', NULL, '/base/scan_process!remove', 'system:scan_process:remove', 'smjcgl', '1', '0'),
-
-	('zscx', '2015-08-25 10:34:53', '证书查询', 'tree', '证书查询', 2, '', '2022-05-25 00:48:32', 'cert_search', 'system/cert_search/index', 'system:cert:list', 'xtgl', '0', '0'),
-	('cacx', '2015-08-25 10:34:53', 'CA查询', 'tree', 'CA查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'system/ca_search/index', 'system:ca:list', 'xtgl', '0', '0'),
-	('hostcx', '2015-08-25 10:34:53', 'Host查询', 'tree', 'Host查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'system/host_search/index', 'system:host:list', 'xtgl', '0', '0'),
-
-	('zsjggl', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'system/cert_analysis/index', 'system:cert_analysis:list', 'xtgl', '0', '0'),
-	('cajggl', '2015-08-25 10:34:53', 'CA分析结果', 'tree', 'CA结果', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'system/ca_analysis/index', 'system:ca_analysis:list', 'xtgl', '0', '0'),
-	('hostjggl', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'system/host_analysis/index', 'system:host_analysis:list', 'xtgl', '0', '0');
+	('scjc', '2015-08-25 10:34:53', '删除进程', 'ext-icon-bullet_wrench', '删除进程', 2, '', '2015-08-25 10:34:53', NULL, '/base/scan_process!remove', 'system:scan_process:remove', 'smjcgl', '1', '0');
 
 
 -- 导出  表 authbase.SYRESOURCETYPE 结构
@@ -298,21 +328,21 @@ INSERT INTO `SYROLE_SYRESOURCE` (`SYROLE_ID`, `SYRESOURCE_ID`) VALUES
 	('0', 'ckjg'),
 	('0', 'scjc'),
 
-	('0', 'zscx'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'zscx'),
-	('0', 'cacx'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'cacx'),
+	('0', 'certSearch'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'certSearch'),
+	('0', 'caSearch'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'caSearch'),
+	('0', 'hostSearch'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostSearch'),
 
-	('0', 'hostcx'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostcx'),
-
-	('0', 'zsjggl'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'zsjggl'),
-	('0', 'cajggl'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'cajggl'),
-	
-	('0', 'hostjggl'),
-	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostjggl');
+	('0', 'certOverview'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'certOverview'),
+	('0', 'caOverview'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'caOverview'),
+	('0', 'hostOverview'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'hostOverview'),
+	('0', 'ctMonitor'),
+	('f4e1b151-a171-4705-9154-503a046cb72a', 'ctMonitor');
 
 
 -- 导出  表 authbase.SYS_CONFIG 结构
@@ -399,17 +429,26 @@ INSERT INTO `SYS_DICT_DATA` (`dict_code`, `dict_sort`, `dict_label`, `dict_value
 	(51, 4, '暂停', '3', 'sys_scan_status', '', 'warning', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, '扫描暂停'),
 	(52, 5, '人为终止', '4', 'sys_scan_status', '', 'danger', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, '扫描人为中断'),
 	
-  (53, 1, '扫描Top域名', '0', 'sys_scan_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(54, 2, '扫描IP地址', '1', 'sys_scan_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(55, 3, '扫描CT日志', '2', 'sys_scan_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(56, 1, 'leaf', '0', 'sys_cert_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(57, 2, 'intermediate', '1', 'sys_cert_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(58, 3, 'root', '2', 'sys_cert_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(59, 1, 'RSA', '0', 'sys_key_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(60, 2, 'ECDSA', '1', 'sys_key_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(61, 1, 'Unauthorized', '0', 'cert_revocation_status', '', 'warning', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(62, 2, 'Good', '1', 'cert_revocation_status', '', 'primary', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
-	(63, 3, 'Revoked', '2', 'cert_revocation_status', '', 'danger', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(102, 1, '扫描Top域名', '0', 'sys_scan_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(103, 2, '扫描IP地址', '1', 'sys_scan_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(104, 3, '扫描CT日志', '2', 'sys_scan_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+
+	(80, 1, 'leaf', '0', 'sys_cert_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(81, 2, 'intermediate', '1', 'sys_cert_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(82, 3, 'root', '2', 'sys_cert_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+
+	(120, 1, 'RSA', '0', 'sys_key_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(121, 2, 'ECDSA', '1', 'sys_key_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(122, 3, 'ECC', '2', 'sys_key_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+
+	(130, 1, 'MD5', '0', 'sys_hash_type', '', 'info', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(131, 2, 'SHA1', '1', 'sys_hash_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(132, 3, 'SHA256', '2', 'sys_hash_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(133, 4, 'SHA512', '3', 'sys_hash_type', '', 'info', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+
+	(161, 1, 'Unauthorized', '0', 'cert_revocation_status', '', 'warning', 'Y', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(162, 2, 'Good', '1', 'cert_revocation_status', '', 'primary', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
+	(163, 3, 'Revoked', '2', 'cert_revocation_status', '', 'danger', 'N', '0', 'admin', '2022-05-14 14:04:20', '', NULL, ''),
 
   -- 在这里添加新的CT日志
   -- Let's Encrypt Oak

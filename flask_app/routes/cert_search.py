@@ -1,27 +1,121 @@
 
-import tempfile
-import subprocess
+import base64
 import json
-import os
-import csv
-import json
-import re
-
-from flask import jsonify, request
+from datetime import datetime
+from flask import jsonify, request, Response
 from flask_login import login_required, current_user
-from collections import defaultdict, deque
 
 from flask_app.blueprint import base
 from flask_app.config.db_pool import engine_cert
 from flask_app.logger.logger import flask_logger    
 
-from backend.config.path_config import ROOT_DIR
-from backend.parser.cert_parser_base import X509CertParser
 from backend.parser.pem_parser import PEMParser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 
+@base.route('/cert/cert_search/search', methods=['GET'])
+@login_required
+def cert_search():
+    flask_logger.info(f"{request.args}")
 
-@base.route('/system/cert_retrieve/<cert_sha256>', methods=['GET'])
+    # 参数获取
+    cert_sha256 = request.args.get('sha256', "")
+    subject = request.args.get('subject', "")
+    begin_not_valid_before = request.args.get('params[beginNotValidBefore]', "")
+    end_not_valid_before = request.args.get('params[endNotValidBefore]', "")
+    begin_not_valid_after = request.args.get('params[beginNotValidAfter]', "")
+    end_not_valid_after = request.args.get('params[endNotValidAfter]', "")
+
+    page = request.args.get('pageNum', 1, type=int)
+    page_size = request.args.get('pageSize', 30, type=int)
+    offset = (page - 1) * page_size
+
+    where_clauses = []
+    params = []
+
+    if cert_sha256:
+        where_clauses.append("sha256 = %s")
+        params.append(cert_sha256)
+
+    if subject:
+        where_clauses.append("JSON_CONTAINS(subject_cn_list, '\"%s\"')" % subject)
+
+    if begin_not_valid_before:
+        where_clauses.append("not_valid_before >= %s")
+        params.append(begin_not_valid_before)
+
+    if end_not_valid_before:
+        where_clauses.append("not_valid_before <= %s")
+        params.append(end_not_valid_before)
+
+    if begin_not_valid_after:
+        where_clauses.append("not_valid_after >= %s")
+        params.append(begin_not_valid_after)
+
+    if end_not_valid_after:
+        where_clauses.append("not_valid_after <= %s")
+        params.append(end_not_valid_after)
+
+    where_sql = " AND ".join(where_clauses)
+    if where_sql:
+        where_sql = "WHERE " + where_sql
+
+    conn = engine_cert.raw_connection()
+    with conn.cursor() as cursor:
+        # 总数
+        count_query = f"SELECT COUNT(*) FROM cert_search_basic {where_sql}"
+        cursor.execute(count_query, tuple(params))
+        total = cursor.fetchone()[0]
+
+        # 数据查询
+        data_query = f"""
+            SELECT * FROM cert_search_basic
+            {where_sql}
+            LIMIT %s OFFSET %s
+        """
+        cursor.execute(data_query, tuple(params + [page_size, offset]))
+        rows = cursor.fetchall()
+
+        columns = [desc[0] for desc in cursor.description]
+        result = [dict(zip(columns, row)) for row in rows]
+
+    return jsonify({
+        'code': 200,
+        'msg': 'success',
+        'total': total,
+        'data': result
+    })
+
+    '''
+        TODO: for some tables that has complicated search queries, try to use Flask-SQLAlchemy
+    '''
+
+    # filters = []
+    # if 'certID' in request.args:
+    #     filters.append(CertStore.CERT_ID == request.args['certID'])
+
+    # if 'certID' in request.args:
+    #     filters.append(CertStoreContent.CERT_ID == request.args['certID'])
+    # if 'certDomain' in request.args:
+    #     # filters.append(CertStoreContent.SUBJECT_CN == request.args['certDomain'])
+    #     filters.append(CertStoreContent.SUBJECT_CN.like('%' + request.args['certDomain'] + '%'))
+
+    # if 'params[beginNotValidBefore]' in request.args and 'params[endNotValidBefore]' in request.args:
+    #     filters.append(CertStoreContent.NOT_VALID_BEFORE >= request.args['params[beginNotValidBefore]'])
+    #     filters.append(CertStoreContent.NOT_VALID_BEFORE <= request.args['params[endNotValidBefore]'])
+    # if 'params[beginNotValidAfter]' in request.args and 'params[beginNotValidAfter]' in request.args:
+    #     filters.append(CertStoreContent.NOT_VALID_AFTER >= request.args['params[beginNotValidAfter]'])
+    #     filters.append(CertStoreContent.NOT_VALID_AFTER <= request.args['params[beginNotValidAfter]'])
+
+    # page = request.args.get('pageNum', 1, type=int)
+    # rows = request.args.get('pageSize', 30, type=int)
+    # pagination = CertStore.query.filter(*filters).paginate(
+    #     page=page, per_page=rows, error_out=False)
+    # search_certs = pagination.items
+
+    # return jsonify({'msg': '操作成功', 'code': 200, "data": [search_cert.to_json() for search_cert in search_certs], "total" : pagination.total})
+
+
+@base.route('/cert/cert_retrieve/<cert_sha256>', methods=['GET'])
 @login_required
 def get_cert_info(cert_sha256):
 
@@ -43,20 +137,32 @@ def get_cert_info(cert_sha256):
     cert_parsed = PEMParser.parse_native_pretty(row[1])
     analyze_result = _cert_security_analyze(row, "/")
 
-    final_data = []
-    for error_code in analyze_result["error_code"]:
-        error_info = analyze_result["error_info"].get(error_code, "")
-        final_data.append({
-            "error_code" : error_code,
-            "error_info" : error_info
-        })
+    def json_default(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, bytes):
+            return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+        if isinstance(obj, bytearray):
+            return base64.b64encode(obj).decode('utf-8')
 
-    print(final_data)
-    return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : final_data})
+        # 可以扩展支持其他类型
+        return str(obj)  # fallback: 转成字符串
+
+    return Response(
+        json.dumps({
+            'msg': 'Success',
+            'code': 200,
+            'cert_data': cert_parsed,
+            'cert_security': analyze_result
+        }, default=json_default),
+        mimetype='application/json'
+    )
+
+    # return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result})
 
 
 # @deprecated
-# @base.route('/system/zlint/<cert_id>', methods=['GET'])
+# @base.route('/cert/zlint/<cert_id>', methods=['GET'])
 # @login_required
 # def get_cert_zlint(cert_id):
 

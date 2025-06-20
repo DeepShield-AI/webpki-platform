@@ -15,7 +15,7 @@ from flask_app.logger.logger import flask_logger
 from backend.config.path_config import ROOT_DIR
 
 # Get the total number of certificates
-@base.route('/system/cert_analysis/certs_total', methods=['GET'])
+@base.route('/cert/cert_analysis/certs_total', methods=['GET'])
 @login_required
 def get_total_certs():
     conn = engine_cert.raw_connection()
@@ -33,7 +33,7 @@ def get_total_certs():
 
 
 # Get all cert analysis status
-@base.route('/system/cert_analysis/cert_security_stats', methods=['GET'])
+@base.route('/cert/cert_analysis/cert_security_stats', methods=['GET'])
 @login_required
 def get_cert_security_stats():
 

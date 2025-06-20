@@ -25,9 +25,9 @@ USE `cert`;
 
 -- 创建 cert 表
 CREATE TABLE IF NOT EXISTS `cert` (
-    `cert_hash` VARCHAR(64) PRIMARY KEY,      -- 证书哈希值
-    `cert_pem` MEDIUMTEXT NOT NULL            -- 证书内容
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `cert_hash` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci PRIMARY KEY,
+  `cert_pem` MEDIUMTEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 创建 cert_fp 表，用于存储 cert_hash 和其对应的指纹（cert_fp）
 CREATE TABLE IF NOT EXISTS `cert_fp` (

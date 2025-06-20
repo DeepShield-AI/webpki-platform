@@ -12,3 +12,5 @@ from . import cert_analysis
 from . import cert_search
 from . import host_analysis
 from . import host_search
+from . import ca_analysis
+from . import ca_search

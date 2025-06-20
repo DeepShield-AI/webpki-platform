@@ -15,7 +15,7 @@ from backend.analyzer.celery_web_security_task import _web_security_analyze
 from backend.utils.domain import check_input_type
 
 
-@base.route('/system/host_retrieve/<host>', methods=['GET'])
+@base.route('/host/host_retrieve/<host>', methods=['GET'])
 @login_required
 def get_host_info(host):
 

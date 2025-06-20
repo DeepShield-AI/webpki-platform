@@ -16,7 +16,7 @@ from backend.config.path_config import ROOT_DIR
 
 
 # Get the total number of tls connections
-@base.route('/system/host_analysis/hosts_total', methods=['GET'])
+@base.route('/host/host_analysis/hosts_total', methods=['GET'])
 @login_required
 def get_total_host():
     conn = engine_tls.raw_connection()
@@ -33,7 +33,7 @@ def get_total_host():
 
 
 # Get all web analysis status
-@base.route('/system/host_analysis/host_security_stats', methods=['GET'])
+@base.route('/host/host_analysis/host_security_stats', methods=['GET'])
 @login_required
 def get_host_security_stats():
 
@@ -74,7 +74,7 @@ def get_host_security_stats():
     return jsonify({'msg': 'Success', 'code': 200, "data": result})
 
 
-@base.route('/system/host_analysis/sub_cag', methods=['GET'])
+@base.route('/host/host_analysis/sub_cag', methods=['GET'])
 @login_required
 def get_sub_cag():
 
