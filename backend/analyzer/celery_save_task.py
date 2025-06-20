@@ -23,6 +23,9 @@ def batch_flush_results(max_batch_size=2000):
     if not results:
         return
 
+    # cert parse data
+    cert_parse_data = []
+
     # cert asn1 fp
     cert_fp_data = []
     cert_conn = engine_cert.raw_connection()
@@ -45,6 +48,19 @@ def batch_flush_results(max_batch_size=2000):
                 cert_hash = result.get("cert_hash", "")
                 cert_fp = result.get("cert_fp", "")
                 cert_fp_data.append((cert_hash, cert_fp))
+
+            elif result.get("flag", "") == AnalyzeConfig.TASK_PARSE:
+
+                cert_parse_data.append((
+                    result.get("sha256", ""),
+                    json.dumps(result.get("subject_cn_list", "")),  # make sure this is str type
+                    result.get("subject_org", ""),
+                    result.get("issuer_cn", ""),
+                    result.get("issuer_org", ""),
+                    result.get("issuer_country", ""),
+                    result.get("not_valid_before", ""),
+                    result.get("not_valid_after", ""),
+                ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CAG:
 
@@ -111,6 +127,14 @@ def batch_flush_results(max_batch_size=2000):
             primary_logger.error(f"[batch_flush_results] Error: {e}")
 
     try:
+        if cert_parse_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO cert_search_basic VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    cert_parse_data
+                )
+            cert_conn.commit()
+
         if cert_fp_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(

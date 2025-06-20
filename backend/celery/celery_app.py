@@ -17,6 +17,7 @@ celery_app = Celery(
         'backend.analyzer.celery_save_task',
         'backend.analyzer.celery_cert_fp_task',
         'backend.analyzer.celery_cag_task',
+        'backend.analyzer.celery_cert_parse_task',
         'backend.analyzer.celery_cert_security_task',
         'backend.analyzer.celery_web_security_task'
     ]

@@ -4,7 +4,7 @@ import json
 import redis
 import hashlib
 import base64
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import OrderedDict
 import subprocess
 import tempfile
@@ -39,21 +39,22 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
         cert: str = row[1]
         error_code = set()
         error_info = {}
-        parsed: PEMResult = PEMParser.parse_pem_cert(cert)
+        parsed: dict = PEMParser.parse_native_pretty(cert)
         # primary_logger.debug(parsed)
 
         # 1. check expired certs
-        date_obj = datetime.strptime(parsed.not_after, "%Y-%m-%d-%H-%M-%S")
-        now = datetime.now()
-        if date_obj < now:
+        not_before = parsed['tbs_certificate']['validity']['not_before']
+        not_after = parsed['tbs_certificate']['validity']['not_after']
+
+        now = datetime.now(timezone.utc)
+        if not_after < now:
             error_code.add("expired")
 
         # 2. check validity time
-        not_before = datetime.strptime(parsed.not_before, "%Y-%m-%d-%H-%M-%S")
-        not_after = datetime.strptime(parsed.not_after, "%Y-%m-%d-%H-%M-%S")
-        primary_logger.debug((not_after - not_before).days)
-        if (not_after - not_before).days > 398:
+        validity = (not_after - not_before).days
+        if validity > 398:
             error_code.add("validity_too_long")
+            error_info["validity_too_long"] = validity
 
         # 3. check sig and encrypt alg
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
@@ -77,7 +78,7 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
                 raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
 
             zlint_output = json.loads(result.stdout)
-            primary_logger.debug(zlint_output)
+            # primary_logger.debug(zlint_output)
             for name, result in zlint_output.items():
                 if result["result"] in ["warn", "error", "fatal"]:
                     error_code.add("weak_rsa")
@@ -98,7 +99,7 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
                 raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
 
             zlint_output = json.loads(result.stdout)
-            primary_logger.debug(zlint_output)
+            # primary_logger.debug(zlint_output)
             for name, result in zlint_output.items():
                 if result["result"] in ["warn", "error", "fatal"]:
                     error_code.add("weak_hash")
@@ -112,7 +113,9 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
                 pass
 
         # 4. self-signed cert
-        if parsed.self_signed:
+        issuer = parsed['tbs_certificate']['issuer']
+        subject = parsed['tbs_certificate']['subject']
+        if issuer == subject:
             error_code.add("self_signed")
 
         # 5. if cert is deployed on any ip that is in abuseipdb or drop
@@ -127,40 +130,57 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
             error_code.add("DROP")
             error_info["DROP"] = filtered_ips
 
-        '''
-            # 5.3 version
-            if str(leaf["parsed"]["version"]) != "3":
-                error_code.add("wrong_version")
+        # 6 version
+        version = parsed['tbs_certificate']['version']
+        if version != "v3":
+            error_code.add("wrong_version")
+            error_info["wrong_version"] = version
 
-            # 5.4 key usage
-            try:
-                if not leaf["parsed"]["extensions"]["extended_key_usage"]["server_auth"]:
-                    error_code.add("wrong_key_usage")
-            except KeyError:
-                    error_code.add("wrong_key_usage")
-            try:
-                if leaf["parsed"]["extensions"]["extended_key_usage"]["certificate_sign"]:
-                    error_code.add("wrong_key_usage")
-                if leaf["parsed"]["extensions"]["extended_key_usage"]["crl_sign"]:
-                    error_code.add("wrong_key_usage")
-            except:
-                pass
+        # 7 key usage
+        extensions = parsed['tbs_certificate']["extensions"]
+        error_info["wrong_key_usage"] = []
+        error_info["no_revoke"] = []
 
-            # 5.4 revoke info
-            try:
-                crl = leaf["parsed"]["extensions"]["crl_distribution_points"]
-            except KeyError:
-                try:
-                    aia = leaf["parsed"]["extensions"]["authority_info_access"]
-                except KeyError:
-                    error_code.add("no_revoke")
+        def find_ext(name):
+            if extensions:
+                for e in extensions:
+                    if e["extn_id"] == name:
+                        return e
+            return None
 
-            # 5.5 SCT
-            try:
-                crl = leaf["parsed"]["extensions"]["signed_certificate_timestamps"]
-            except KeyError:
-                error_code.add("no_sct")
-        '''
+        if not find_ext("extended_key_usage"):
+            error_code.add("wrong_key_usage")
+            error_info["wrong_key_usage"].append("No Ext Key Usage")
+        else:
+            if "server_auth" not in find_ext("extended_key_usage")["extn_value"]:
+                error_code.add("wrong_key_usage")
+                error_info["wrong_key_usage"].append("No Server Auth")
+
+        if not find_ext("key_usage"):
+            error_code.add("wrong_key_usage")
+            error_info["wrong_key_usage"].append("No Key Usage")
+        else:
+            if "digital_signature" not in find_ext("key_usage")["extn_value"]:
+                error_code.add("wrong_key_usage")
+                error_info["wrong_key_usage"].append("No Digital Sig")
+
+        # 8 revoke info
+        if not find_ext("crl_distribution_points"):
+            error_code.add("no_revoke")
+            error_info["no_revoke"].append("No CRL")
+        else:
+            if not find_ext("crl_distribution_points")["extn_value"]:
+                error_code.add("wrong_key_usage")
+                error_info["no_revoke"].append("No CRL")
+
+        if not find_ext("authority_information_access"):
+            error_code.add("no_revoke")
+            error_info["no_revoke"].append("No OCSP")
+
+        # 9 SCT
+        if not find_ext("signed_certificate_timestamp_list"):
+            error_code.add("no_sct")
+            error_info["no_sct"] = "No SCT"
 
     except Exception as e:
         primary_logger.error(e)
@@ -216,13 +236,13 @@ def filter_abuse_ip(ip_set):
         for line in bl:
             plain_ip_data.append(line.strip())
 
-    filtered_ip_set = []
+    filtered_ip_set = set()
     for ip in ip_set:
-        if ip in plain_ip_data:
-            filtered_ip_set.append(ip)
         if ip in ip_abuse_data:
-            filtered_ip_set.append((ip, ip_abuse_data[ip]))
-    return filtered_ip_set
+            filtered_ip_set.add((ip, ip_abuse_data[ip]))
+        elif ip in plain_ip_data:
+            filtered_ip_set.add(ip)
+    return list(filtered_ip_set)
 
 
 def filter_drop_ip(ip_set):

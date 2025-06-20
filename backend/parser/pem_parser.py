@@ -31,6 +31,7 @@ class PEMResult():
     not_before : str
     not_after : str
     subject : list
+    subject_org : str
     pub_key_alg : str
     pub_key_id : str
     pub_key : dict
@@ -102,7 +103,8 @@ class PEMParser():
                 cert['tbs_certificate']['issuer'].native.get('country_name', None),
                 cert['tbs_certificate']['validity']['not_before'].native.strftime("%Y-%m-%d-%H-%M-%S"),
                 cert['tbs_certificate']['validity']['not_after'].native.strftime("%Y-%m-%d-%H-%M-%S"),
-                subject,
+                list(set(subject)),
+                cert['tbs_certificate']['subject'].native.get('organization_name', None),
                 cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
                 pub_key_id.hex(),
                 ordered_dict_to_dict(cert['tbs_certificate']['subject_public_key_info']['public_key'].native),
