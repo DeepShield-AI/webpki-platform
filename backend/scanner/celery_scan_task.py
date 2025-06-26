@@ -25,8 +25,8 @@ from backend.scanner.scan_manager import InputScanner, CTScanner
 from backend.scanner.celery_save_task import input_scan_save_result
 
 r = redis.Redis()
-r.expire("crawled_domains", 1 * 24 * 3600)  # 1 天过期
-r.expire("tls_results_queue", 1 * 24 * 3600)  # 1 天过期
+# r.expire("crawled_domains", 1 * 3600)  # 1 h过期
+# r.expire("tls_results_queue", 1 * 24 * 3600)  # 1 天过期
 
 @celery_app.task(bind=True)
 def launch_scan_task(self: Task, config_dict: dict):

@@ -16,7 +16,7 @@ from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import get_cert_sha256_hex_from_str
 
 r = redis.Redis()
-r.expire("analyze_results_queue", 1 * 24 * 3600)  # 1 天过期
+# r.expire("analyze_results_queue", 1 * 24 * 3600)  # 1 天过期
 
 # Redis 只能存储字符串或字节
 def enqueue_result(result: dict):

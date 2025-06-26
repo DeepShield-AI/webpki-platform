@@ -1,3 +1,20 @@
 
 # celery_beat.py
 # here lays the global celery tasks
+
+from celery.schedules import crontab
+
+beat_schedule = {
+    'scanner_flush_results': {
+        'task': 'backend.scanner.celery_save_task.batch_flush_results',
+        'schedule': 30.0,
+    },
+    'analyzer_flush_results': {
+        'task': 'backend.analyzer.celery_save_task.batch_flush_results',
+        'schedule': 30.0,
+    },
+    'flush_redis_queue_daily': {
+        'task': 'backend.celery.celery_redis.flush_redis_queue',
+        'schedule': 6 * 3600,  # 每 6 小时执行一次
+    },
+}

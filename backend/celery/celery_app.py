@@ -19,9 +19,14 @@ celery_app = Celery(
         'backend.analyzer.celery_cag_task',
         'backend.analyzer.celery_cert_parse_task',
         'backend.analyzer.celery_cert_security_task',
-        'backend.analyzer.celery_web_security_task'
+        'backend.analyzer.celery_web_security_task',
+        'backend.celery.celery_redis',
     ]
 )
+
+# 加载定时任务配置
+celery_app.config_from_object('backend.celery.celery_beat')
+celery_app.autodiscover_tasks(['backend'])
 
 # 可选：加载配置文件
 celery_app.conf.update(

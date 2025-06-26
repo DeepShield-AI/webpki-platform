@@ -2,8 +2,8 @@
 import csv
 
 input_filename = 'cisco-top-1m.csv'
-output_filename = 'cisco-top-10k.csv'
-limit = 10000  # 前10,000行
+output_filename = 'cisco-top-1m-new.csv'
+limit = 1000000
 
 with open(input_filename, 'r', newline='', encoding='utf-8') as infile, \
      open(output_filename, 'w', newline='', encoding='utf-8') as outfile:

@@ -34,7 +34,7 @@ class AnalyzeManager():
 
     def start(self):
         # start save task
-        self._start_batch_flush()
+        # self._start_batch_flush()
 
         # check flags
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_FP:

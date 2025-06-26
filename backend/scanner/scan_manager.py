@@ -66,7 +66,7 @@ class Scanner(ABC):
         self.logger = get_logger(f"scan-task-{self.scan_id}")
 
         # monitor task
-        self.monitor_task_id = self._start_monitor_loop()
+        # self.monitor_task_id = self._start_monitor_loop()
 
 
     def _start_monitor_loop(self):

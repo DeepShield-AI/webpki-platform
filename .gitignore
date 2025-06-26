@@ -34,3 +34,6 @@ script/fig_generation/attack_result/*.png
 # .env
 myenv/
 pki_internet_platform.egg-info/
+
+celery_worker.service
+celerybeat-schedule
