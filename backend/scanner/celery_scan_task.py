@@ -1,4 +1,24 @@
 
+import os
+import csv
+import json
+import math
+import time
+import base64
+import threading
+from queue import Queue
+from threading import Lock
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime, timezone
+
+import requests
+from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
+from OpenSSL import crypto
+from cryptography.hazmat.primitives.serialization import Encoding
+from celery import group
+
+
 import json
 import time
 import select
@@ -14,19 +34,22 @@ from datetime import datetime, timezone
 
 from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
+from backend.utils.cert import get_cert_sha256_hex_from_str
 from backend.utils.exception import RetriveError
 from backend.utils.network import resolve_host_dns, resolve_ip_reverse_dns_records
 from backend.utils.domain import check_input_type
 from backend.config.config_loader import ZGRAB2_PATH, DEFAULT_IP_BLACKLIST
 from backend.config.scan_config import InputScanConfig, CTScanConfig
+from backend.parser.ct_parser import *
 from backend.parser.webpage_parser import extract_domains_from_response
 from backend.scanner.jarm_fp_utils import *
 from backend.scanner.scan_manager import InputScanner, CTScanner
 from backend.scanner.celery_save_task import input_scan_save_result
+from backend.scanner.utils import enqueue_scan_result
 
 r = redis.Redis()
 # r.expire("crawled_domains", 1 * 3600)  # 1 h过期
-# r.expire("tls_results_queue", 1 * 24 * 3600)  # 1 天过期
+# r.expire("scan_results_queue", 1 * 24 * 3600)  # 1 天过期
 
 @celery_app.task(bind=True)
 def launch_scan_task(self: Task, config_dict: dict):
@@ -147,7 +170,7 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
 
         # do handshake and save results
         primary_logger.debug(f"Start processsing {destination} : {destination_ip}")
-        process_target.delay(destination, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
+        process_target(destination, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 
 
     # see if we need reverse dns scan
@@ -162,7 +185,6 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
         for reverse_host in reverse_results:
             primary_logger.debug(f"Reverse DNS: {reverse_host}")
             single_scan_task.delay(reverse_host, config_dict, current_recursive_depth)
-            # process_target.delay(reverse_host, destination_ip, scan_config.to_dict(), jarm, _jarm_hash)
 
 
     # if we want recursive scanning via web crawling...
@@ -189,18 +211,13 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
     return True
 
 
-# Redis 只能存储字符串或字节
-def enqueue_result(result: dict):
-    r.rpush("tls_results_queue", json.dumps(result))
-
-
 @celery_app.task
 def process_target(destination, destination_ip, scan_config, jarm, jarm_hash):
     # Now try to make ssl handshake, use blocking celery task
     primary_logger.debug(f"Processing on {destination} : {destination_ip}...")
     ssl_result = _do_ssl_handshake(destination, destination_ip, InputScanConfig.from_dict(scan_config))
 
-    enqueue_result({
+    enqueue_scan_result({
         "destination_host": destination,
         "destination_ip": destination_ip,
         "scan_time" : datetime.now(timezone.utc).isoformat(),
@@ -345,3 +362,137 @@ def run_zgrab2(input_file, output_file):
     except subprocess.CalledProcessError as e:
         primary_logger.error("Error occurred while running Zgrab2:")
         primary_logger.error(e.stderr)
+
+
+@celery_app.task
+def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
+    # Each scan thread needs to take the last entry into account
+    # Means to add -1 at the "end"
+    # Currently, there exists WHOLE thread results missing,
+    # so we need to try to catch all possible exceptions (as executor.subit() won't give any exception
+    # output if you do not add .result() at the end......)
+
+    scan_config : CTScanConfig = CTScanConfig.from_dict(config_dict)
+
+    try:
+        # check window_size fits the start and the end range
+        # assert((end_entry - start_entry) >= self.window_size)
+        primary_logger.info(f"Start thread for {start_entry} to {end_entry}")
+
+        thread_result = {}
+        log_server_request = f'https://{scan_config.ct_log_address}/ct/v1/get-entries'
+
+        received_entries = []
+
+
+        retry_times = 0
+        params = {'start': start_entry, 'end': end_entry - 1}
+        while retry_times <= scan_config.max_retry:
+            try:
+                response = requests.get(log_server_request, params=params, verify=True, timeout=scan_config.scan_timeout)
+            except Exception as e:
+                # my_logger.warning(f"Exception {e} when requesting CT entries from {start_entry} to {end_entry}")
+                retry_times += 1
+                time.sleep(2 * retry_times)  # 指数退避策略
+                continue
+
+            if response.status_code == 200:
+                try:
+                    received_entries += json.loads(response.text)['entries']
+                except json.JSONDecodeError as e:
+                    primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
+                    retry_times += 1
+                    time.sleep(2 * retry_times)  # 指数退避策略
+                    continue
+
+                if (len(received_entries) < (end_entry - start_entry)):
+                    # print(f"Length of response: {len(received_entries)}, expected {end_entry - start_entry}")
+
+                    # This case, we try to get the remain entries
+                    params = {'start': start_entry + len(received_entries), 'end': end_entry - 1}
+                    retry_times += 1
+                    time.sleep(2 * retry_times)  # 指数退避策略
+                    continue
+                else:
+                    # print(f"Get all {end_entry - start_entry} entries")
+                    break
+            
+            # 429 -> too many requests，read Retry-After and wait
+            elif response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 1))
+                # my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
+                time.sleep(retry_after)
+                continue
+            else:
+                primary_logger.warning(f"Requesting CT entries from {start_entry} to {end_entry} get {response.status_code}.")
+                retry_times += 1
+                time.sleep(2 * retry_times)  # 指数退避策略
+                continue
+        
+        # If the collection fails, we log it here
+        if retry_times > scan_config.max_retry:
+            primary_logger.error(f"Requesting CT entries from {start_entry} to {end_entry} failed after {scan_config.max_retry} times.")
+
+        # Cache the received results
+        rank = -1
+        for entry in received_entries:
+            rank += 1
+            entry_number = start_entry + rank
+            thread_result[entry_number] = {}
+
+            leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
+            ct_timestamp = leaf_cert.Timestamp
+            thread_result[entry_number]['timestamp'] = ct_timestamp
+
+            if leaf_cert.LogEntryType == "X509LogEntryType":
+                # We have a normal x509 entry
+                thread_result[entry_number]['type'] = "Cert"
+                cert_data_string = certificate.parse(leaf_cert.Entry).CertData
+                thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+
+                # Parse the `extra_data` structure for the rest of the chain
+                extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
+                thread_result[entry_number]['chain'] = []
+                for cert in extra_data.Chain:
+                    thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+
+            else:
+                # We have a precert entry
+                thread_result[entry_number]['type'] = "Precert"
+                extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
+                thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+
+                thread_result[entry_number]['chain'] = []
+                for cert in extra_data.CertChain.Chain:
+                    thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+
+            # Compress the ca cert chain
+            new_chain = []
+            for cert in thread_result[entry_number]['chain']:
+                sha256_hash = get_cert_sha256_hex_from_str(cert)
+                new_chain.append(sha256_hash)
+                # check for ca cert sha conflict to avoid add ca certs repeatedly
+            
+            # Replace the chain with its SHA-256 hash
+            thread_result[entry_number]['chain'] = new_chain
+
+        enqueue_scan_result({
+            "cert_pem" : new_chain,
+        })
+    
+    except json.JSONDecodeError as e:
+        primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
+        thread_result_str = json.dumps(thread_result)
+        error_position = e.pos
+
+        # 打印错误位置附近的字符（比如前后50个字符）
+        start_pos = max(0, error_position - 50)
+        end_pos = min(len(thread_result_str), error_position + 50)
+
+        primary_logger.error(f"100 chars around the error position:")
+        primary_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
+        primary_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
+
+    except Exception as e:
+        primary_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
+        pass
