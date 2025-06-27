@@ -13,6 +13,7 @@ import json
 import math
 import time
 import base64
+import redis
 import threading
 from queue import Queue
 from threading import Lock
@@ -38,6 +39,7 @@ from backend.scanner.celery_monitor_task import monitor_scan_task
 from backend.scanner.celery_save_task import batch_flush_results
 from backend.parser.ct_parser import *
 
+r = redis.Redis()
 
 # This class is the one that performs big scanning,
 # has two modes: scan by input list and scan CT log
@@ -143,7 +145,7 @@ class InputScanner(Scanner):
 
     def start(self):
         # start save task
-        self._start_batch_flush()
+        # self._start_batch_flush()
 
         # start related domain save task
         # 暂时先不存储相关联域名
@@ -156,8 +158,9 @@ class InputScanner(Scanner):
                 row : str
                 single_scan_task.delay(row.strip(), self.scan_config.to_dict(), self.recursive_depth)
 
-                # This is necessary for hosts that on low memory
-                time.sleep(0.1)
+                while True:
+                    if r.llen('celery') <= 1000: break
+                    time.sleep(1)
 
     def terminate(self):
         primary_logger.info("Terminating domain scan task...")
