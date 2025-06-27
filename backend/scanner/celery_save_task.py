@@ -115,9 +115,16 @@ def input_scan_save_result(result: dict):
 
 
 @celery_app.task
-def batch_flush_results(max_batch_size=2000):
+def batch_flush_results(min_batch_size=2000):
+
+    queue_len = r.llen('tls_results_queue')
+    if queue_len > 2 * min_batch_size:
+        batch_size = int(queue_len / 2)
+    else:
+        batch_size = min_batch_size
+
     results = []
-    for _ in range(max_batch_size):
+    for _ in range(batch_size):
         raw = r.lpop("tls_results_queue")
         if raw:
             results.append(json.loads(raw))
