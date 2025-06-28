@@ -10,7 +10,12 @@
 
       <!-- ✅ List of dicts -->
       <template v-else-if="isListOfObjects(value)">
-        <div v-for="(item, index) in value" :key="index" class="indent">
+        <div
+          v-for="(item, index) in value"
+          :key="index"
+          class="indent"
+          style="margin-bottom: 16px;"
+        >
           <RecursiveDict :data="item" :depth="depth + 1" :fieldOrder="fieldOrder" />
         </div>
       </template>
@@ -25,8 +30,9 @@
         <code v-if="isURL(value)" class="recursive-link">
           <a :href="value" target="_blank" rel="noopener noreferrer">{{ value }}</a>
         </code>
-        <code v-else class="recursive-value">{{ value }}</code>
+        <code v-else class="recursive-value">{{ formatValue(key, value) }}</code>
       </template>
+
     </div>
   </div>
 </template>
@@ -76,7 +82,48 @@ export default {
       return Array.isArray(arr) && arr.every(i => typeof i === 'object' && i !== null);
     },
     isURL(val) {
-      return typeof val === 'string' && /^https?:\/\/[\w.-]+/.test(val);
+      try {
+        new URL(val);
+        return true;
+      } catch {
+        return false;
+      }
+      return typeof val === 'string' && /^https?:\/\/[^\s]+$/.test(val);
+    },
+    formatValue(key, value) {
+      // 显示 serial_number 的完整十进制
+      if (key === 'serial_number' && typeof value === 'number') {
+        return BigInt(value).toString(); // 防止科学计数法
+      }
+
+      // 显示 modulus 的十六进制格式
+      if (key === 'modulus') {
+        if (!value) return '';
+        const clean = value.replace(/\s+/g, '').toUpperCase(); // 清除空白并统一大写
+
+        // 按两个字符（1 字节）分组
+        const bytes = clean.match(/.{1,2}/g) || [];
+
+        // 每 16 字节（32 hex 位）为一行
+        const lines = [''];
+        for (let i = 0; i < bytes.length; i += 16) {
+          const line = bytes.slice(i, i + 16).join(':');
+          lines.push('    ' + line); // 缩进
+        }
+
+        return lines.join('\n');
+      }
+
+      // 其他值默认显示（避免科学计数法）
+      if (typeof value === 'number' && !Number.isFinite(value)) {
+        return String(value); // 处理 Infinity、NaN
+      }
+
+      if (typeof value === 'number') {
+        return value.toLocaleString('fullwide', { useGrouping: false }); // 全部数字显示出来
+      }
+
+      return value;
     }
   }
 };

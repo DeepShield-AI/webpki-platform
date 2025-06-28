@@ -4,7 +4,7 @@
 
       <el-form-item label="CA Name" prop="name">
         <el-input
-          v-model="queryParams.subject"
+          v-model="queryParams.name"
           placeholder="请输入 CA Name"
           clearable
           @keyup.enter.native="handleQuery"
@@ -26,7 +26,7 @@
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       >
       
-      <el-table-column prop="issuer_org" label="CA Name" align="center" width="200"></el-table-column>
+      <el-table-column prop="issuer_org" label="CA Name" align="center" width="500"></el-table-column>
       
       <el-table-column label="Link" align="center" width="100">
         <template slot-scope="scope">
@@ -75,14 +75,14 @@ export default {
       queryParams: {
         pageNum: 1,
         pageSize: 10,
-        sha256: undefined,
-        subject: undefined
+        name: undefined
       },
       total: 0,
     };
   },
   created() {
     this.loading = false;
+    this.handleQuery();
   },
   methods: {
     handleQuery() {

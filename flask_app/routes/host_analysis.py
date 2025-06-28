@@ -89,6 +89,7 @@ def get_sub_cag():
             n1 = row[1]
             n2 = row[2]
             edge_data[n1].append((n2, edge_type))
+            edge_data[n2].append((n1, edge_type))
 
     # Load node data
     with open(os.path.join(ROOT_DIR, "data/frontend_result/cag_out/cag_node.csv"), "r", encoding='utf-8-sig') as f:
@@ -100,10 +101,15 @@ def get_sub_cag():
                 "type": row[2]
             }
 
-    # Find all domain nodes matching *.gov.tw
+    # build root node search query based on the request.args
+    cert_sha256 = request.args.get('cert_sha256', "")
+    domain = request.args.get('domain', "")
+
     root_nodes = set()
     for node_id, info in node_data.items():
-        if info["type"].lower() == "domain" and re.search(r"\.gov\.tw$", info["name"], re.IGNORECASE):
+        if cert_sha256 and info["type"].lower() == "cert" and node_id[5:] == cert_sha256:
+            root_nodes.add(node_id)
+        if domain and info["type"].lower() == "domain" and re.search(domain, info["name"], re.IGNORECASE):
             root_nodes.add(node_id)
 
     # BFS for depth = 2 from each root node
@@ -149,5 +155,5 @@ def get_sub_cag():
             "type": e_type
         })
 
-    flask_logger.info(json.dumps(graph_data, indent=4))
+    # flask_logger.info(json.dumps(graph_data, indent=4))
     return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})

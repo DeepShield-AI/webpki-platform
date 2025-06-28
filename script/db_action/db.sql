@@ -133,30 +133,30 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	-- see router/index.js
 
 	-- Host Analysis Tab
-	('host', '2015-08-25 10:34:53', 'Host Analysis', 'monitor', 'Host Analysis', 1, '', '2023-05-16 20:03:02', '/host', NULL, NULL, NULL, '3', '0'),
-	('hostSearch', '2015-08-25 10:34:53', 'Host查询', 'tree', 'Host查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'host/host_search/index', 'host:host_search:list', 'host', '0', '0'),
-	('hostOverview', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'host/host_analysis/index', 'host:host_analysis:list', 'host', '0', '0'),
-	('hostCag', '2015-08-25 10:34:53', 'Host CAG', 'tree', 'Host CAG', 7, '', '2022-05-25 00:48:32', 'host_cag', 'host/host_cag/index', 'host:host_cag:list', 'host', '0', '0'),
+	('host', '2015-08-25 10:34:53', 'Host Analysis', 'monitor', '网站分析', 2, '', '2023-05-16 20:03:02', '/host', NULL, NULL, NULL, '3', '0'),
+	('hostSearch', '2015-08-25 10:34:53', 'Host 信息查询', 'tree', '网站信息查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'host/host_search/index', 'host:host_search:list', 'host', '0', '0'),
+	-- ('hostOverview', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'host/host_analysis/index', 'host:host_analysis:list', 'host', '0', '0'),
+	-- ('hostCag', '2015-08-25 10:34:53', 'Host CAG', 'tree', 'Host CAG', 7, '', '2022-05-25 00:48:32', 'host_cag', 'host/host_cag/index', 'host:host_cag:list', 'host', '0', '0'),
 
 	-- CA Analysis Tab
-	('ca', '2015-08-25 10:34:53', 'CA Analysis', 'monitor', 'CA Analysis', 2, '', '2023-05-16 20:03:02', '/ca', NULL, NULL, NULL, '3', '0'),
-	('caOverview', '2015-08-25 10:34:53', 'CA分析结果', 'tree', 'CA结果', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'ca/ca_analysis/index', 'ca:ca_analysis:list', 'ca', '0', '0'),
-	('caSearch', '2015-08-25 10:34:53', 'CA查询', 'tree', 'CA查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'ca/ca_search/index', 'ca:ca_search:list', 'ca', '0', '0'),
-	('caService', '2015-08-25 10:34:53', 'CA Service', 'tree', 'CA Service', 3, '', '2022-05-25 00:48:32', 'ca_service', 'ca/ca_service_monitor/index', 'ca:ca_service:list', 'ca', '0', '0'),
+	('ca', '2015-08-25 10:34:53', 'CA Analysis', 'monitor', 'CA 分析', 4, '', '2023-05-16 20:03:02', '/ca', NULL, NULL, NULL, '3', '0'),
+	-- ('caOverview', '2015-08-25 10:34:53', 'CA 信息查询', 'tree', 'CA 信息查询', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'ca/ca_analysis/index', 'ca:ca_analysis:list', 'ca', '0', '0'),
+	('caSearch', '2015-08-25 10:34:53', 'CA 信息查询', 'tree', 'CA 信息查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'ca/ca_search/index', 'ca:ca_search:list', 'ca', '0', '0'),
+	('caService', '2015-08-25 10:34:53', 'CA Service', 'tree', 'CA 服务监控', 3, '', '2022-05-25 00:48:32', 'ca_service', 'ca/ca_service_monitor/index', 'ca:ca_service:list', 'ca', '0', '0'),
 
 	-- Client Analysis Tab
-	('client', '2015-08-25 10:34:53', 'Client Analysis', 'monitor', 'Client Analysis', 3, '', '2023-05-16 20:03:02', '/client', NULL, NULL, NULL, '3', '0'),
-	('clientOverview', '2015-08-25 10:34:53', 'Cient分析结果', 'tree', 'Client结果', 7, '', '2022-05-25 00:48:32', 'client_analysis', 'client/client_analysis/index', 'client:client_analysis:list', 'client', '0', '0'),
-	('clientSearch', '2015-08-25 10:34:53', 'Client查询', 'tree', 'Client查询', 4, '', '2022-05-25 00:48:32', 'client_search', 'client/client_search/index', 'client:client_search:list', 'client', '0', '0'),
+	('client', '2015-08-25 10:34:53', 'Client Analysis', 'monitor', '客户端分析', 3, '', '2023-05-16 20:03:02', '/client', NULL, NULL, NULL, '3', '0'),
+	-- ('clientOverview', '2015-08-25 10:34:53', 'Cient分析结果', 'tree', '客户端信息', 7, '', '2022-05-25 00:48:32', 'client_analysis', 'client/client_analysis/index', 'client:client_analysis:list', 'client', '0', '0'),
+	('clientSearch', '2015-08-25 10:34:53', 'Client查询', 'tree', '客户端查询', 4, '', '2022-05-25 00:48:32', 'client_search', 'client/client_search/index', 'client:client_search:list', 'client', '0', '0'),
 
 	-- Cert Analysis Tab
-	('cert', '2015-08-25 10:34:53', 'Certificate Analysis', 'monitor', 'Certificate Analysis', 4, '', '2023-05-16 20:03:02', '/cert', NULL, NULL, NULL, '3', '0'),
+	('cert', '2015-08-25 10:34:53', 'Certificate Analysis', 'monitor', '证书分析', 2, '', '2023-05-16 20:03:02', '/cert', NULL, NULL, NULL, '3', '0'),
 	('certSearch', '2015-08-25 10:34:53', '证书查询', 'tree', '证书查询', 2, '', '2022-05-25 00:48:32', 'cert_search', 'cert/cert_search/index', 'cert:cert_search:list', 'cert', '0', '0'),
-	('certOverview', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'cert/cert_analysis/index', 'cert:cert_analysis:list', 'cert', '0', '0'),
+	-- ('certOverview', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'cert/cert_analysis/index', 'cert:cert_analysis:list', 'cert', '0', '0'),
 
 	-- CT Monitoring Tab
-	('ct', '2015-08-25 10:34:53', 'Certificate Transparency Analysis', 'monitor', 'CT Analysis', 5, '', '2023-05-16 20:03:02', '/ct', NULL, NULL, NULL, '3', '0'),
-	('ctMonitor', '2015-08-25 10:34:53', 'CT Monitor', 'tree', 'CT Monitor', 5, '', '2022-05-25 00:48:32', 'ct_monitor', 'ct/ct_monitor/index', 'ct:ct_monitor:list', 'ct', '0', '0'),
+	-- ('ct', '2015-08-25 10:34:53', 'Certificate Transparency Analysis', 'monitor', 'CT Analysis', 5, '', '2023-05-16 20:03:02', '/ct', NULL, NULL, NULL, '3', '0'),
+	-- ('ctMonitor', '2015-08-25 10:34:53', 'CT Monitor', 'tree', 'CT Monitor', 5, '', '2022-05-25 00:48:32', 'ct_monitor', 'ct/ct_monitor/index', 'ct:ct_monitor:list', 'ct', '0', '0'),
 
 	-- System Management Tab
 	('xtgl', '2015-08-25 10:34:53', '管理系统的资源、角色、机构、用户等信息', 'system', '系统管理', 6, '', '2023-05-16 20:03:02', '/system', NULL, NULL, NULL, '3', '0'),
@@ -177,7 +177,7 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	('zytj', '2015-08-25 10:34:53', '添加资源', 'ext-icon-bullet_wrench', '添加资源', 1, '', '2015-08-25 10:34:53', NULL, '/base/syresource!save', 'system:menu:add', 'zygl', '1', '0'),
 
 	-- System Monitoring Tab
-	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'eye', '系统监控', 7, '', '2022-06-10 00:48:47', '/monitor', NULL, NULL, NULL, '0', '0'),
+	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'eye', '系统监控', 10, '', '2022-06-10 00:48:47', '/monitor', NULL, NULL, NULL, '0', '0'),
 	('log', '2015-08-25 10:34:53', '监控 Log', 'tree', 'System Log', 1, '', '2022-06-10 00:53:22', 'log', 'monitor/log/index', 'monitor:log:list', 'xtjk', '0', '0'),
 	('online', '2015-08-25 10:34:53', '监控用户登录、注销', 'tree', '登录历史', 1, '', '2022-06-10 00:53:22', 'logininfor', 'monitor/logininfor/index', 'monitor:logininfor:list', 'xtjk', '0', '0'),
 	('onlineGrid', '2015-08-25 10:34:53', '用户登录、注销历史记录列表', 'ext-icon-bullet_wrench', '用户登录历史列表', 1, '', '2022-05-28 13:16:37', NULL, '/base/syonline!grid', 'monitor:logininfor:list', 'online', '1', '0'),

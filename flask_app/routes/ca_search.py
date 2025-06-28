@@ -27,7 +27,7 @@ def ca_search():
 
     if name:
         where_clauses.append("issuer_org like %s")
-        params.append(name)
+        params.append(f"%{name}%")
 
     where_sql = " AND ".join(where_clauses)
     if where_sql:
@@ -36,13 +36,17 @@ def ca_search():
     conn = engine_cert.raw_connection()
     with conn.cursor() as cursor:
         # 总数
-        count_query = f"SELECT COUNT(*) FROM cert_search_basic {where_sql}"
+        count_query = f"""
+            SELECT COUNT(DISTINCT issuer_org)
+            FROM cert_search_basic
+            {where_sql}
+        """
         cursor.execute(count_query, tuple(params))
         total = cursor.fetchone()[0]
 
         # 数据查询
         data_query = f"""
-            SELECT issuer_org FROM cert_search_basic
+            SELECT DISTINCT issuer_org FROM cert_search_basic
             {where_sql}
             LIMIT %s OFFSET %s
         """

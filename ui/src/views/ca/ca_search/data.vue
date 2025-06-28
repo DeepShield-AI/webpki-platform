@@ -1,17 +1,16 @@
 <template>
   <div class="app-container main">
 
-    <!-- Issuing num and ratio -->
-    <!-- <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <el-card>
-          <div slot="header">CA Information</div>
-            <RecursiveDict :data="certData" />
-        </el-card>
-      </el-col>
-    </el-row>
+    <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">CA 详情: {{ caName }}</h2>
+    
+    <el-divider />
 
-    <el-divider /> -->
+    <!-- Issuing num and ratio -->
+
+
+
+    <el-divider />
+
 
     <!-- CA Certs SHA -->
     <el-row :gutter="20">
@@ -41,7 +40,17 @@
       </el-col>
     </el-row>
 
+
+    <el-divider />
+
     <!-- Cert Issuing FP count -->
+
+
+    <el-divider />
+
+    <!-- CA Service Link -->
+    
+
   </div>
 
 </template>
@@ -59,19 +68,19 @@ export default {
   data() {
     return {
       loading: true,
+      caName: this.$route.params.caName,
       caCerts: [],
       caFps: [],
     };
   },
   created() {
-    const caName = this.$route.params && this.$route.params.caName;
-    this.getCa(caName);
+    this.getCa();
   },
   methods: {
-    getCa(caName) {
+    getCa() {
       this.loading = true;
       // return jsonify({'msg': 'Success', 'code': 200, "ca_certs": ca_certs, "issuing_cert_fps" : []})
-      getCaInfo(caName).then(response => {
+      getCaInfo(this.caName).then(response => {
         console.log(response.ca_certs);
         this.caCerts = response.ca_certs;
         this.caFps = response.issuing_cert_fps;

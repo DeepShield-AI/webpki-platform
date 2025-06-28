@@ -2,25 +2,25 @@
   <div class="app-container">
     <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch">
 
-      <el-form-item label="证书SHA256" prop="sha256">
+      <!-- <el-form-item label="证书SHA256" prop="sha256">
         <el-input
           v-model="queryParams.sha256"
           placeholder="请输入证书SHA256"
           clearable
           @keyup.enter.native="handleQuery"
         />
-      </el-form-item>
+      </el-form-item> -->
 
-      <el-form-item label="Subject Name" prop="subject">
+      <el-form-item label="证书查询" prop="subject">
         <el-input
           v-model="queryParams.subject"
-          placeholder="请输入证书 Match Subject Name"
+          placeholder="请输入域名或者 IP"
           clearable
           @keyup.enter.native="handleQuery"
         />
       </el-form-item>
       
-      <el-form-item label="有效起始日期范围" prop="notValidBeforeRange">
+      <!-- <el-form-item label="有效起始日期范围" prop="notValidBeforeRange">
         <el-date-picker
           v-model="notValidBeforeRange"
           style="width: 240px"
@@ -42,7 +42,7 @@
           start-placeholder="开始日期"
           end-placeholder="结束日期"
         ></el-date-picker>
-      </el-form-item>
+      </el-form-item> -->
 
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
@@ -61,14 +61,19 @@
       
       <el-table-column prop="sha256" label="证书 Sha256" width="200"></el-table-column>
 
-      <el-table-column prop="subject_cn_list" label="Subject List" align="center" width="200">
+      <el-table-column prop="subject_cn_list" label="Subject List" align="center" width="300">
         <template #default="scope">
-          <div
-            v-for="(item, index) in JSON.parse(scope.row.subject_cn_list || '[]')"
-            :key="index"
-            style="white-space: normal;"
-          >
-            {{ item }}
+          <div>
+            <div
+              v-for="(item, index) in parsedSubjectCNList(scope).slice(0, 10)"
+              :key="index"
+              style="white-space: normal;"
+            >
+              {{ item }}
+            </div>
+            <div v-if="parsedSubjectCNList(scope).length > 10" style="color: #999;">
+              剩余 {{ parsedSubjectCNList(scope).length - 10 }} 个未显示
+            </div>
           </div>
         </template>
       </el-table-column>
@@ -111,6 +116,10 @@
       :limit.sync="queryParams.pageSize"
       @pagination="handleQuery"
     />
+
+    <el-divider />
+
+
 
   </div>
 </template>
@@ -173,6 +182,13 @@ export default {
     resetQuery() {
       this.resetForm("queryForm");
     },
+    parsedSubjectCNList(scope) {
+      try {
+        return JSON.parse(scope.row.subject_cn_list || '[]');
+      } catch {
+        return [];
+      }
+    }
   },
 };
 </script>
