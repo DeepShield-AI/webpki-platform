@@ -64,9 +64,6 @@ class Scanner(ABC):
         self.crtl_c_event = threading.Event()
         self.is_killed = False
 
-        # logger
-        self.logger = get_logger(f"scan-task-{self.scan_id}")
-
         # monitor task
         # self.monitor_task_id = self._start_monitor_loop()
 
@@ -205,23 +202,25 @@ class CTScanner(Scanner):
                 if "-----BEGIN CERTIFICATE-----" in cert:
                     cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
                     cert_sha256 = get_cert_sha256_hex_from_str(cert)
-                    self.ca_sha_256_set.add(cert_sha256)
+                    r.sadd("unique_ca_certs", cert_sha256)
 
             primary_logger.info(f"Load {len(certificates)} old CA certs")
         except FileNotFoundError:
-            pass
+            primary_logger.error(f"Can not found file {self.unique_ca_certs_file}")
 
         # avoid loop import
         from backend.scanner.celery_scan_task import single_ct_scan_task
         start = self.entry_start
         while start < self.entry_end:
             end = start + self.window_size
-            if end < self.entry_end:
+            if end > self.entry_end:
                 end = self.entry_end
             single_ct_scan_task.delay(start, end, self.scan_config.to_dict())
             start = end
-            # This is necessary for hosts that on low memory
-            time.sleep(0.5)
+
+            while True:
+                if r.llen('celery') <= 1000: break
+                time.sleep(1)
 
     def terminate(self):
         primary_logger.info("Terminating CT scan task...")

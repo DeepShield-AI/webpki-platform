@@ -1,34 +1,16 @@
 
-import os
-import csv
 import json
-import math
 import time
 import base64
-import threading
-from queue import Queue
-from threading import Lock
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime, timezone
-
-import requests
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
-from OpenSSL import crypto
-from cryptography.hazmat.primitives.serialization import Encoding
-from celery import group
-
-
-import json
-import time
 import select
 import subprocess
 import http.client
 import requests
 
 import redis
-from OpenSSL import SSL
+from OpenSSL import SSL, crypto
 from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
+from cryptography.hazmat.primitives.serialization import Encoding
 from celery.app.task import Task
 from datetime import datetime, timezone
 
@@ -379,14 +361,11 @@ def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
         # assert((end_entry - start_entry) >= self.window_size)
         primary_logger.info(f"Start thread for {start_entry} to {end_entry}")
 
-        thread_result = {}
+        retry_times = 0
+        received_entries = []
+        params = {'start': start_entry, 'end': end_entry - 1}
         log_server_request = f'https://{scan_config.ct_log_address}/ct/v1/get-entries'
 
-        received_entries = []
-
-
-        retry_times = 0
-        params = {'start': start_entry, 'end': end_entry - 1}
         while retry_times <= scan_config.max_retry:
             try:
                 response = requests.get(log_server_request, params=params, verify=True, timeout=scan_config.scan_timeout)
@@ -434,64 +413,43 @@ def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
             primary_logger.error(f"Requesting CT entries from {start_entry} to {end_entry} failed after {scan_config.max_retry} times.")
 
         # Cache the received results
-        rank = -1
         for entry in received_entries:
-            rank += 1
-            entry_number = start_entry + rank
-            thread_result[entry_number] = {}
 
             leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
-            ct_timestamp = leaf_cert.Timestamp
-            thread_result[entry_number]['timestamp'] = ct_timestamp
-
             if leaf_cert.LogEntryType == "X509LogEntryType":
                 # We have a normal x509 entry
-                thread_result[entry_number]['type'] = "Cert"
                 cert_data_string = certificate.parse(leaf_cert.Entry).CertData
-                thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
 
                 # Parse the `extra_data` structure for the rest of the chain
                 extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
-                thread_result[entry_number]['chain'] = []
+                chain = []
                 for cert in extra_data.Chain:
-                    thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
 
             else:
                 # We have a precert entry
-                thread_result[entry_number]['type'] = "Precert"
                 extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
-                thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
 
-                thread_result[entry_number]['chain'] = []
+                chain = []
                 for cert in extra_data.CertChain.Chain:
-                    thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
 
-            # Compress the ca cert chain
-            new_chain = []
-            for cert in thread_result[entry_number]['chain']:
-                sha256_hash = get_cert_sha256_hex_from_str(cert)
-                new_chain.append(sha256_hash)
-                # check for ca cert sha conflict to avoid add ca certs repeatedly
-            
-            # Replace the chain with its SHA-256 hash
-            thread_result[entry_number]['chain'] = new_chain
+            # check for ca cert sha conflict to avoid add ca certs repeatedly
+            enqueue_scan_result({
+                "cert_pem" : leaf_pem,
+                "is_ca_cert" : False
+            })
 
-        enqueue_scan_result({
-            "cert_pem" : new_chain,
-        })
-    
-    except json.JSONDecodeError as e:
-        primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
-        thread_result_str = json.dumps(thread_result)
-        error_position = e.pos
-
-        # 打印错误位置附近的字符（比如前后50个字符）
-        start_pos = max(0, error_position - 50)
-        end_pos = min(len(thread_result_str), error_position + 50)
-
-        primary_logger.error(f"100 chars around the error position:")
-        primary_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
-        primary_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
+            for ca_cert in chain:
+                sha256_hash = get_cert_sha256_hex_from_str(ca_cert)
+                if r.sadd("unique_ca_certs", sha256_hash) == 1:
+                    enqueue_scan_result({
+                        "cert_pem" : ca_cert,
+                        "is_ca_cert" : True,
+                        "out_dir" : scan_config.output_file_dir
+                    })
 
     except Exception as e:
         primary_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")

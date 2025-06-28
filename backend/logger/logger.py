@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 import colorama
 from colorama import Fore, Style
+from backend.config.config_loader import PRIMARY_LOGGER_DIR
 
 colorama.init(autoreset=True)
 
@@ -53,4 +54,4 @@ def get_logger(name="Root",
 
     return logger
 
-primary_logger = get_logger("Root", log_file_dir="/data/platform_log", level=logging.DEBUG)
+primary_logger = get_logger("Root", log_file_dir=PRIMARY_LOGGER_DIR, level=logging.DEBUG)

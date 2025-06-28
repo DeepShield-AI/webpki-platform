@@ -8,10 +8,12 @@ beat_schedule = {
     'scanner_flush_results': {
         'task': 'backend.scanner.celery_save_task.batch_flush_results',
         'schedule': 30.0,
+        'options': {'queue': 'save_queue'},
     },
     'analyzer_flush_results': {
         'task': 'backend.analyzer.celery_save_task.batch_flush_results',
         'schedule': 30.0,
+        'options': {'queue': 'save_queue'},
     },
     'flush_redis_queue_daily': {
         'task': 'backend.celery.celery_redis.flush_redis_queue',

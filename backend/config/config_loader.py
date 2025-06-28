@@ -3,7 +3,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
 
 def get_bool(key: str, default=False):
     return os.getenv(key, str(default)).lower() == "true"
@@ -43,3 +43,8 @@ DB_CONFIG = {
 
 # Web Page 关联域名递归深度
 RECURSIVE_DEPTH = int(os.getenv("RECURSIVE_DEPTH", 0))
+
+# Logger
+PRIMARY_LOGGER_DIR = os.getenv("PRIMARY_LOGGER_DIR", "log/")
+CELERY_LOGGER_DIR = os.getenv("CELERY_LOGGER_DIR", "log/")
+FLASK_LOGGER_DIR = os.getenv("FLASK_LOGGER_DIR", "log/")
