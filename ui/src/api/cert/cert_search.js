@@ -17,6 +17,13 @@ export function getCertInfo(certSha256) {
   })
 }
 
+export function getCertDeployInfo(certSha256) {
+  return request({
+    url: '/cert/cert_retrieve/' + certSha256 + '/deploy',
+    method: 'get'
+  })
+}
+
 
 // export function getCertZlintInfo(certId) {
 //   return request({

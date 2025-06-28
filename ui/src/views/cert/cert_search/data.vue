@@ -1,9 +1,15 @@
 <template>
   <div class="app-container main">
+
+    <el-row :gutter="20">
+      <el-col :sm="24" :lg="24" style="padding-left: 20px">
+        <h2>证书详情</h2>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
         <el-card>
-          <div slot="header">Certificate Information</div>
             <RecursiveDict :data="certData" />
         </el-card>
       </el-col>
@@ -13,7 +19,7 @@
 
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>Certificate Security Analysis</h2>
+        <h2>证书安全分析</h2>
       </el-col>
     </el-row>
 
@@ -68,41 +74,104 @@
           </div>
 
           <!-- ❓ 情况 5：空或未知类型 -->
-          <span v-else style="color: #999;">—</span>
+          <div v-else>
+            <el-tag type="danger">FAILED</el-tag>
+          </div>
+
         </template>
       </el-table-column>
 
     </el-table>
 
-    <!-- <el-divider />
+    <el-divider />
 
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>证书链关系</h2>
+        <h2>证书资源关系图</h2>
       </el-col>
     </el-row>
+    
+    <el-card>
+      <cag :graph-data="certGraphData" />
+    </el-card>
 
     <el-divider />
 
     <el-row :gutter="20">
       <el-col :xs="24" :sm="24" :md="24" :lg="24">
-        <h2>证书吊销状态</h2>
+        <h2>证书部署位置</h2>
       </el-col>
-    </el-row> -->
+    </el-row>
+
+
+    <el-table
+      v-if="refreshTable"
+      v-loading="loading"
+      :data="deployedHosts"
+      :default-expand-all="isExpandAll"
+      :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
+      >
+
+      <el-table-column label="Domain" width="300">
+        <template #default="{ row }">
+          <router-link :to="`/host/host_view/${row.destination_host}`" style="color: #409EFF;">
+            {{ row.destination_host }}
+          </router-link>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="IP" width="160">
+        <template #default="{ row }">
+          <router-link :to="`/host/host_view/${row.destination_ip}`" style="color: #409EFF;">
+            {{ row.destination_ip }}
+          </router-link>
+        </template>
+      </el-table-column>
+
+      <el-table-column prop="tls_version" label="TLS Version" width="120" />
+      <el-table-column prop="tls_cipher" label="TLS Cipher" width="160" />
+
+      <el-table-column label="证书指纹 (SHA256 List)">
+        <template #default="{ row }">
+          <ul style="padding-left: 16px; margin: 0;">
+            <li
+              v-for="(sha, shaIdx) in Array.isArray(row.cert_hash_list)
+                ? row.cert_hash_list
+                : JSON.parse(row.cert_hash_list || '[]')"
+              :key="shaIdx"
+            >
+              <router-link
+                :to="`/cert/cert_view/${sha}`"
+                style="color: #409EFF;"
+              >
+                {{ sha }}
+              </router-link>
+            </li>
+          </ul>
+        </template>
+      </el-table-column>
+    </el-table>
+
   </div>
 
 </template>
 
 <script>
-import { getCertInfo } from "@/api/cert/cert_search";
+import { getCertInfo, getCertDeployInfo } from "@/api/cert/cert_search";
+import { getSubCag } from "@/api/host/host_analysis";
+import Treeselect from "@riophae/vue-treeselect";
+import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
+import Cag from '@/views/host/host_analysis/cag';
+import EChart from 'vue-echarts';
 
 export default {
   components: {
-    RecursiveDict
+    RecursiveDict, Treeselect, Cag, 'v-chart': EChart
   },
   name: "CertView",
   dicts: ['sys_cert_type', 'sys_key_type'],
+
   data() {
     return {
       // 遮罩层
@@ -119,6 +188,11 @@ export default {
         required: true,
       },
       certSecurity: [],
+      deployedHosts: [],
+      certGraphData: {
+        type: Object, // 👈 dict 类型
+        required: true,
+      },
 
       // static error key
       totalErrorKeys: [
@@ -140,6 +214,8 @@ export default {
   created() {
     const certSha256 = this.$route.params && this.$route.params.certSha256;
     this.getCert(certSha256);
+    this.getCag(certSha256);
+    this.getHost(certSha256);
   },
   methods: {
     getCert(certSha256) {
@@ -170,18 +246,28 @@ export default {
         this.loading = false;
       });
     },
+    getCag(certSha256){
+      this.loading = true;
+      const query = {
+        "cert_sha256" : certSha256
+      };
+      // return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
+      getSubCag(query).then(response => {
+        this.certGraphData = response.data;
+        this.loading = false;
+      });
+    },
+    getHost(certSha256) {
+      this.loading = true;
+      // return jsonify({'msg': 'Success', 'code': 200, "web_security" : final_result})
+      getCertDeployInfo(certSha256).then(response => {
+        this.deployedHosts = response.deploy_hosts;
+        this.loading = false;
+      });
+    },
     isObject(value) {
       return value !== null && typeof value === 'object';
     },
-    // checkKeyInDict(key) {
-    //   if (key === "cert_type") {
-    //     return [true, this.dict.type.sys_cert_type || ''];
-    //   } else if (key === "subject_pub_key_algo") {
-    //     return [true, this.dict.type.sys_key_type || ''];
-    //   } else {
-    //     return [false, ''];
-    //   }
-    // },
     formatInfo(val) {
       if (Array.isArray(val)) {
         return val.join(", ");

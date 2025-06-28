@@ -2,14 +2,14 @@
 # celery_app.py
 from celery import Celery
 
-# Redis 配置（默认本地 Redis）
+# Redis 配置（仅用于任务分发，不用于结果存储）
 BROKER_URL = 'redis://localhost:6379/0'
 RESULT_BACKEND = 'redis://localhost:6379/1'
 
 celery_app = Celery(
     'task_manager',
     broker=BROKER_URL,
-    backend=RESULT_BACKEND,
+    backend=None,  # ✅ 显式禁用 result_backend
     include=[
         'backend.scanner.celery_scan_task',
         'backend.scanner.celery_save_task',
@@ -30,6 +30,7 @@ celery_app.autodiscover_tasks(['backend'])
 
 # 可选：加载配置文件
 celery_app.conf.update(
+    task_ignore_result=True,
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',

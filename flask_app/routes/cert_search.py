@@ -1,12 +1,12 @@
 
 import base64
-import json
+import json, math
 from datetime import datetime
 from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
+from flask_app.config.db_pool import engine_cert, engine_tls
 from flask_app.logger.logger import flask_logger    
 
 from backend.parser.pem_parser import PEMParser
@@ -137,6 +137,10 @@ def get_cert_info(cert_sha256):
     cert_parsed = PEMParser.parse_native_pretty(row[1])
     analyze_result = _cert_security_analyze(row, "/")
 
+    modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
+    modulus = hex(modulus).upper().replace('0X', '')
+    cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus'] = modulus
+
     def json_default(obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
@@ -203,3 +207,37 @@ def get_cert_info(cert_sha256):
 #             pass
 
 #     return jsonify({'code': 200, 'msg': '操作成功', "zlint_result" : zlint_output})
+
+@base.route('/cert/cert_retrieve/<cert_sha256>/deploy', methods=['GET'])
+@login_required
+def get_cert_deploy_info(cert_sha256):
+
+    flask_logger.info(f"{request.args}")
+
+    conn = engine_tls.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT t.*
+            FROM tlshandshake t
+            JOIN (
+                SELECT destination_host, destination_ip
+                FROM tlshandshake
+                WHERE JSON_CONTAINS(cert_hash_list, %s)
+                GROUP BY destination_host, destination_ip
+                LIMIT 200
+            ) AS limited_hosts
+            ON t.destination_host = limited_hosts.destination_host
+            AND t.destination_ip = limited_hosts.destination_ip
+            WHERE JSON_CONTAINS(t.cert_hash_list, %s);
+        """
+        cursor.execute(query, (json.dumps([cert_sha256]), json.dumps([cert_sha256])))
+        rows = cursor.fetchall()
+
+        print(rows)
+        if not rows:
+            return jsonify({'msg': 'No Host Found', 'code': 404})
+
+        columns = [desc[0] for desc in cursor.description]
+        result = [dict(zip(columns, row)) for row in rows]
+
+    return jsonify({'msg': 'Success', 'code': 200, "deploy_hosts": result})

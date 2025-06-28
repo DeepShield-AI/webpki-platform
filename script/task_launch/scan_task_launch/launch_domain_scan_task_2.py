@@ -9,7 +9,7 @@ if __name__ == "__main__":
         "CiscoTop10k 20250411",
         proxy_host=None,
         proxy_port=None,
-        input_list_file=r"/root/pki-internet-platform/data/top_domains/cisco-top-10k.csv",
+        input_list_file=r"/home/tianyu/pki-internet-platform/data/top_domains/cisco-top-10k.csv",
     )
 
     launch_scan_task.delay(test_config.to_dict())
