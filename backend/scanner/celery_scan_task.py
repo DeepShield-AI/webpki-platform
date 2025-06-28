@@ -81,12 +81,13 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
     if current_recursive_depth < 0:
         return True
 
-    # Redis 去重，SADD 返回 1 表示添加成功（即未爬过）
-    if r.sadd("crawled_domains", destination) == 0:
-        primary_logger.info("Has been scanned, skip...")
-        return True
-
     scan_config : InputScanConfig = InputScanConfig.from_dict(config_dict)
+
+    # Redis 去重，SADD 返回 1 表示添加成功（即未爬过）
+    if scan_config.recursive_depth > 0:
+        if r.sadd("crawled_domains", destination) == 0:
+            primary_logger.info("Has been scanned, skip...")
+            return True
 
     if scan_config.enable_jarm:
         jarm = ""
