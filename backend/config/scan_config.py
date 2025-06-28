@@ -40,6 +40,7 @@ class InputScanConfig(ScanConfig):
     input_list_file: str = INPUT_LIST_FILE
     enable_jarm: bool = ENABLE_JARM
     scan_port: int = 443
+    skip_first: int = 0
 
     # this is for recursive scanning in web page
     recursive_depth : int = RECURSIVE_DEPTH

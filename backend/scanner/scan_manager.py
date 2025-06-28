@@ -114,6 +114,7 @@ class InputScanner(Scanner):
 
         # scan settings from scan config
         self.input_file = scan_config.input_list_file
+        self.skip_first = scan_config.skip_first
         self.recursive_depth = scan_config.recursive_depth
 
     def _start_recursive_handler(self):
@@ -154,7 +155,8 @@ class InputScanner(Scanner):
         # avoid loop import
         from backend.scanner.celery_scan_task import single_scan_task
         with open(self.input_file, 'r', encoding='utf-8') as input_file:
-            for row in input_file:
+            for i, row in enumerate(input_file):
+                if i < self.skip_first: continue
                 row : str
                 single_scan_task.delay(row.strip(), self.scan_config.to_dict(), self.recursive_depth)
 
