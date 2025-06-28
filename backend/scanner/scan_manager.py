@@ -13,6 +13,7 @@ import json
 import math
 import time
 import base64
+import redis
 import threading
 from queue import Queue
 from threading import Lock
@@ -38,6 +39,7 @@ from backend.scanner.celery_monitor_task import monitor_scan_task
 from backend.scanner.celery_save_task import batch_flush_results
 from backend.parser.ct_parser import *
 
+r = redis.Redis()
 
 # This class is the one that performs big scanning,
 # has two modes: scan by input list and scan CT log
@@ -61,9 +63,6 @@ class Scanner(ABC):
         # Crtl+C and other signals
         self.crtl_c_event = threading.Event()
         self.is_killed = False
-
-        # logger
-        self.logger = get_logger(f"scan-task-{self.scan_id}")
 
         # monitor task
         # self.monitor_task_id = self._start_monitor_loop()
@@ -112,6 +111,7 @@ class InputScanner(Scanner):
 
         # scan settings from scan config
         self.input_file = scan_config.input_list_file
+        self.skip_first = scan_config.skip_first
         self.recursive_depth = scan_config.recursive_depth
 
     def _start_recursive_handler(self):
@@ -143,7 +143,7 @@ class InputScanner(Scanner):
 
     def start(self):
         # start save task
-        self._start_batch_flush()
+        # self._start_batch_flush()
 
         # start related domain save task
         # 暂时先不存储相关联域名
@@ -152,12 +152,14 @@ class InputScanner(Scanner):
         # avoid loop import
         from backend.scanner.celery_scan_task import single_scan_task
         with open(self.input_file, 'r', encoding='utf-8') as input_file:
-            for row in input_file:
+            for i, row in enumerate(input_file):
+                if i < self.skip_first: continue
                 row : str
                 single_scan_task.delay(row.strip(), self.scan_config.to_dict(), self.recursive_depth)
 
-                # This is necessary for hosts that on low memory
-                time.sleep(0.1)
+                while True:
+                    if r.llen('celery') <= 1000: break
+                    time.sleep(1)
 
     def terminate(self):
         primary_logger.info("Terminating domain scan task...")
@@ -182,22 +184,17 @@ class CTScanner(Scanner):
         super().__init__(task_id, scan_config)
 
         # scan settings from scan config
-        self.ct_log_name = scan_config.CT_LOG_NAME
-        self.ct_log_address = scan_config.CT_LOG_ADDRESS
-        self.entry_start = scan_config.ENTRY_START
-        self.entry_end = scan_config.ENTRY_END
-        self.window_size = scan_config.WINDOW_SIZE
+        self.ct_log_name = scan_config.ct_log_name
+        self.ct_log_address = scan_config.ct_log_address
+        self.entry_start = scan_config.entry_start
+        self.entry_end = scan_config.entry_end
+        self.window_size = scan_config.window_size
+        self.out_dir = scan_config.output_file_dir
 
-        if not os.path.exists(self.storage_dir):
-            os.makedirs(self.storage_dir)
-
-        self.data_queue = Queue()
-        self.ca_cert_queue = Queue()
-        self.ca_sha_256_set_lock = Lock()
-        self.ca_sha_256_set = set()
+    def start(self):
 
         # read old unique_ca_certs file and compute all the existing sha256
-        self.unique_ca_certs_file = os.path.join(self.storage_dir, "unique_ca_certs")
+        self.unique_ca_certs_file = os.path.join(self.out_dir, "unique_ca_certs")
         try:
             with open(self.unique_ca_certs_file, 'r') as f:
                 cert_data = f.read()
@@ -207,335 +204,32 @@ class CTScanner(Scanner):
                 if "-----BEGIN CERTIFICATE-----" in cert:
                     cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
                     cert_sha256 = get_cert_sha256_hex_from_str(cert)
-                    self.ca_sha_256_set.add(cert_sha256)
+                    r.sadd("unique_ca_certs", cert_sha256)
 
             primary_logger.info(f"Load {len(certificates)} old CA certs")
         except FileNotFoundError:
-            pass
+            primary_logger.error(f"Can not found file {self.unique_ca_certs_file}")
 
+        # avoid loop import
+        from backend.scanner.celery_scan_task import single_ct_scan_task
+        start = self.entry_start
+        while start < self.entry_end:
+            end = start + self.window_size
+            if end > self.entry_end:
+                end = self.entry_end
+            single_ct_scan_task.delay(start, end, self.scan_config.to_dict())
+            start = end
 
-    def save_results(self):
-        while not self.crtl_c_event.is_set():
-            data = self.data_queue.get()
-            if data is None:  # Poison pill to shut down the thread
-                primary_logger.info("Poision detected")
-                break
-
-            save_file_path = os.path.join(self.storage_dir, data["save_file_name"])
-            data_to_be_stored = data["data"]
-            primary_logger.info(f"Saving {len(data_to_be_stored.keys())} results to {save_file_path}")
-
-            with open(save_file_path, 'w', encoding='utf-8') as f:
-                for key, value in data_to_be_stored.items():
-                    try:
-                        data_str = {
-                            "entry_number" : key,
-                            "data" : value
-                        }
-
-                        json_str = json.dumps(data_str, ensure_ascii=False, separators=(',', ':'), default=custom_serializer)
-                        f.write(json_str + '\n')
-
-                    except Exception as e:
-                        primary_logger.error(f"Save {save_file_path} failed, got exception {e}")
-                        pass
-
-            self.data_queue.task_done()
-            primary_logger.info(f"Finished saving {len((data_to_be_stored.keys()))} results to {save_file_path}")
-        primary_logger.info("Thread for saving results finishes normally")
-
-
-    def save_ca_certs(self):
-        while not self.crtl_c_event.is_set():
-            ca_cert = self.ca_cert_queue.get()
-            if ca_cert is None:  # Poison pill to shut down the thread
-                primary_logger.info("Poision detected")
-                break
-
-            try:
-                with open(self.unique_ca_certs_file, 'a') as f:
-                    f.write(ca_cert)
-            except Exception as e:
-                primary_logger.error(f"Save ca cert {get_cert_sha256_hex_from_str(ca_cert)} failed, got exception {e}")
-                pass
-
-            self.ca_cert_queue.task_done()
-        primary_logger.info("Thread for CA certs finishes normally")
-
-
-    # Each scan thread needs to take the last entry into account
-    # Means to add -1 at the "end"
-    def scan_thread(self, start_entry, end_entry):
-
-        # Currently, there exists WHOLE thread results missing,
-        # so we need to try to catch all possible exceptions (as executor.subit() won't give any exception
-        # output if you do not add .result() at the end......)
-        try:
-        
-            # check window_size fits the start and the end range
-            # assert((end_entry - start_entry) >= self.window_size)
-            primary_logger.info(f"Start thread for {start_entry} to {end_entry}")
-
-            thread_result = {}
-            loop_start = start_entry
-            loop_end = start_entry + self.window_size
-            log_server_request = f'https://{self.ct_log_address}/ct/v1/get-entries'
-
-            while loop_start < end_entry:
-
-                # Detect signal
-                if self.crtl_c_event.is_set():
-                    primary_logger.info("Terminating scan thread because of Ctrl + C signal")
-                    return
-
-                received_entries = []
-                if loop_end >= end_entry:
-                    loop_end = end_entry
-
-                retry_times = 0
-                params = {'start': loop_start, 'end': loop_end - 1}
-                while retry_times <= self.max_retry:
-                    try:
-                        response = requests.get(log_server_request, params=params, verify=True, timeout=self.scan_timeout)
-                    except Exception as e:
-                        # my_logger.warning(f"Exception {e} when requesting CT entries from {loop_start} to {loop_end}")
-                        retry_times += 1
-                        time.sleep(2 * retry_times)  # 指数退避策略
-                        continue
-
-                    if response.status_code == 200:
-                        try:
-                            received_entries += json.loads(response.text)['entries']
-                        except json.JSONDecodeError as e:
-                            primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {loop_start} to {loop_end}")
-                            retry_times += 1
-                            time.sleep(2 * retry_times)  # 指数退避策略
-                            continue
-
-                        if (len(received_entries) < (loop_end - loop_start)):
-                            # print(f"Length of response: {len(received_entries)}, expected {loop_end - loop_start}")
-
-                            # This case, we try to get the remain entries
-                            params = {'start': loop_start + len(received_entries), 'end': loop_end - 1}
-                            retry_times += 1
-                            time.sleep(2 * retry_times)  # 指数退避策略
-                            continue
-                        else:
-                            # print(f"Get all {loop_end - loop_start} entries")
-                            break
-                    
-                    # 429 -> too many requests，read Retry-After and wait
-                    elif response.status_code == 429:
-                        retry_after = int(response.headers.get("Retry-After", 1))
-                        # my_logger.warn(f"Received 429, retrying after {retry_after} seconds...")
-                        time.sleep(retry_after)
-                        continue
-                    else:
-                        primary_logger.warning(f"Requesting CT entries from {loop_start} to {loop_end} get {response.status_code}.")
-                        retry_times += 1
-                        time.sleep(2 * retry_times)  # 指数退避策略
-                        continue
-                
-                # If the collection fails, we log it here
-                if retry_times > self.max_retry:
-                    primary_logger.error(f"Requesting CT entries from {loop_start} to {loop_end} failed after {self.max_retry} times.")
-
-                # Cache the received results
-                rank = -1
-                for entry in received_entries:
-                    rank += 1
-                    entry_number = loop_start + rank
-                    thread_result[entry_number] = {}
-
-                    leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
-                    ct_timestamp = leaf_cert.Timestamp
-                    thread_result[entry_number]['timestamp'] = ct_timestamp
-
-                    if leaf_cert.LogEntryType == "X509LogEntryType":
-                        # We have a normal x509 entry
-                        thread_result[entry_number]['type'] = "Cert"
-                        cert_data_string = certificate.parse(leaf_cert.Entry).CertData
-                        thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
-
-                        # Parse the `extra_data` structure for the rest of the chain
-                        extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
-                        thread_result[entry_number]['chain'] = []
-                        for cert in extra_data.Chain:
-                            thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
-
-                    else:
-                        # We have a precert entry
-                        thread_result[entry_number]['type'] = "Precert"
-                        extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
-                        thread_result[entry_number]['leaf'] = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
-
-                        thread_result[entry_number]['chain'] = []
-                        for cert in extra_data.CertChain.Chain:
-                            thread_result[entry_number]['chain'].append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
-
-                    # Compress the cert chain
-                    new_chain = []
-                    for cert in thread_result[entry_number]['chain']:
-                        sha256_hash = get_cert_sha256_hex_from_str(cert)
-                        new_chain.append(sha256_hash)
-                        if sha256_hash not in self.ca_sha_256_set:
-                            with self.ca_sha_256_set_lock:
-                                self.ca_sha_256_set.add(sha256_hash)
-                                self.ca_cert_queue.put(cert)
-                    
-                    # Replace the chain with its SHA-256 hash
-                    thread_result[entry_number]['chain'] = new_chain
-
-                # update scan_status
-                with self.scan_status_data_lock:
-                    self.scan_status_data.scanned_entries += self.window_size
-                    self.scan_status_data.success_count += len(received_entries)
-                    self.scan_status_data.error_count += self.window_size - len(received_entries)
-
-                loop_start = loop_end
-                loop_end = loop_start + self.window_size
-
-            # store the result into the file indicated by the storage_directory
-            file_name = self.ct_log_name + f"_{start_entry}" + f"_{end_entry}"
-            self.data_queue.put({
-                "save_file_name" : file_name,
-                "data" : thread_result
-            })
-
-            primary_logger.info(f"Put data to {file_name} into queue")
-            self.progress.update(self.progress_task, description=f"[green]Completed: {self.scan_status_data.success_count}, [red]Errors: {self.scan_status_data.error_count}")
-            self.progress.advance(self.progress_task)
-        
-        except json.JSONDecodeError as e:
-            primary_logger.error(f"JSON decode error {e.msg} happens at {e.pos} in thread for {start_entry} to {end_entry}")
-            thread_result_str = json.dumps(thread_result)
-            error_position = e.pos
-
-            # 打印错误位置附近的字符（比如前后50个字符）
-            start_pos = max(0, error_position - 50)
-            end_pos = min(len(thread_result_str), error_position + 50)
-
-            primary_logger.error(f"100 chars around the error position:")
-            primary_logger.error(f"BEFORE: {thread_result_str[start_pos:error_position]}")
-            primary_logger.error(f"AFTER: {thread_result_str[error_position:end_pos]}")
-
-        except Exception as e:
-            primary_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
-            pass
-
-
-    def start(self):
-        with Progress(
-            TextColumn("[bold blue]{task.description}", justify="right"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeRemainingColumn(),  # 添加预计剩余时间列
-            transient=True  # 进度条完成后隐藏
-        ) as self.progress:
-            
-            total = math.ceil((self.entry_end - self.entry_start) / self.thread_workload)
-            self.progress_task = self.progress.add_task("[Waiting]", total=total)
-
-            self.timer_thread = threading.Thread(target=self.async_update_scan_process_info)
-            # self.timer_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            self.timer_thread.start()
-
-            # Start the thread that saves processed data from the queue
-            self.ca_certs_save_thread = threading.Thread(target=self.save_ca_certs)
-            # self.ca_certs_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            self.ca_certs_save_thread.start()
-
-            self.data_save_thread = threading.Thread(target=self.save_results)
-            # self.data_save_thread.daemon = True  # 设置为守护线程，以便主线程退出时自动退出定时器线程
-            self.data_save_thread.start()
-
-            primary_logger.info(f"Scanning...")
-            with ThreadPoolExecutor(max_workers=self.max_threads_alloc) as executor:
-                start = self.entry_start
-                while start < self.entry_end:
-
-                    # Check if there is signals
-                    if self.crtl_c_event.is_set():
-                        primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
-                        break
-
-                    end = start + self.thread_workload
-                    if end < self.entry_end:
-                        executor.submit(self.scan_thread, start, end)
-                        # executor.submit(self.scan_thread, start, end).result()
-                    else:
-                        executor.submit(self.scan_thread, start, self.entry_end)
-                        # executor.submit(self.scan_thread, start, self.entry_end).result()
-                    start = end
-
-                executor.shutdown(wait=True)
-                primary_logger.info("All threads finished.")
-        
-            # Wait for all elements in queue to be handled
-            self.ca_cert_queue.join()
-            self.data_queue.join()
-
-            # Send the poison pill to stop the saver thread
-            self.ca_cert_queue.put(None)
-            self.data_queue.put(None)
-            self.ca_certs_save_thread.join()
-            self.data_save_thread.join()
-
-            # The timer thread will never terminates unless the flag is set
-            self.crtl_c_event.set()
-            self.timer_thread.join()
-
-        if self.is_killed:
-            primary_logger.info(f"Scan Terminated")
-            with self.scan_status_data_lock:
-                self.scan_status_data.end_time = datetime.now(timezone.utc)
-                self.scan_status_data.status = ScanStatusType.KILLED
-        else:
-            primary_logger.info(f"Scan Completed")
-            with self.scan_status_data_lock:
-                self.scan_status_data.end_time = datetime.now(timezone.utc)
-                self.scan_status_data.status = ScanStatusType.COMPLETED
-        self.sync_update_scan_process_info()
-
+            while True:
+                if r.llen('celery') <= 1000: break
+                time.sleep(1)
 
     def terminate(self):
         primary_logger.info("Terminating CT scan task...")
         self.crtl_c_event.set()  # 触发退出事件
         self.is_killed = True
 
-
     def pause(self):
         pass
     def resume(self):
         pass
-
-
-    def async_update_scan_process_info(self):
-        while not self.crtl_c_event.is_set():
-            self.sync_update_scan_process_info()
-            time.sleep(15)
-        primary_logger.info("Thread for tracking the scan status terminates normally")
-
-
-    def sync_update_scan_process_info(self):
-
-        primary_logger.info(f"Updating...")
-        if self.scan_status_data.status == ScanStatusType.RUNNING:
-            scan_time = (datetime.now(timezone.utc) - self.scan_status_data.start_time).seconds
-        elif self.scan_status_data.status == ScanStatusType.COMPLETED:
-            scan_time = (self.scan_status_data.end_time - self.scan_status_data.start_time).seconds
-        elif self.scan_status_data.status == ScanStatusType.KILLED:
-            scan_time = (self.scan_status_data.end_time - self.scan_status_data.start_time).seconds
-        else:
-            scan_time = -1
-
-        with app.app_context():
-            self.scan_status_entry.SCAN_TIME_IN_SECONDS = scan_time
-            self.scan_status_entry.END_TIME = self.scan_status_data.end_time
-            self.scan_status_entry.STATUS = self.scan_status_data.status.value
-            self.scan_status_entry.SCANNED_RNTRIES = self.scan_status_data.scanned_entries
-            self.scan_status_entry.SCANNED_CERTS = self.scan_status_data.scanned_certs
-            self.scan_status_entry.SUCCESSES = self.scan_status_data.success_count
-            self.scan_status_entry.ERRORS = self.scan_status_data.error_count
-            db.session.add(self.scan_status_entry)
-            db.session.commit()
