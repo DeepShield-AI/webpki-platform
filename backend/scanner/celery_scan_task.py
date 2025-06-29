@@ -35,6 +35,11 @@ r = redis.Redis()
 
 @celery_app.task(bind=True)
 def launch_scan_task(self: Task, config_dict: dict):
+    '''
+        IMPORTANT:
+        To avoid memory leak, try not to use .delay() on this task
+        TODO: find why and fix with supervisor and crontab...
+    '''
 
     # get the scan task id for the scan
     # init config info for the scan
@@ -179,7 +184,7 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
                             "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
             }
             url = f"https://{destination}"
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=5)
             related_domains = extract_domains_from_response(destination, response)
             # enqueue_web_result({
             #     "destination_host": destination,
@@ -315,6 +320,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
         last_error = e
     
     finally:
+        proxy_conn.close()
         proxy_socket.close()
         ssl_result = {
             "tls_version" : tls_version,
