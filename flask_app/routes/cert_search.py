@@ -12,6 +12,17 @@ from flask_app.logger.logger import flask_logger
 from backend.parser.pem_parser import PEMParser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 
+def json_default(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+    if isinstance(obj, bytearray):
+        return base64.b64encode(obj).decode('utf-8')
+
+    # 可以扩展支持其他类型
+    return str(obj)  # fallback: 转成字符串
+
 @base.route('/cert/cert_search/search', methods=['GET'])
 @login_required
 def cert_search():
@@ -37,7 +48,8 @@ def cert_search():
         params.append(cert_sha256)
 
     if subject:
-        where_clauses.append("JSON_CONTAINS(subject_cn_list, '\"%s\"')" % subject)
+        where_clauses.append("subject_cn_list LIKE %s")
+        params.append(f"%{subject}%")
 
     if begin_not_valid_before:
         where_clauses.append("not_valid_before >= %s")
@@ -137,20 +149,13 @@ def get_cert_info(cert_sha256):
     cert_parsed = PEMParser.parse_native_pretty(row[1])
     analyze_result = _cert_security_analyze(row, "/")
 
-    modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
-    modulus = hex(modulus).upper().replace('0X', '')
-    cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus'] = modulus
-
-    def json_default(obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, bytes):
-            return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
-        if isinstance(obj, bytearray):
-            return base64.b64encode(obj).decode('utf-8')
-
-        # 可以扩展支持其他类型
-        return str(obj)  # fallback: 转成字符串
+    try:
+        modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
+        modulus = hex(modulus).upper().replace('0X', '')
+        cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus'] = modulus
+    except:
+        # probably be ec key
+        pass
 
     return Response(
         json.dumps({

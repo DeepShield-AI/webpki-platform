@@ -1,159 +1,142 @@
 <template>
   <div class="app-container main">
+    <el-tabs :value="activeTab" @input="handleTabChange" type="card">
+      <!-- 证书详情 -->
+      <el-tab-pane label="证书详情" name="detail">
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书详情</h2>
+            <el-card>
+              <RecursiveDict :data="certData" />
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
 
-    <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>证书详情</h2>
-      </el-col>
-    </el-row>
+      <!-- 证书安全分析 -->
+      <el-tab-pane label="证书安全分析" name="security">
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书安全分析</h2>
+          </el-col>
+        </el-row>
 
-    <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <el-card>
-            <RecursiveDict :data="certData" />
-        </el-card>
-      </el-col>
-    </el-row>
+        <el-table
+          v-if="refreshTable"
+          v-loading="loading"
+          :data="certSecurity"
+          :default-expand-all="isExpandAll"
+          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+          style="width: 100%"
+        >
+          <el-table-column label="错误代码">
+            <template slot-scope="scope">
+              <el-tag type="danger" class="tag-item">
+                {{ scope.row.error_code }}
+              </el-tag>
+            </template>
+          </el-table-column>
 
-    <el-divider />
-
-    <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>证书安全分析</h2>
-      </el-col>
-    </el-row>
-
-    <el-table
-      v-if="refreshTable"
-      v-loading="loading"
-      :data="certSecurity"
-      :default-expand-all="isExpandAll"
-      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
-      style="width: 100%"
-    >
-      <el-table-column label="错误代码">
-        <template #default="scope">
-          <el-tag type="danger" class="tag-item">
-            {{ scope.row.error_code }}
-          </el-tag>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="错误详情">
-        <template #default="scope">
-          <!-- ✅ 情况 1：通过，显示绿色 -->
-          <el-tag type="success" v-if="scope.row.error_info === 'Pass'">
-            Pass
-          </el-tag>
-
-          <!-- ✅ 情况 2：字符串类型，显示为红色 -->
-          <el-tag type="danger" v-else-if="typeof scope.row.error_info === 'string'">
-            {{ scope.row.error_info }}
-          </el-tag>
-
-          <!-- ✅ 情况 3：数组类型，逐行显示 -->
-          <div v-else-if="Array.isArray(scope.row.error_info)">
-            <div
-              v-for="(item, idx) in scope.row.error_info"
-              :key="idx"
-              style="color: red; line-height: 1.5;"
-            >
-              {{ item }}
-            </div>
-          </div>
-
-          <!-- ✅ 情况 4：对象类型，逐键显示 -->
-          <div v-else-if="typeof scope.row.error_info === 'object' && scope.row.error_info !== null">
-            <div
-              v-for="(val, key) in scope.row.error_info"
-              :key="key"
-              style="color: red; line-height: 1.5;"
-            >
-              <strong>{{ key }}:</strong> {{ formatInfo(val) }}
-            </div>
-          </div>
-
-          <!-- ❓ 情况 5：空或未知类型 -->
-          <div v-else>
-            <el-tag type="danger">FAILED</el-tag>
-          </div>
-
-        </template>
-      </el-table-column>
-
-    </el-table>
-
-    <el-divider />
-
-    <el-row :gutter="20">
-      <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>证书资源关系图</h2>
-      </el-col>
-    </el-row>
-    
-    <el-card>
-      <cag :graph-data="certGraphData" />
-    </el-card>
-
-    <el-divider />
-
-    <el-row :gutter="20">
-      <el-col :xs="24" :sm="24" :md="24" :lg="24">
-        <h2>证书部署位置</h2>
-      </el-col>
-    </el-row>
-
-
-    <el-table
-      v-if="refreshTable"
-      v-loading="loading"
-      :data="deployedHosts"
-      :default-expand-all="isExpandAll"
-      :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
-      >
-
-      <el-table-column label="Domain" width="300">
-        <template #default="{ row }">
-          <router-link :to="`/host/host_view/${row.destination_host}`" style="color: #409EFF;">
-            {{ row.destination_host }}
-          </router-link>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="IP" width="160">
-        <template #default="{ row }">
-          <router-link :to="`/host/host_view/${row.destination_ip}`" style="color: #409EFF;">
-            {{ row.destination_ip }}
-          </router-link>
-        </template>
-      </el-table-column>
-
-      <el-table-column prop="tls_version" label="TLS Version" width="120" />
-      <el-table-column prop="tls_cipher" label="TLS Cipher" width="160" />
-
-      <el-table-column label="证书指纹 (SHA256 List)">
-        <template #default="{ row }">
-          <ul style="padding-left: 16px; margin: 0;">
-            <li
-              v-for="(sha, shaIdx) in Array.isArray(row.cert_hash_list)
-                ? row.cert_hash_list
-                : JSON.parse(row.cert_hash_list || '[]')"
-              :key="shaIdx"
-            >
-              <router-link
-                :to="`/cert/cert_view/${sha}`"
-                style="color: #409EFF;"
+          <el-table-column label="错误详情">
+            <template slot-scope="scope">
+              <el-tag type="success" v-if="scope.row.error_info === 'Pass'">Pass</el-tag>
+              <el-tag type="danger" v-else-if="typeof scope.row.error_info === 'string'">
+                {{ scope.row.error_info }}
+              </el-tag>
+              <div v-else-if="Array.isArray(scope.row.error_info)">
+                <div
+                  v-for="(item, idx) in scope.row.error_info"
+                  :key="idx"
+                  style="color: red; line-height: 1.5;"
+                >
+                  {{ item }}
+                </div>
+              </div>
+              <div
+                v-else-if="typeof scope.row.error_info === 'object' && scope.row.error_info !== null"
               >
-                {{ sha }}
+                <div
+                  v-for="(val, key) in scope.row.error_info"
+                  :key="key"
+                  style="color: red; line-height: 1.5;"
+                >
+                  <strong>{{ key }}:</strong> {{ formatInfo(val) }}
+                </div>
+              </div>
+              <div v-else>
+                <el-tag type="danger">FAILED</el-tag>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="证书资源关系图" name="graph">  
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书资源关系图</h2>
+          </el-col>
+        </el-row>
+
+        <el-card>
+          <cag :graph-data="certGraphData" />
+        </el-card>
+      </el-tab-pane>
+
+      <!-- 证书部署位置 -->
+      <el-tab-pane label="证书部署位置" name="deploy">
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24">
+            <h2>证书部署位置</h2>
+          </el-col>
+        </el-row>
+
+        <el-table
+          v-if="refreshTable"
+          v-loading="loading"
+          :data="deployedHosts"
+          :default-expand-all="isExpandAll"
+          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        >
+          <el-table-column label="Domain" width="300">
+            <template slot-scope="{ row }">
+              <router-link :to="`/host/host_view/${row.destination_host}`" style="color: #409EFF;">
+                {{ row.destination_host }}
               </router-link>
-            </li>
-          </ul>
-        </template>
-      </el-table-column>
-    </el-table>
+            </template>
+          </el-table-column>
 
+          <el-table-column label="IP" width="160">
+            <template slot-scope="{ row }">
+              <router-link :to="`/host/host_view/${row.destination_ip}`" style="color: #409EFF;">
+                {{ row.destination_ip }}
+              </router-link>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="tls_version" label="TLS Version" width="120" />
+          <el-table-column prop="tls_cipher" label="TLS Cipher" width="160" />
+
+          <el-table-column label="证书指纹 (SHA256 List)" width="550">
+            <template slot-scope="{ row }">
+              <ul style="padding-left: 16px; margin: 0;">
+                <li
+                  v-for="(sha, shaIdx) in Array.isArray(row.cert_hash_list)
+                    ? row.cert_hash_list
+                    : JSON.parse(row.cert_hash_list || '[]')"
+                  :key="shaIdx"
+                >
+                  <router-link :to="`/cert/cert_view/${sha}`" style="color: #409EFF;">
+                    {{ sha }}
+                  </router-link>
+                </li>
+              </ul>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+    </el-tabs>
   </div>
-
 </template>
 
 <script>
@@ -182,7 +165,8 @@ export default {
       title: "",
       // 是否显示弹出层
       open: false,
-      // 证书信息
+
+      activeTab: 'detail',
       certData: {
         type: Object, // 👈 dict 类型
         required: true,
@@ -194,21 +178,21 @@ export default {
         required: true,
       },
 
-      // static error key
-      totalErrorKeys: [
-        "expired",
-        "validity_too_long",
-        "weak_rsa",
-        "weak_hash",
-        "not_asn1",
-        "self_signed",
-        "abuse_ip",
-        "DROP",
-        "wrong_version",
-        "wrong_key_usage",
-        "no_revoke",
-        "no_sct"
-      ]
+      // static error key info
+      totalErrorKeyInfo: {
+        "expired": "证书已过期",
+        "validity_too_long": "证书有效期过长",
+        "weak_rsa": "RSA 密钥强度过低",
+        "weak_hash": "使用了弱哈希算法 (如 MD5 或 SHA1)",
+        "not_asn1": "证书格式非标准 ASN.1 编码",
+        "self_signed": "自签名证书（未受信任）",
+        "abuse_ip": "证书部署在恶意 IP (AbuseIPDB) 上",
+        "DROP": "证书被主动丢弃或列入黑名单",
+        "wrong_version": "TLS/SSL 版本不符合规范",
+        "wrong_key_usage": "证书密钥用途错误或缺失",
+        "no_revoke": "证书未提供撤销信息 (CRL 或 OCSP)",
+        "no_sct": "缺少透明度日志 (SCT) 信息"
+      }
     };
   },
   created() {
@@ -227,7 +211,7 @@ export default {
 
         // 转换为表格需要的数组形式
         console.log(response.cert_security);
-        this.certSecurity = this.totalErrorKeys.map(code => {
+        this.certSecurity = Object.keys(this.totalErrorKeyInfo).map(code => {
           const info = response.cert_security.error_info[code];
 
           const isPass =
@@ -238,8 +222,8 @@ export default {
             (typeof info === "object" && Object.keys(info).length === 0);
 
           return {
-            error_code: code,
-            error_info: isPass ? "Pass" : info
+            error_code: this.totalErrorKeyInfo[code],  // ✅ 中文名
+            error_info: isPass ? "Pass" : info         // ✅ 保留原始结构
           };
         });
 
@@ -267,6 +251,11 @@ export default {
     },
     isObject(value) {
       return value !== null && typeof value === 'object';
+    },
+    handleTabChange(val) {
+      this.activeTab = val;
+      // 你可以在这里根据 tab 切换执行额外逻辑
+      // if (val === 'security') this.loadSecurityAnalysis();
     },
     formatInfo(val) {
       if (Array.isArray(val)) {
