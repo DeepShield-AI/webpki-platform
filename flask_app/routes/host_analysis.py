@@ -129,6 +129,9 @@ def get_sub_cag():
 
             if depth < 2:
                 for neighbor, e_type in edge_data.get(current, []):
+                    # if the node is org, do not expand
+                    if current.startswith("Org") and e_type == "e_ca_org": continue
+
                     sub_cag_edges.add((current, neighbor, e_type))
                     if neighbor not in visited:
                         visited.add(neighbor)

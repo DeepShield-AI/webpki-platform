@@ -78,7 +78,7 @@
           </el-col>
         </el-row>
 
-        <el-card>
+        <el-card style="width: 67%; margin: 0 auto;">
           <cag :graph-data="certGraphData" />
         </el-card>
       </el-tab-pane>
@@ -98,7 +98,7 @@
           :default-expand-all="isExpandAll"
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         >
-          <el-table-column label="Domain" width="300">
+          <el-table-column label="域名" width="300">
             <template slot-scope="{ row }">
               <router-link :to="`/host/host_view/${row.destination_host}`" style="color: #409EFF;">
                 {{ row.destination_host }}
@@ -114,8 +114,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="tls_version" label="TLS Version" width="120" />
-          <el-table-column prop="tls_cipher" label="TLS Cipher" width="160" />
+          <el-table-column prop="tls_version" label="TLS 版本" width="120">
+            <template #default="{ row }">
+              {{ formatTLSVersion(row.tls_version) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="tls_cipher" label="TLS 密钥算法" width="220" />
 
           <el-table-column label="证书指纹 (SHA256 List)" width="550">
             <template slot-scope="{ row }">
@@ -157,26 +161,15 @@ export default {
 
   data() {
     return {
-      // 遮罩层
       loading: true,
       refreshTable: true,
       isExpandAll: true,
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
 
       activeTab: 'detail',
-      certData: {
-        type: Object, // 👈 dict 类型
-        required: true,
-      },
+      certData: {},
       certSecurity: [],
+      certGraphData: {},
       deployedHosts: [],
-      certGraphData: {
-        type: Object, // 👈 dict 类型
-        required: true,
-      },
 
       // static error key info
       totalErrorKeyInfo: {
@@ -196,10 +189,8 @@ export default {
     };
   },
   created() {
-    const certSha256 = this.$route.params && this.$route.params.certSha256;
-    this.getCert(certSha256);
-    this.getCag(certSha256);
-    this.getHost(certSha256);
+    this.certSha256 = this.$route.params && this.$route.params.certSha256;
+    this.getCert(this.certSha256);
   },
   methods: {
     getCert(certSha256) {
@@ -254,14 +245,28 @@ export default {
     },
     handleTabChange(val) {
       this.activeTab = val;
-      // 你可以在这里根据 tab 切换执行额外逻辑
-      // if (val === 'security') this.loadSecurityAnalysis();
+      if (val === 'graph' && Object.keys(this.certGraphData).length === 0) {
+        this.getCag(this.certSha256);
+      }
+      if (val === 'deploy' && this.deployedHosts.length === 0) {
+        this.getHost(this.certSha256);
+      }
     },
     formatInfo(val) {
       if (Array.isArray(val)) {
         return val.join(", ");
       }
       return val;
+    },
+    formatTLSVersion(version) {
+      const versionMap = {
+        768: 'TLS 1.0',
+        769: 'TLS 1.1',
+        770: 'TLS 1.2',
+        771: 'TLS 1.2',
+        772: 'TLS 1.3',
+      };
+      return versionMap[version] || version;
     }
   }
 };

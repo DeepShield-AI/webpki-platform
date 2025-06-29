@@ -59,26 +59,26 @@
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       >
       
-      <el-table-column prop="sha256" label="证书 Sha256" width="200"></el-table-column>
+      <el-table-column prop="sha256" label="证书 Sha256" width="275"></el-table-column>
 
-      <el-table-column prop="subject_cn_list" label="Subject List" align="center" width="300">
+      <el-table-column prop="subject_cn_list" label="主体名称" align="center" width="225">
         <template #default="scope">
           <div>
             <div
-              v-for="(item, index) in parsedSubjectCNList(scope).slice(0, 10)"
+              v-for="(item, index) in parsedSubjectCNList(scope).slice(0, 5)"
               :key="index"
               style="white-space: normal;"
             >
               {{ item }}
             </div>
-            <div v-if="parsedSubjectCNList(scope).length > 10" style="color: #999;">
-              剩余 {{ parsedSubjectCNList(scope).length - 10 }} 个未显示
+            <div v-if="parsedSubjectCNList(scope).length > 5" style="color: #999;">
+              剩余 {{ parsedSubjectCNList(scope).length - 5 }} 个未显示
             </div>
           </div>
         </template>
       </el-table-column>
 
-      <el-table-column prop="subject_org" label="Subject Org" align="center" width="100"></el-table-column>
+      <el-table-column prop="subject_org" label="所属机构" align="center" width="225"></el-table-column>
 
       <el-table-column label="签发者" align="center" width="225">
         <template #default="scope">
