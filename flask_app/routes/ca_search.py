@@ -56,6 +56,9 @@ def ca_search():
         columns = [desc[0] for desc in cursor.description]
         result = [dict(zip(columns, row)) for row in rows]
 
+        # 删除 issuer_org 为空或空字符串的项
+        result = [entry for entry in result if entry.get("issuer_org", None) is not None]
+
     return jsonify({
         'code': 200,
         'msg': 'success',
