@@ -203,7 +203,8 @@ def single_scan_task(destination : str, config_dict: dict, current_recursive_dep
 def process_target(destination, destination_ip, scan_config, jarm, jarm_hash):
     # Now try to make ssl handshake, use blocking celery task
     primary_logger.debug(f"Processing on {destination} : {destination_ip}...")
-    ssl_result = _do_ssl_handshake(destination, destination_ip, InputScanConfig.from_dict(scan_config))
+    scan_config = InputScanConfig.from_dict(scan_config)
+    ssl_result = _do_ssl_handshake(destination, destination_ip, scan_config)
 
     enqueue_scan_result({
         "destination_host": destination,
@@ -211,7 +212,8 @@ def process_target(destination, destination_ip, scan_config, jarm, jarm_hash):
         "scan_time" : datetime.now(timezone.utc).isoformat(),
         "jarm": jarm,
         "jarm_hash": jarm_hash,
-        "ssl_result": ssl_result
+        "ssl_result": ssl_result,
+        "out_file" : os.path.join(scan_config.output_file_dir, scan_config.scan_task_name)
     })
 
 

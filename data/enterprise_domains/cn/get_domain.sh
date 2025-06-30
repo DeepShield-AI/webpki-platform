@@ -1,0 +1,1 @@
+cut -d',' -f2 soe.csv | sed -E 's#https?://##;s#/.*##' > domains.txt

@@ -112,6 +112,11 @@ def get_cert_sha256_hex_from_str(cert : str) -> str:
     sha256_hex = sha256_hash.hexdigest()
     return sha256_hex
 
+def get_cert_sha1_hex_from_str(cert : str) -> str:
+    sha1_hash = hashlib.sha1(cert.encode())
+    sha1_hex = sha1_hash.hexdigest()
+    return sha1_hex
+
 # Certificate Policy Dict
 # The input file comes from Zmap
 class CertificatePolicyLookup():
