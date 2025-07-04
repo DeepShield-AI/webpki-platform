@@ -199,7 +199,7 @@ export const dynamicRoutes = [
     permissions: ['ca:ca_search:list'],
     children: [
       {
-        path: ':caName(.*)',
+        path: ':caId(.*)',
         component: () => import('@/views/ca/ca_search/data'),
         name: 'CaSearchData',
         meta: { title: 'CA 详情', activeMenu: '/ca/ca_search' }
