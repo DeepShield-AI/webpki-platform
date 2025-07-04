@@ -29,15 +29,21 @@
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
           style="width: 100%"
         >
-          <el-table-column label="错误代码">
+          <el-table-column label="错误代码" width="200">
             <template slot-scope="scope">
-              <el-tag type="danger" class="tag-item">
+              <el-tag type="info" class="tag-item">
                 {{ scope.row.error_code }}
               </el-tag>
             </template>
           </el-table-column>
 
-          <el-table-column label="错误详情">
+          <el-table-column label="代码解释" width="400">
+            <template slot-scope="scope">
+                {{ scope.row.code_info }}
+            </template>
+          </el-table-column>
+
+          <el-table-column label="错误详情" width="300">
             <template slot-scope="scope">
               <el-tag type="success" v-if="scope.row.error_info === 'Pass'">Pass</el-tag>
               <el-tag type="danger" v-else-if="typeof scope.row.error_info === 'string'">
@@ -78,7 +84,7 @@
           </el-col>
         </el-row>
 
-        <el-card>
+        <el-card style="width: 67%; margin: 0 auto;">
           <cag :graph-data="certGraphData" />
         </el-card>
       </el-tab-pane>
@@ -98,7 +104,7 @@
           :default-expand-all="isExpandAll"
           :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         >
-          <el-table-column label="Domain" width="300">
+          <el-table-column label="域名" width="300">
             <template slot-scope="{ row }">
               <router-link :to="`/host/host_view/${row.destination_host}`" style="color: #409EFF;">
                 {{ row.destination_host }}
@@ -114,8 +120,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="tls_version" label="TLS Version" width="120" />
-          <el-table-column prop="tls_cipher" label="TLS Cipher" width="160" />
+          <el-table-column prop="tls_version" label="TLS 版本" width="120">
+            <template #default="{ row }">
+              {{ formatTLSVersion(row.tls_version) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="tls_cipher" label="TLS 密钥算法" width="220" />
 
           <el-table-column label="证书指纹 (SHA256 List)" width="550">
             <template slot-scope="{ row }">
@@ -157,49 +167,36 @@ export default {
 
   data() {
     return {
-      // 遮罩层
       loading: true,
       refreshTable: true,
       isExpandAll: true,
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
 
       activeTab: 'detail',
-      certData: {
-        type: Object, // 👈 dict 类型
-        required: true,
-      },
+      certData: {},
       certSecurity: [],
+      certGraphData: {},
       deployedHosts: [],
-      certGraphData: {
-        type: Object, // 👈 dict 类型
-        required: true,
-      },
 
       // static error key info
-      totalErrorKeyInfo: {
-        "expired": "证书已过期",
-        "validity_too_long": "证书有效期过长",
-        "weak_rsa": "RSA 密钥强度过低",
-        "weak_hash": "使用了弱哈希算法 (如 MD5 或 SHA1)",
-        "not_asn1": "证书格式非标准 ASN.1 编码",
-        "self_signed": "自签名证书（未受信任）",
-        "abuse_ip": "证书部署在恶意 IP (AbuseIPDB) 上",
-        "DROP": "证书被主动丢弃或列入黑名单",
-        "wrong_version": "TLS/SSL 版本不符合规范",
-        "wrong_key_usage": "证书密钥用途错误或缺失",
-        "no_revoke": "证书未提供撤销信息 (CRL 或 OCSP)",
-        "no_sct": "缺少透明度日志 (SCT) 信息"
+      errorKeyInfo: {
+        "expired": "证书已超过其 “Not Valid After” 字段指定的有效期",
+        "validity_too_long": "证书有效期超过了 398 天的推荐上限",
+        "weak_rsa": "RSA 或 DSA 密钥长度低于安全建议的 2048 比特",
+        "weak_hash": "使用了不安全的哈希算法，如 MD5 或 SHA1",
+        "not_asn1": "证书格式不符合标准的 ASN.1 编码规范",
+        "self_signed": "证书为自签名证书，未被受信任的根机构签发",
+        "abuse_ip": "证书被发现部署在 AbuseIPDB 收录的恶意 IP 上",
+        "DROP": "证书被部署在 DROP 黑名单中的 IP 上",
+        "wrong_version": "证书版本不是符合规范的 v3 版本",
+        "wrong_key_usage": "证书缺少签名或服务器身份认证所需的密钥用途",
+        "no_revoke": "证书未包含撤销信息，如 CRL 或 OCSP 数据",
+        "no_sct": "证书缺少 Signed Certificate Timestamp (SCT) 信息"
       }
     };
   },
   created() {
-    const certSha256 = this.$route.params && this.$route.params.certSha256;
-    this.getCert(certSha256);
-    this.getCag(certSha256);
-    this.getHost(certSha256);
+    this.certSha256 = this.$route.params && this.$route.params.certSha256;
+    this.getCert(this.certSha256);
   },
   methods: {
     getCert(certSha256) {
@@ -210,8 +207,7 @@ export default {
         this.certData = response.cert_data;
 
         // 转换为表格需要的数组形式
-        console.log(response.cert_security);
-        this.certSecurity = Object.keys(this.totalErrorKeyInfo).map(code => {
+        this.certSecurity = Object.keys(this.errorKeyInfo).map(code => {
           const info = response.cert_security.error_info[code];
 
           const isPass =
@@ -222,8 +218,9 @@ export default {
             (typeof info === "object" && Object.keys(info).length === 0);
 
           return {
-            error_code: this.totalErrorKeyInfo[code],  // ✅ 中文名
-            error_info: isPass ? "Pass" : info         // ✅ 保留原始结构
+            error_code: code,                           // 当前错误代码字符串
+            code_info: this.errorKeyInfo[code] || "",   // 错误详细描述
+            error_info: isPass ? "Pass" : info          // 额外信息
           };
         });
 
@@ -254,14 +251,28 @@ export default {
     },
     handleTabChange(val) {
       this.activeTab = val;
-      // 你可以在这里根据 tab 切换执行额外逻辑
-      // if (val === 'security') this.loadSecurityAnalysis();
+      if (val === 'graph' && Object.keys(this.certGraphData).length === 0) {
+        this.getCag(this.certSha256);
+      }
+      if (val === 'deploy' && this.deployedHosts.length === 0) {
+        this.getHost(this.certSha256);
+      }
     },
     formatInfo(val) {
       if (Array.isArray(val)) {
         return val.join(", ");
       }
       return val;
+    },
+    formatTLSVersion(version) {
+      const versionMap = {
+        768: 'TLS 1.0',
+        769: 'TLS 1.1',
+        770: 'TLS 1.2',
+        771: 'TLS 1.2',
+        772: 'TLS 1.3',
+      };
+      return versionMap[version] || version;
     }
   }
 };
