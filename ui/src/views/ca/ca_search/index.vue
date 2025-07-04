@@ -26,11 +26,14 @@
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       >
       
-      <el-table-column prop="issuer_org" label="CA Name" align="center" width="500"></el-table-column>
-      
+      <el-table-column prop="id" label="CA ID" align="center" width="100"></el-table-column>
+      <el-table-column prop="subject.common_name" label="Common Name" align="center" width="300" />
+      <el-table-column prop="subject.country_name" label="Country" align="center" width="100" />
+      <el-table-column prop="subject.organization_name" label="Organization" align="center" width="200" />
+            
       <el-table-column label="Link" align="center" width="100">
         <template slot-scope="scope">
-          <router-link :to="'/ca/ca_view/' + scope.row.issuer_org" class="link-type">
+          <router-link :to="'/ca/ca_view/' + scope.row.id" class="link-type">
             <span>{{ "See Details" }}</span>
           </router-link>
         </template>
@@ -88,7 +91,20 @@ export default {
     handleQuery() {
       this.loading = true;
       searchCa(this.queryParams).then(response => {
-        this.searchResult = response.data;
+        const data = response.data;
+
+        // 👇 对 subject 做 JSON.parse（如果是字符串）
+        data.forEach(row => {
+          if (typeof row.subject === 'string') {
+            try {
+              row.subject = JSON.parse(row.subject);
+            } catch (e) {
+              row.subject = {};
+            }
+          }
+        });
+
+        this.searchResult = data;
         this.total = response.total;
         this.loading = false;
       });

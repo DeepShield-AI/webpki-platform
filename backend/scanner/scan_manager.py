@@ -32,7 +32,7 @@ from celery import group
 from backend.config.scan_config import ScanConfig, InputScanConfig, CTScanConfig
 from backend.logger.logger import primary_logger, get_logger
 from backend.utils.type import ScanType, ScanStatusType
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.scanner.jarm_fp_utils import *
 from backend.scanner.celery_monitor_task import monitor_scan_task
@@ -203,7 +203,7 @@ class CTScanner(Scanner):
             for cert in certificates:
                 if "-----BEGIN CERTIFICATE-----" in cert:
                     cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
-                    cert_sha256 = get_cert_sha256_hex_from_str(cert)
+                    cert_sha256 = get_sha256_hex_from_str(cert)
                     r.sadd("unique_ca_certs", cert_sha256)
 
             primary_logger.info(f"Load {len(certificates)} old CA certs")

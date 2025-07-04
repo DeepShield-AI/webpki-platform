@@ -19,7 +19,7 @@ from rich.console import Console
 from threading import Lock, Thread
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.utils.json import custom_serializer, split_json_objects
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.domain_lookup import DomainLookup
 
 

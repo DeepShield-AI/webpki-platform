@@ -1,21 +1,40 @@
 <template>
   <div class="app-container main">
     <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">
-      CA 详情: {{ caName }}
+      CA 详情: {{ caId }}
     </h2>
 
     <el-tabs :value="activeTab" @input="handleTabChange" type="card">
 
       <!-- Tab 1：CA 证书列表 -->
-      <el-tab-pane label="CA 拥有证书" name="certs">
-        <el-row :gutter="20">
+      <el-tab-pane label="CA Basic Info" name="certs">
+
+        <el-row :gutter="20" v-if="caInfo && caInfo.subject">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>CA详情</h2>
+            <el-card>
+              <RecursiveDict :data="JSON.parse(caInfo.subject)" />
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20" v-if="caInfo && caInfo.subject">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>CA详情</h2>
+            <el-card>
+              <RecursiveDict :data="JSON.parse(caInfo.spki)" />
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20" v-if="caInfo && caInfo.subject">
           <el-col :sm="24" :lg="24" style="padding-left: 20px">
             <h2>CA Certificates Owned</h2>
 
-            <div v-if="caCerts.length">
+            <div v-if="caInfo.certs.length">
               <ul style="padding-left: 10px;">
                 <li
-                  v-for="(sha, index) in caCerts"
+                  v-for="(sha, index) in JSON.parse(caInfo.certs)"
                   :key="index"
                   style="margin: 6px 0;"
                 >
@@ -33,6 +52,7 @@
             </div>
           </el-col>
         </el-row>
+
       </el-tab-pane>
 
       <!-- Tab 2：CA 颁发行为分析 -->
@@ -64,10 +84,12 @@
 <script>
 import { getCaInfo } from "@/api/ca/ca_search";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
+import Cag from '@/views/host/host_analysis/cag';
+import EChart from 'vue-echarts';
 
 export default {
   components: {
-    RecursiveDict
+    RecursiveDict, Cag, 'v-chart': EChart
   },
   name: "CaView",
   dicts: ['sys_cert_type', 'sys_key_type'],
@@ -75,8 +97,8 @@ export default {
     return {
       loading: true,
       activeTab: 'certs',
-      caName: this.$route.params.caName,
-      caCerts: [],
+      caId: this.$route.params.caId,
+      caInfo: {},
       caFps: [],
     };
   },
@@ -87,10 +109,9 @@ export default {
     getCa() {
       this.loading = true;
       // return jsonify({'msg': 'Success', 'code': 200, "ca_certs": ca_certs, "issuing_cert_fps" : []})
-      getCaInfo(this.caName).then(response => {
-        console.log(response.ca_certs);
-        this.caCerts = response.ca_certs;
-        this.caFps = response.issuing_cert_fps;
+      getCaInfo(this.caId).then(response => {
+        console.log(response.data);
+        this.caInfo = response.data;
         this.loading = false;
       });
     },

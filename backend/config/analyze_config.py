@@ -5,12 +5,14 @@ from dataclasses import dataclass, field
 class AnalyzeConfig:
     # Task flag constants (bitwise OR for multiple subtasks)
     TASK_CERT_FP: int = field(init=False, default=0b1)  # for parsing certificates
-    TASK_PARSE: int = field(init=False, default=0b10)  # for cert parse
+    TASK_CERT_PARSE: int = field(init=False, default=0b10)  # for cert parse
     TASK_REVOKE: int = field(init=False, default=0b100) # for checking revocation
     TASK_CAG: int = field(init=False, default=0b1000) # for building CAG for certain webpages
 
     TASK_CERT_SECURITY: int = field(init=False, default=0b10000) # for checking cert content conform
     TASK_WEB_SECURITY: int = field(init=False, default=0b100000) # for checking web tls deployment
+
+    TASK_CA_PROFILE: int = field(init=False, default=0b1000000)  # for ca
 
     # the output_dir if applies
     out_dir: str = r"out"

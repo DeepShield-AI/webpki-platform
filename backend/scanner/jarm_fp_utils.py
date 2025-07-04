@@ -458,7 +458,7 @@ def cipher_bytes(cipher):
         if cipher == strtype_bytes:
             break
         count += 1
-    hexvalue = str(hex(count))[2:]
+    hexvalue = format(count, 'x')
     #This part must always be two bytes
     if len(hexvalue) < 2:
         return_bytes = "0" + hexvalue

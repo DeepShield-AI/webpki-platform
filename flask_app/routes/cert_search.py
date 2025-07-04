@@ -6,9 +6,9 @@ from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert, engine_tls
 from flask_app.logger.logger import flask_logger    
 
+from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.parser.pem_parser import PEMParser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 
@@ -74,13 +74,13 @@ def cert_search():
     conn = engine_cert.raw_connection()
     with conn.cursor() as cursor:
         # 总数
-        count_query = f"SELECT COUNT(*) FROM cert_search_basic {where_sql}"
+        count_query = f"SELECT COUNT(*) FROM cert_search {where_sql}"
         cursor.execute(count_query, tuple(params))
         total = cursor.fetchone()[0]
 
         # 数据查询
         data_query = f"""
-            SELECT * FROM cert_search_basic
+            SELECT * FROM cert_search
             {where_sql}
             LIMIT %s OFFSET %s
         """
@@ -137,7 +137,7 @@ def get_cert_info(cert_sha256):
     with conn.cursor() as cursor:
         query = """
             SELECT * FROM cert
-            WHERE cert_hash = %s
+            WHERE sha256 = %s
         """
         cursor.execute(query, (cert_sha256,))
         row = cursor.fetchone()
@@ -146,7 +146,7 @@ def get_cert_info(cert_sha256):
     if not row:
         return jsonify({'msg': 'No Such Cert', 'code': 404})
 
-    cert_parsed = PEMParser.parse_native_pretty(row[1])
+    cert_parsed = PEMParser.parse_native_pretty_der(row[2])
     analyze_result = _cert_security_analyze(row, "/")
 
     try:
@@ -227,13 +227,13 @@ def get_cert_deploy_info(cert_sha256):
             JOIN (
                 SELECT destination_host, destination_ip
                 FROM tlshandshake
-                WHERE JSON_CONTAINS(cert_hash_list, %s)
+                WHERE JSON_CONTAINS(cert_sha256_list, %s)
                 GROUP BY destination_host, destination_ip
                 LIMIT 200
             ) AS limited_hosts
             ON t.destination_host = limited_hosts.destination_host
             AND t.destination_ip = limited_hosts.destination_ip
-            WHERE JSON_CONTAINS(t.cert_hash_list, %s);
+            WHERE JSON_CONTAINS(t.cert_sha256_list, %s);
         """
         cursor.execute(query, (json.dumps([cert_sha256]), json.dumps([cert_sha256])))
         rows = cursor.fetchall()

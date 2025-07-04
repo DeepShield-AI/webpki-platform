@@ -4,10 +4,10 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
 from flask_app.logger.logger import flask_logger
+from backend.celery.celery_db_pool import engine_cert, engine_tls
 
-def stream_ca(table_name="cert_search_basic", batch_size=1000, start_hash=""):
+def stream_ca(table_name="cert_search", batch_size=1000, start_hash=""):
     """
     Incrementally stream (sha256, issuer_org) pairs from the cert table,
     ordered by sha256 to support resumable iteration.

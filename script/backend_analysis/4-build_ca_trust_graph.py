@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
 from backend.config.analyze_config import TRUST_ROOT_DIR
 from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.utils.cert import get_cert_sha256_hex_from_str, is_issuer
+from backend.utils.cert import get_sha256_hex_from_str, is_issuer
 from backend.utils.json import custom_serializer
 
 class Analyzer():
@@ -50,11 +50,11 @@ class Analyzer():
                     if "-----BEGIN CERTIFICATE-----" in cert:
                         cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
                         self.trust_root_store.add(cert)
-                        self.trust_root_store_sha.add(get_cert_sha256_hex_from_str(cert))
+                        self.trust_root_store_sha.add(get_sha256_hex_from_str(cert))
                         
                         # add nodes
                         self.data_queue.put({
-                            "id": get_cert_sha256_hex_from_str(cert),
+                            "id": get_sha256_hex_from_str(cert),
                             "type": "trust_root"
                         })
                 primary_logger.info(f"Load {len(certificates)} CA certs from {file.path}")
@@ -69,7 +69,7 @@ class Analyzer():
                     if "-----BEGIN CERTIFICATE-----" in cert:
                         cert = cert + "-----END CERTIFICATE-----\n"  # 重新添加结尾
 
-                        if get_cert_sha256_hex_from_str(cert) not in self.trust_root_store_sha:
+                        if get_sha256_hex_from_str(cert) not in self.trust_root_store_sha:
                             self.untrust_ca_store.append(cert)
 
 
@@ -98,7 +98,7 @@ class Analyzer():
     def analyze_single(self, cert):
 
         parsed : PEMResult = PEMParser.parse_pem_cert(cert)
-        sha256 = get_cert_sha256_hex_from_str(cert)
+        sha256 = get_sha256_hex_from_str(cert)
 
         # add node
         node_type = "inter"
@@ -116,7 +116,7 @@ class Analyzer():
         # add link
         for issuer_cert in self.untrust_ca_store:
             if is_issuer(cert, issuer_cert):
-                issuer_sha256 = get_cert_sha256_hex_from_str(issuer_cert)
+                issuer_sha256 = get_sha256_hex_from_str(issuer_cert)
                 self.data_queue.put({
                     "source": issuer_sha256,
                     "target": sha256,
@@ -125,7 +125,7 @@ class Analyzer():
 
         for issuer_cert in self.trust_root_store:
             if is_issuer(cert, issuer_cert):
-                issuer_sha256 = get_cert_sha256_hex_from_str(issuer_cert)
+                issuer_sha256 = get_sha256_hex_from_str(issuer_cert)
                 self.data_queue.put({
                     "source": issuer_sha256,
                     "target": sha256,

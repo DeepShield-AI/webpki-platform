@@ -4,7 +4,7 @@ sys.path.append(r"D:\global_ca_monitor")
 
 import os
 import json
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 
 load_dir = r'H:/oak2024'
 
@@ -20,7 +20,7 @@ for file_entry in os.scandir(load_dir):
             for entry_id, entry_data in data.items():
                 leaf_cert = entry_data["leaf"]
 
-                sha256 = get_cert_sha256_hex_from_str(leaf_cert)
+                sha256 = get_sha256_hex_from_str(leaf_cert)
                 if sha256 in cert_sha256_set:
                     print(f"Cert entry {entry_id} got duplicates...")
                     ok = False

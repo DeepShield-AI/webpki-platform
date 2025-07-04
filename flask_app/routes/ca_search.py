@@ -5,11 +5,10 @@ from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
 from flask_app.logger.logger import flask_logger    
 
 from backend.parser.pem_parser import PEMParser
-from backend.analyzer.celery_cert_security_task import _cert_security_analyze
+from backend.celery.celery_db_pool import engine_ca
 
 @base.route('/ca/ca_search/search', methods=['GET'])
 @login_required
@@ -33,12 +32,12 @@ def ca_search():
     if where_sql:
         where_sql = "WHERE " + where_sql
 
-    conn = engine_cert.raw_connection()
+    conn = engine_ca.raw_connection()
     with conn.cursor() as cursor:
         # 总数
         count_query = f"""
-            SELECT COUNT(DISTINCT issuer_org)
-            FROM cert_search_basic
+            SELECT COUNT(*)
+            FROM ca
             {where_sql}
         """
         cursor.execute(count_query, tuple(params))
@@ -46,7 +45,7 @@ def ca_search():
 
         # 数据查询
         data_query = f"""
-            SELECT DISTINCT issuer_org FROM cert_search_basic
+            SELECT id, subject FROM ca
             {where_sql}
             LIMIT %s OFFSET %s
         """
@@ -55,9 +54,6 @@ def ca_search():
 
         columns = [desc[0] for desc in cursor.description]
         result = [dict(zip(columns, row)) for row in rows]
-
-        # 删除 issuer_org 为空或空字符串的项
-        result = [entry for entry in result if entry.get("issuer_org", None) is not None]
 
     return jsonify({
         'code': 200,
@@ -96,23 +92,25 @@ def ca_search():
     # return jsonify({'msg': '操作成功', 'code': 200, "data": [search_cert.to_json() for search_cert in search_certs], "total" : pagination.total})
 
 
-@base.route('/ca/ca_retrieve/<ca_name>', methods=['GET'])
+@base.route('/ca/ca_retrieve/<ca_id>', methods=['GET'])
 @login_required
-def get_ca_info(ca_name):
+def get_ca_info(ca_id):
 
     flask_logger.info(f"{request.args}")
 
-    conn = engine_cert.raw_connection()
+    conn = engine_ca.raw_connection()
     with conn.cursor() as cursor:
         query = """
-            SELECT * FROM cert_search_basic
-            WHERE subject_org like %s
+            SELECT * FROM ca
+            WHERE id = %s
         """
-        cursor.execute(query, (ca_name,))
-        rows = cursor.fetchall()
+        cursor.execute(query, (ca_id,))
+        row = cursor.fetchone()
 
-    if not rows:
-        return jsonify({'msg': 'Can not find CA certs', 'code': 404})
+        if not row:
+            return jsonify({'msg': 'Can not find CA data', 'code': 404})
 
-    ca_certs = [row[0] for row in rows]
-    return jsonify({'msg': 'Success', 'code': 200, "ca_certs": ca_certs, "issuing_cert_fps" : []})
+        columns = [desc[0] for desc in cursor.description]
+        result = dict(zip(columns, row))
+
+    return jsonify({'msg': 'Success', 'code': 200, "data": result})

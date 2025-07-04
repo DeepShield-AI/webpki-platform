@@ -17,11 +17,11 @@ from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.utils.exception import *
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_cert_hash
+from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
 
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_cert_hash("cert"):
+    for row in stream_by_sha256("cert"):
         # primary_logger.debug(row)
         cert_security_analyze.delay(row, output_dir)
     return True
@@ -36,10 +36,10 @@ def cert_security_analyze(row: list, output_dir: str) -> str:
 def _cert_security_analyze(row: list, output_dir: str) -> str:
 
     try:
-        cert: str = row[1]
+        cert: bytes = row[2]
         error_code = set()
         error_info = {}
-        parsed: dict = PEMParser.parse_native_pretty(cert)
+        parsed: dict = PEMParser.parse_native_pretty_der(cert)
         # primary_logger.debug(parsed)
 
         # 1. check expired certs
@@ -58,7 +58,7 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
 
         # 3. check sig and encrypt alg
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
-            temp_cert_file.write(cert.encode())
+            temp_cert_file.write(cert)
             temp_cert_path = temp_cert_file.name
 
         try:
@@ -119,7 +119,7 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
             error_code.add("self_signed")
 
         # 5. if cert is deployed on any ip that is in abuseipdb or drop
-        ips = find_ip_by_cert_sha256(row[0])
+        ips = find_ip_by_cert_sha256(row[1])
         filtered_ips = filter_abuse_ip(ips)
         if filtered_ips:
             error_code.add("abuse_ip")
@@ -204,7 +204,7 @@ def find_ip_by_cert_sha256(cert_sha256):
     cursor = conn.cursor()
     query = f"""
         SELECT * FROM tlshandshake
-        WHERE JSON_CONTAINS (cert_hash_list, %s)
+        WHERE JSON_CONTAINS (cert_sha256_list, %s)
         LIMIT 200
     """
     cursor.execute(query, (json.dumps([cert_sha256]), ))

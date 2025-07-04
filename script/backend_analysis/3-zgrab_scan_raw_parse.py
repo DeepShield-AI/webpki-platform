@@ -10,7 +10,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
 from backend.utils.json import custom_serializer
-from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
+from backend.utils.cert import get_sha256_hex_from_str, base64_to_pem
 
 class Analyzer():
 
@@ -103,7 +103,7 @@ class Analyzer():
                     break
 
                 for cert in data:
-                    cert_sha_256 = get_cert_sha256_hex_from_str(cert)
+                    cert_sha_256 = get_sha256_hex_from_str(cert)
                     if cert_sha_256 in self.ca_sha_256_set:
                         continue
                     self.ca_sha_256_set.add(cert_sha_256)

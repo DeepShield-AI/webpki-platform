@@ -102,15 +102,17 @@ def check_local_domain(domain : str) -> bool:
 def check_local_ip(ip : str) -> bool:
     return True
 
+# the standard sha came from DER format!!!
 def get_cert_sha256_hex_from_object(cert : Certificate) -> str:
-    sha256_hash = hashlib.sha256(cert.public_bytes(Encoding.PEM))
-    sha256_hex = sha256_hash.hexdigest()
-    return sha256_hex
+    return hashlib.sha256(cert.public_bytes(Encoding.DER)).hexdigest()
 
-def get_cert_sha256_hex_from_str(cert : str) -> str:
-    sha256_hash = hashlib.sha256(cert.encode())
-    sha256_hex = sha256_hash.hexdigest()
-    return sha256_hex
+# this does not indicate input format
+def get_sha256_hex_from_str(obj : str) -> str:
+    return hashlib.sha256(obj.encode()).hexdigest()
+
+# this does not indicate input format
+def get_sha256_hex_from_bytes(obj : bytes) -> str:
+    return hashlib.sha256(obj).hexdigest()
 
 # Certificate Policy Dict
 # The input file comes from Zmap

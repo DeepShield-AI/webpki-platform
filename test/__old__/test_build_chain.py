@@ -7,7 +7,7 @@ import os
 import json
 import tempfile
 import subprocess
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
 from backend.config.analyze_config import ZLINT_PATH
 
