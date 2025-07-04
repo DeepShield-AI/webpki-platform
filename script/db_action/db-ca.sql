@@ -1,0 +1,17 @@
+
+-- 创建 ca 数据库
+DROP DATABASE IF EXISTS `ca`;
+CREATE DATABASE IF NOT EXISTS `ca` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE `ca`;
+
+CREATE TABLE IF NOT EXISTS `ca` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,  -- sha256 of subject and spki
+  `subject` JSON,
+  `spki` JSON,
+  `certs` JSON,
+  `issued_certs` INT,
+  `parent` JSON,
+  `child` JSON
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
