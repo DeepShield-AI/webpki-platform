@@ -12,6 +12,10 @@ def custom_serializer(obj):
         return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
     if isinstance(obj, bytearray):
         return base64.b64encode(obj).decode('utf-8')
+    if isinstance(obj, int):
+        if abs(obj) > 9007199254740991:  # 超过 JS 安全整数范围
+            return hex(obj)  # 转为十六进制字符串，如 '0xabcdef...'
+        return obj
     raise TypeError(f"Type {type(obj)} not serializable")
 
 # Split json objects from a single file with mulitiple json objs
@@ -35,3 +39,15 @@ def split_json_objects(data):
             json_str = ""
 
     return json_objects
+
+def fix_large_ints_to_hex(obj):
+    if isinstance(obj, dict):
+        return {k: fix_large_ints_to_hex(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [fix_large_ints_to_hex(v) for v in obj]
+    elif isinstance(obj, int):
+        if abs(obj) > 9007199254740991:  # 超过 JS/JSON 安全范围
+            return format(obj, 'x')  # ✅ 不带 '0x' 前缀
+        return obj
+    else:
+        return obj

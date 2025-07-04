@@ -1,11 +1,12 @@
+
+# TODO: change to DER
 # Use pem library to parse the certificates
 # In case of any exception raised by cryptography library
 
-import idna
-import hashlib
-from dataclasses import dataclass, asdict
 from asn1crypto import pem, x509
-from ..utils.cert import ordered_dict_to_dict, get_cert_sha256_hex_from_str
+from dataclasses import dataclass, asdict
+from backend.utils.cert import ordered_dict_to_dict, get_sha256_hex_from_str, get_sha256_hex_from_bytes
+from backend.utils.json import fix_large_ints_to_hex
 
 '''
     Keep the following infomation:
@@ -21,24 +22,51 @@ from ..utils.cert import ordered_dict_to_dict, get_cert_sha256_hex_from_str
         OrderedDict([('extn_id', 'subject_alt_name'), ('critical', False), ('extn_value', ['*.card.tsinghua.edu.cn', '*.cic.tsinghua.edu.cn', '*.join-tsinghua.edu.cn', '*.net.edu.cn', '*.pt.tsinghua.edu.cn', '*.sem.tsinghua.edu.cn', '*.sysc.tsinghua.edu.cn', '*.syx.thcic.cn', '*.thcic.cn', '*.tsinghua.edu.cn', '*.tsinghua.org.cn', '*.zgclab.edu.cn'])]), 
         OrderedDict([('extn_id', 'certificate_policies'), ('critical', False), ('extn_value', [OrderedDict([('policy_identifier', '2.23.140.1.2.1'), ('policy_qualifiers', None)])])]), 
 '''
+
+'''
+    PEMResult should follow the table cert.cert_search:
+        `cert_id` INT UNSIGNED NOT NULL PRIMARY KEY,
+        `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
+        `serial` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
+        `subject_cn_list` JSON,
+        `subject` JSON,
+        `issuer` JSON,
+        `spkisha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+        `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
+'''
 @dataclass
 class PEMResult():
+
+    '''
+        For search cert
+    '''
     sha256 : str
+    serial : str
+    subject_cn_list : list
+    subject : dict
+    issuer : dict
+    ski : str
+    spkisha256 : str
+
+    '''
+        Other info
+    '''
     signature : str
     issuer_cn : str
     issuer_org : str
     issuer_country : str
     not_before : str
     not_after : str
-    subject : list
     subject_org : str
     pub_key_alg : str
-    pub_key_id : str
-    pub_key : dict
+    spki : dict
     policy : str
     self_signed : bool
     subject_sha : str
     issuer_sha : str
+    
+    # for ca unique key
+    ca_id_sha256 : str
 
 
 class PEMParser():
@@ -47,8 +75,7 @@ class PEMParser():
         pass
 
     @classmethod
-    def parse_native(self, pem_str : str):
-        
+    def parse_native_pem(self, pem_str : str):
         pem_bytes_str = pem_str.encode('utf-8')
         if pem.detect(pem_bytes_str):
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
@@ -56,65 +83,91 @@ class PEMParser():
             return cert.native
 
     @classmethod
-    def parse_native_pretty(self, pem_str : str):
-        return ordered_dict_to_dict(self.parse_native(pem_str))
+    def parse_native_pretty_pem(self, pem_str : str):
+        return ordered_dict_to_dict(self.parse_native_pem(pem_str))
+
+    @classmethod
+    def parse_der(self, der_bytes : bytes):
+        cert = x509.Certificate.load(der_bytes)
+        return cert
+
+    @classmethod
+    def parse_native_pretty_der(self, der_bytes : bytes):
+        return ordered_dict_to_dict(self.parse_der(der_bytes).native)
 
     @classmethod
     def parse_pem_cert(self, pem_str : str):
-
         pem_bytes_str = pem_str.encode('utf-8')
-        sha256_hash = hashlib.sha256()
-        sha256_hash.update(pem_bytes_str)
-
         if pem.detect(pem_bytes_str):
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
-            cert = x509.Certificate.load(der_bytes)
+            return PEMParser.parse_der_cert(der_bytes)
 
-            subject = []
-            pub_key_id = b''
-            policy = ''
-            subject.append(cert['tbs_certificate']['subject'].native.get('common_name', None))
-            extensions = cert['tbs_certificate']['extensions']
+    @classmethod
+    def parse_der_cert(self, der_bytes : bytes):
+        cert = x509.Certificate.load(der_bytes)
 
-            for ext in extensions:
-                ext_id = ext['extn_id'].native
+        # 拿到 SubjectPublicKeyInfo 部分（asn1crypto 类型）
+        spki = cert['tbs_certificate']['subject_public_key_info']
+        # spki.dump() 返回 DER 编码的 bytes
+        der_spki = spki.dump()
+        spki_sha256 = get_sha256_hex_from_bytes(der_spki)
 
-                if ext_id == 'subject_alt_name':
-                    try:
-                        subject += ext['extn_value'].native
-                        # print(subject)
-                    except UnicodeError:
-                        # print(ext['extn_value'])
-                        # subject += [idna.encode(domain_unicode) for domain_unicode in ext['extn_value'].native]
-                        pass
+        subject = cert['tbs_certificate']['subject']
+        der_subject = subject.dump()
+        ca_id_sha256 = get_sha256_hex_from_bytes(der_subject + der_spki)
 
-                if ext_id == 'key_identifier':
-                    pub_key_id = ext['extn_value'].native
-                    # print(pub_key_id)
-                if ext_id == 'certificate_policies':
-                    policy = ext['extn_value'].native[0].get('policy_identifier', None)
-                    # print(policy)
+        subject_cn_list = []
+        pub_key_id = b''
+        policy = ''
+        subject_cn_list.append(cert['tbs_certificate']['subject'].native.get('common_name', None))
+        extensions = cert['tbs_certificate']['extensions']
 
-            pem_result = PEMResult(
-                sha256_hash.hexdigest(),
-                cert['tbs_certificate']['signature']['algorithm'].native,
-                cert['tbs_certificate']['issuer'].native.get('common_name', None),
-                cert['tbs_certificate']['issuer'].native.get('organization_name', None),
-                cert['tbs_certificate']['issuer'].native.get('country_name', None),
-                cert['tbs_certificate']['validity']['not_before'].native.strftime("%Y-%m-%d-%H-%M-%S"),
-                cert['tbs_certificate']['validity']['not_after'].native.strftime("%Y-%m-%d-%H-%M-%S"),
-                list(set(subject)),
-                cert['tbs_certificate']['subject'].native.get('organization_name', None),
-                cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
-                pub_key_id.hex(),
-                ordered_dict_to_dict(cert['tbs_certificate']['subject_public_key_info']['public_key'].native),
-                policy,
-                cert['tbs_certificate']['issuer'].native == cert['tbs_certificate']['subject'].native,
-                get_cert_sha256_hex_from_str(str(cert['tbs_certificate']['subject'].native)),
-                get_cert_sha256_hex_from_str(str(cert['tbs_certificate']['issuer'].native))
-            )
+        for ext in extensions:
+            ext_id = ext['extn_id'].native
 
-            return pem_result
+            if ext_id == 'subject_alt_name':
+                try:
+                    subject_cn_list += ext['extn_value'].native
+                    # print(subject)
+                except UnicodeError:
+                    # print(ext['extn_value'])
+                    # subject += [idna.encode(domain_unicode) for domain_unicode in ext['extn_value'].native]
+                    pass
+
+            if ext_id == 'key_identifier':
+                pub_key_id = ext['extn_value'].native   # this is base64 bytes
+                # print(pub_key_id)
+            if ext_id == 'certificate_policies':
+                policy = ext['extn_value'].native[0].get('policy_identifier', None)
+                # print(policy)
+
+        pem_result = PEMResult(
+            sha256=get_sha256_hex_from_bytes(der_bytes),
+            serial=format(cert['tbs_certificate']['serial_number'].native, 'x'),
+            subject_cn_list=list(set(subject_cn_list)),
+            subject=cert['tbs_certificate']['subject'].native,
+            issuer=cert['tbs_certificate']['issuer'].native,
+            ski=pub_key_id.hex(),
+            spkisha256=spki_sha256,
+
+            signature=cert['tbs_certificate']['signature']['algorithm'].native,
+            issuer_cn=cert['tbs_certificate']['issuer'].native.get('common_name', None),
+            issuer_org=cert['tbs_certificate']['issuer'].native.get('organization_name', None),
+            issuer_country=cert['tbs_certificate']['issuer'].native.get('country_name', None),
+            not_before=cert['tbs_certificate']['validity']['not_before'].native.strftime("%Y-%m-%d-%H-%M-%S"),
+            not_after=cert['tbs_certificate']['validity']['not_after'].native.strftime("%Y-%m-%d-%H-%M-%S"),
+            subject_org=cert['tbs_certificate']['subject'].native.get('organization_name', None),
+            pub_key_alg=cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
+            spki=fix_large_ints_to_hex(cert['tbs_certificate']['subject_public_key_info'].native),
+            policy=policy,
+            self_signed=cert['tbs_certificate']['issuer'].native == cert['tbs_certificate']['subject'].native,
+            subject_sha=get_sha256_hex_from_str(str(cert['tbs_certificate']['subject'].native)),
+            issuer_sha=get_sha256_hex_from_str(str(cert['tbs_certificate']['issuer'].native)),
+
+            ca_id_sha256=ca_id_sha256
+        )
+
+        return pem_result
         
     @classmethod
     def parse_pem_cert_as_json(self, pem_str : str):

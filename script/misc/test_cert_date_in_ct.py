@@ -38,7 +38,7 @@ for file_name in file_name_list:
                 print(f"Not Before Time: {leaf_cert_native.not_before}")
                 print(f"Not After Time: {leaf_cert_native.not_after}")
                 try:
-                    print(f"Subject: {leaf_cert_native.subject}")
+                    print(f"Subject: {leaf_cert_native.subject_cn_list}")
                 except UnicodeEncodeError:
-                    print(f"Subject: {[item.encode() for item in leaf_cert_native.subject]}")
+                    print(f"Subject: {[item.encode() for item in leaf_cert_native.subject_cn_list]}")
 
