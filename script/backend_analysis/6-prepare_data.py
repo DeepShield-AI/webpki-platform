@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.config.analyze_config import ZLINT_PATH
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.logger.logger import primary_logger
 
@@ -22,7 +22,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
 from backend.utils.json import custom_serializer
-from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
+from backend.utils.cert import get_sha256_hex_from_str, base64_to_pem
 from collections import defaultdict
 
 final_data = defaultdict(int)  # or defaultdict(dict), depending on your needs
@@ -145,10 +145,10 @@ class Analyzer():
                     pass
 
                 # Step 4.2: hostname mismatch
-                if domain not in parsed_leaf.subject:
+                if domain not in parsed_leaf.subject_cn_list:
                     domain : str
                     wildcard_domain = ".".join(["*"] + domain.split(".")[1:])
-                    if wildcard_domain not in parsed_leaf.subject:
+                    if wildcard_domain not in parsed_leaf.subject_cn_list:
                         key_words_set.add("hostname_mismatch")
 
                 # step 4.3 check expired certs

@@ -7,7 +7,7 @@ from datetime import datetime
 from celery.result import AsyncResult
 from backend.scanner.celery_save_task import input_scan_save_result
 from backend.config.config_loader import DB_CONFIG
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 
 
 def test_input_scan_save_result():
@@ -39,7 +39,7 @@ def test_input_scan_save_result():
     assert result.successful()
 
     # 计算 hash
-    cert_hashes = [get_cert_sha256_hex_from_str(pem) for pem in fake_certs]
+    cert_hashes = [get_sha256_hex_from_str(pem) for pem in fake_certs]
 
     # this is test, so we use single conn here
     conn = pymysql.connect(**DB_CONFIG)

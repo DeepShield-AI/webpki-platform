@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.config.path_config import ZLINT_PATH
-from backend.utils.cert import get_cert_sha256_hex_from_str, get_cert_sha1_hex_from_str
+from backend.utils.cert import get_cert_sha1_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.logger.logger import primary_logger
 
@@ -311,7 +311,7 @@ class Analyzer():
             parsed : PEMResult = PEMParser.parse_pem_cert(cert)
             
             # Step 2: parse basic info
-            subject_cn = parsed.subject[0]
+            subject_cn = parsed.subject_cn_list[0]
             try:
                 issuer_country = parsed.issuer_country.upper()
             except Exception:
@@ -428,10 +428,10 @@ class Analyzer():
             #             break
 
             # 3.5 subject cn not match
-            if domain not in parsed.subject:
+            if domain not in parsed.subject_cn_list:
                 domain : str
                 wildcard_domain = ".".join(["*"] + domain.split(".")[1:])
-                if wildcard_domain not in parsed.subject:
+                if wildcard_domain not in parsed.subject_cn_list:
                     cert_error = True
                     error_info["deploy"].append("网站与证书域名不匹配")
 

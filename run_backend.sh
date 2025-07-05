@@ -8,7 +8,7 @@ redis-cli CONFIG SET maxmemory 536870912
 redis-cli CONFIG SET maxmemory-policy allkeys-lru
 
 # config MySQL
-mysql -u root -e "SET GLOBAL max_connections=205;"
+mysql -u tianyu -p -e "SET GLOBAL max_connections=205;"
 
 # start Celery Worker 
 # 2 processes, each for 50 threads, each thread run max 50 tasks and max process memory is 512M

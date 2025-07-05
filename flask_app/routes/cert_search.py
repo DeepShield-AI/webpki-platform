@@ -1,16 +1,27 @@
 
 import base64
-import json
+import json, math
 from datetime import datetime
 from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
 from flask_app.logger.logger import flask_logger    
 
+from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.parser.pem_parser import PEMParser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
+
+def json_default(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+    if isinstance(obj, bytearray):
+        return base64.b64encode(obj).decode('utf-8')
+
+    # 可以扩展支持其他类型
+    return str(obj)  # fallback: 转成字符串
 
 @base.route('/cert/cert_search/search', methods=['GET'])
 @login_required
@@ -37,7 +48,8 @@ def cert_search():
         params.append(cert_sha256)
 
     if subject:
-        where_clauses.append("JSON_CONTAINS(subject_cn_list, '\"%s\"')" % subject)
+        where_clauses.append("subject_cn_list LIKE %s")
+        params.append(f"%{subject}%")
 
     if begin_not_valid_before:
         where_clauses.append("not_valid_before >= %s")
@@ -62,13 +74,13 @@ def cert_search():
     conn = engine_cert.raw_connection()
     with conn.cursor() as cursor:
         # 总数
-        count_query = f"SELECT COUNT(*) FROM cert_search_basic {where_sql}"
+        count_query = f"SELECT COUNT(*) FROM cert_search {where_sql}"
         cursor.execute(count_query, tuple(params))
         total = cursor.fetchone()[0]
 
         # 数据查询
         data_query = f"""
-            SELECT * FROM cert_search_basic
+            SELECT * FROM cert_search
             {where_sql}
             LIMIT %s OFFSET %s
         """
@@ -125,7 +137,7 @@ def get_cert_info(cert_sha256):
     with conn.cursor() as cursor:
         query = """
             SELECT * FROM cert
-            WHERE cert_hash = %s
+            WHERE sha256 = %s
         """
         cursor.execute(query, (cert_sha256,))
         row = cursor.fetchone()
@@ -134,19 +146,16 @@ def get_cert_info(cert_sha256):
     if not row:
         return jsonify({'msg': 'No Such Cert', 'code': 404})
 
-    cert_parsed = PEMParser.parse_native_pretty(row[1])
+    cert_parsed = PEMParser.parse_native_pretty_der(row[2])
     analyze_result = _cert_security_analyze(row, "/")
 
-    def json_default(obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, bytes):
-            return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
-        if isinstance(obj, bytearray):
-            return base64.b64encode(obj).decode('utf-8')
-
-        # 可以扩展支持其他类型
-        return str(obj)  # fallback: 转成字符串
+    try:
+        modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
+        modulus = hex(modulus).upper().replace('0X', '')
+        cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus'] = modulus
+    except:
+        # probably be ec key
+        pass
 
     return Response(
         json.dumps({
@@ -203,3 +212,37 @@ def get_cert_info(cert_sha256):
 #             pass
 
 #     return jsonify({'code': 200, 'msg': '操作成功', "zlint_result" : zlint_output})
+
+@base.route('/cert/cert_retrieve/<cert_sha256>/deploy', methods=['GET'])
+@login_required
+def get_cert_deploy_info(cert_sha256):
+
+    flask_logger.info(f"{request.args}")
+
+    conn = engine_tls.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT t.*
+            FROM tlshandshake t
+            JOIN (
+                SELECT destination_host, destination_ip
+                FROM tlshandshake
+                WHERE JSON_CONTAINS(cert_sha256_list, %s)
+                GROUP BY destination_host, destination_ip
+                LIMIT 200
+            ) AS limited_hosts
+            ON t.destination_host = limited_hosts.destination_host
+            AND t.destination_ip = limited_hosts.destination_ip
+            WHERE JSON_CONTAINS(t.cert_sha256_list, %s);
+        """
+        cursor.execute(query, (json.dumps([cert_sha256]), json.dumps([cert_sha256])))
+        rows = cursor.fetchall()
+
+        print(rows)
+        if not rows:
+            return jsonify({'msg': 'No Host Found', 'code': 404})
+
+        columns = [desc[0] for desc in cursor.description]
+        result = [dict(zip(columns, row)) for row in rows]
+
+    return jsonify({'msg': 'Success', 'code': 200, "deploy_hosts": result})

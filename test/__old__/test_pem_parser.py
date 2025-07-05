@@ -8,9 +8,12 @@ with open(r'test_certs/baidu.com_single.pem', 'r') as f:
     data = f.read()
 
     pem_parser = PEMParser()
-    cert = pem_parser.parse_native_pretty(data)
+    cert = pem_parser.parse_native_pretty_pem(data)
     with open("out.json", 'w') as f:
         json.dump(cert, f, indent=4, default=custom_serializer)
+
+    cert = pem_parser.parse_pem_cert(data)
+    print(cert)
 
     # fp_constructor = ASN1StructFP()
     # fp, fp_raw = fp_constructor.build_fp(pem_parser.parse_native(data))

@@ -36,7 +36,7 @@ from ..logger.logger import primary_logger
 from ..utils.exception import ParseError
 from ..utils.cert import (
     get_cert_sha256_hex_from_object,
-    get_cert_sha256_hex_from_str
+    get_sha256_hex_from_str
 )
 
 

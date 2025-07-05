@@ -25,7 +25,7 @@ import pandas as pd
 from backend.utils.exception import UnknownTableError
 from collections import Counter
 from backend.utils.exception import UnknownTableError, ParseError
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.parser.cert_parser_base import X509CertParser
 from backend.parser.cert_parser_extension import SubjectKeyIdentifier, SubjectKeyIdentifierResult
 

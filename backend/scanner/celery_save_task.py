@@ -2,9 +2,10 @@
 import os
 import json
 import redis
+import base64
 import pymysql
 from backend.config.config_loader import DB_CONFIG
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str, get_sha256_hex_from_bytes
 from backend.logger.logger import primary_logger
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert, engine_tls
@@ -60,8 +61,8 @@ def input_scan_save_result(result: dict):
 
         # 计算证书哈希值
         cert_hashes = [
-            get_cert_sha256_hex_from_str(cert_pem)
-            for cert_pem in peer_certs
+            get_sha256_hex_from_str(cert_der)
+            for cert_der in peer_certs
         ]
 
         primary_logger.debug(f"Saving data for {destination_host} : {destination_ip}")
@@ -143,19 +144,22 @@ def batch_flush_results(min_batch_size=2000):
     try:
         # --- Step 1: 批量写入 cert 表 ---
         cert_data = []
+        ca_cert_data = []
         for result in results:
 
             ct_cert = result.get("cert_pem", None)
             if ct_cert is None:
                 # this is TLS scan result
                 peer_certs = result.get("ssl_result", {}).get("peer_certs", [])
-                for cert_pem in peer_certs:
-                    cert_hash = get_cert_sha256_hex_from_str(cert_pem)
-                    cert_data.append((cert_hash, cert_pem))
+                for i, cert_der_str in enumerate(peer_certs):
+                    cert_der_bytes = base64.b64decode(cert_der_str)
+                    cert_sha256 = get_sha256_hex_from_bytes(cert_der_bytes)
+                    cert_data.append((cert_sha256, cert_der_bytes))
+                    if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))
             else:
                 # this is CT scan result
-                cert_hash = get_cert_sha256_hex_from_str(ct_cert)
-                cert_data.append((cert_hash, ct_cert))
+                cert_sha256 = get_sha256_hex_from_str(ct_cert)
+                cert_data.append((cert_sha256, ct_cert))
 
                 if result.get("is_ca_cert", False):
                     out_dir = result.get("out_dir", None)
@@ -166,8 +170,16 @@ def batch_flush_results(min_batch_size=2000):
         if cert_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert (cert_hash, cert_pem) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO cert (sha256, cert_der) VALUES (%s, %s)",
                     cert_data
+                )
+            cert_conn.commit()
+
+        if ca_cert_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO ca_cert (sha256, cert_der) VALUES (%s, %s)",
+                    ca_cert_data
                 )
             cert_conn.commit()
 
@@ -180,10 +192,11 @@ def batch_flush_results(min_batch_size=2000):
 
             ssl_result = result.get("ssl_result", {})
             peer_certs = ssl_result.get("peer_certs", [])
-            cert_hashes = [
-                get_cert_sha256_hex_from_str(cert_pem)
-                for cert_pem in peer_certs
+            cert_sha256_list = [
+                get_sha256_hex_from_bytes(base64.b64decode(cert_der_str))
+                for cert_der_str in peer_certs
             ]
+
             tls_data.append((
                 result.get("destination_host"),
                 result.get("destination_ip"),
@@ -192,7 +205,7 @@ def batch_flush_results(min_batch_size=2000):
                 result.get("jarm_hash"),
                 ssl_result.get("tls_version"),
                 ssl_result.get("tls_cipher"),
-                json.dumps(cert_hashes),
+                json.dumps(cert_sha256_list),
                 ssl_result.get("error")
             ))
 
@@ -209,7 +222,7 @@ def batch_flush_results(min_batch_size=2000):
                     """
                     INSERT INTO tlshandshake (
                         destination_host, destination_ip, scan_time, jarm, jarm_hash,
-                        tls_version, tls_cipher, cert_hash_list, error
+                        tls_version, tls_cipher, cert_sha256_list, error
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     tls_data

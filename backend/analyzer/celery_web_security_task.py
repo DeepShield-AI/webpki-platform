@@ -15,9 +15,9 @@ from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
 from backend.parser.pem_parser import PEMParser, PEMResult
 from backend.utils.exception import *
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_cert_hash
-from backend.utils.cert import get_cert_sha256_hex_from_str
-from backend.celery.celery_db_pool import engine_cert
+from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
+from backend.utils.cert import get_sha256_hex_from_str
+from backend.celery.celery_db_pool import engine_cert, engine_tls
 
 accepted_cipher_list = [
     "TLS_AES_128_GCM_SHA256",
@@ -31,7 +31,7 @@ accepted_cipher_list = [
 
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id("tlshandshake"):
+    for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake"):
         web_security_analyze.delay(row, output_dir)
     return True
 
@@ -89,15 +89,15 @@ def _web_security_analyze(row: list, output_dir: str) -> str:
         leaf_cert: str = hash_to_row[cert_hash_list[0]]
 
         try:
-            parsed_leaf = PEMParser.parse_native(leaf_cert)
+            parsed_leaf = PEMParser.parse_native_pem(leaf_cert)
             parsed_leaf: PEMResult = PEMParser.parse_pem_cert(leaf_cert)
         except Exception:
             raise ParseError
 
         # 4. hostname mismatch
-        if host not in parsed_leaf.subject:
+        if host not in parsed_leaf.subject_cn_list:
             wildcard_host = ".".join(["*"] + host.split(".")[1:])
-            if wildcard_host not in parsed_leaf.subject:
+            if wildcard_host not in parsed_leaf.subject_cn_list:
                 error_code.add("hostname_mismatch")
 
         # 5. check expired certs

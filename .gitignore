@@ -36,6 +36,6 @@ myenv/
 pki_internet_platform.egg-info/
 
 celery_worker.service
+celerybeat-schedule
 celerybeat-schedule.*
-
 log/

@@ -9,14 +9,14 @@ import requests
 
 import redis
 from OpenSSL import SSL, crypto
-from OpenSSL.crypto import dump_certificate, FILETYPE_PEM
+from OpenSSL.crypto import dump_certificate, FILETYPE_ASN1, FILETYPE_PEM
 from cryptography.hazmat.primitives.serialization import Encoding
 from celery.app.task import Task
 from datetime import datetime, timezone
 
 from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.exception import RetriveError
 from backend.utils.network import resolve_host_dns, resolve_ip_reverse_dns_records
 from backend.utils.domain import check_input_type
@@ -244,13 +244,13 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
     except OSError as e:
         tls_version = None
         tls_cipher = None
-        cert_pem = []
+        cert_der_list = []
         last_error = str(e)
     
         ssl_result = {
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
-            "peer_certs" : cert_pem,
+            "peer_certs" : cert_der_list,
             "error" : last_error
         }
         # primary_logger.debug(ssl_result)
@@ -305,20 +305,20 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
     
         # Retrieve the peer certificate
         certs = sock_ssl.get_peer_cert_chain()
-        cert_pem = [dump_certificate(FILETYPE_PEM, cert).decode('utf-8') for cert in certs]
+        cert_der_list = [dump_certificate(FILETYPE_ASN1, cert) for cert in certs]  # 保持 bytes
         # my_logger.info(f"Success fetching certificate for {host} : {len(certs)}")
 
     except RetriveError as e:
         # my_logger.error(f"Error fetching certificate for {host}: {last_error} {last_error.__class__}")
         tls_version = None
         tls_cipher = None
-        cert_pem = []
+        cert_der_list = []
 
     except Exception as e:
         # my_logger.error(f"Error fetching certificate for {host}: {e} {e.__class__}")
         tls_version = None
         tls_cipher = None
-        cert_pem = []
+        cert_der_list = []
         last_error = e
     
     finally:
@@ -327,7 +327,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
         ssl_result = {
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
-            "peer_certs" : cert_pem,
+            "peer_certs" : cert_der_list,
             "error" : str(last_error)
         }
         # primary_logger.debug(ssl_result)
@@ -452,7 +452,7 @@ def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
             })
 
             for ca_cert in chain:
-                sha256_hash = get_cert_sha256_hex_from_str(ca_cert)
+                sha256_hash = get_sha256_hex_from_str(ca_cert)
                 if r.sadd("unique_ca_certs", sha256_hash) == 1:
                     enqueue_scan_result({
                         "cert_pem" : ca_cert,

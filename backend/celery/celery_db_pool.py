@@ -6,7 +6,8 @@ from sqlalchemy.engine import Engine
 from backend.config.config_loader import DB_CONFIG
 
 DB_CERT = "cert"
-DB_TLS = "tls_handshake"
+DB_CA = "ca"
+DB_TLS = "tls"
 
 def make_engine(db_name):
 
@@ -29,4 +30,5 @@ def make_engine(db_name):
     )
 
 engine_cert : Engine = make_engine(DB_CERT)
+engine_ca : Engine = make_engine(DB_CA)
 engine_tls : Engine = make_engine(DB_TLS)
