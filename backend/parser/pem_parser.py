@@ -75,6 +75,14 @@ class PEMParser():
         pass
 
     @classmethod
+    def pem_to_der(self, pem_str : str):
+        pem_bytes = pem_str.encode('utf-8')
+
+        if pem.detect(pem_bytes):
+            type_name, headers, der_bytes = pem.unarmor(pem_bytes)
+            return der_bytes
+
+    @classmethod
     def parse_native_pem(self, pem_str : str):
         pem_bytes_str = pem_str.encode('utf-8')
         if pem.detect(pem_bytes_str):
