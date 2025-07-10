@@ -2,7 +2,7 @@
   <div class="app-container main">
     <el-row :gutter="20">
       <el-col :sm="24" :lg="24" style="padding-left: 20px">
-        <h2>Host Security Analysis</h2>
+        <h2>网站 TLS 部署详情</h2>
       </el-col>
     </el-row>
 
@@ -50,7 +50,7 @@
                 :key="shaIdx"
               >
                 <router-link
-                  :to="`/system/cert_view/${sha}`"
+                  :to="`/cert/cert_view/${sha}`"
                   style="color: #409EFF;"
                 >
                   {{ sha }}

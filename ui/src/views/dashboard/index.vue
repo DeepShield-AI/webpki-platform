@@ -1,6 +1,32 @@
 <template>
   <div class="app-container">
 
+    <!-- FIRST PART CA -->
+    <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">CA 总览</h2>
+      
+    <!-- totalCaNum  -->
+    <el-card shadow="always" style="text-align: center;">
+      <div style="font-size: 32px; font-weight: bold; color: #409EFF;">{{ totalCaNum }}</div>
+      <div style="font-size: 16px; color: #666;">总 CA 数量</div>
+    </el-card>
+
+    <!-- caMarket -->
+    <el-card shadow="hover" style="margin-bottom: 20px; margin-top: 20px;">
+      <div slot="header">
+        <strong>CA 市场占比</strong>
+      </div>
+      <v-chart
+        :options="getCaPieOption(caMarket)"
+        autoresize
+        style="width: 100%; height: 600px;"
+      />
+    </el-card>
+
+    <el-divider />
+
+    <!-- SECOND PART HOST -->
+    <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">Web 总览</h2>
+      
     <!-- totalHostNum  -->
     <el-card shadow="always" style="text-align: center;">
       <div style="font-size: 32px; font-weight: bold; color: #409EFF;">{{ totalHostNum }}</div>
@@ -20,9 +46,17 @@
 
     <!-- 2. 错误代码饼图展示 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :span="6" v-for="(count, code) in hostSecurityStat.error_statistics" :key="code">
+      <el-col
+        v-for="(count, code) in hostSecurityStat.error_statistics"
+        :key="code"
+        :xs="24"
+        :sm="12"
+        :md="8"
+        :lg="6"
+        :xl="4"
+      >
         <el-card shadow="hover" style="margin-bottom: 20px;">
-          <div slot="header"><strong>{{ code }}</strong> 错误占比</div>
+          <div slot="header"><strong>{{ code }}</strong> 错误比率</div>
           <div style="display: flex; justify-content: center; align-items: center; height: 250px;">
             <v-chart
               :options="getPieOption(code, count)"
@@ -35,8 +69,9 @@
     </el-row>
 
     <el-divider />
-    <el-divider />
-    <el-divider />
+
+    <!-- THIRD PART CERT -->
+    <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">证书总览</h2>
 
     <!-- totalCertNum  -->
     <el-card shadow="always" style="text-align: center;">
@@ -57,9 +92,17 @@
 
     <!-- 2. 错误代码饼图展示 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <el-col :span="6" v-for="(count, code) in certSecurityStat.error_statistics" :key="code">
+      <el-col
+        v-for="(count, code) in certSecurityStat.error_statistics"
+        :key="code"
+        :xs="24"
+        :sm="12"
+        :md="8"
+        :lg="6"
+        :xl="4"
+      >
         <el-card shadow="hover" style="margin-bottom: 20px;">
-          <div slot="header"><strong>{{ code }}</strong> 错误占比</div>
+          <div slot="header"><strong>{{ code }}</strong> 错误比率</div>
           <div style="display: flex; justify-content: center; align-items: center; height: 250px;">
             <v-chart
               :options="getPieOption(code, count)"
@@ -77,6 +120,7 @@
 <script>
 import { getTotalCerts, getCertSecurityStats } from "@/api/cert/cert_analysis";
 import { getTotalHosts, getHostSecurityStats } from "@/api/host/host_analysis";
+import { getCaStats } from "@/api/ca/ca_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import EChart from 'vue-echarts';
@@ -100,6 +144,12 @@ export default {
       // 重新渲染表格状态
       refreshTable: true,
 
+      totalCaNum: 0,
+      caMarket: {
+        type: Object, // 👈 dict 类型
+        required: true,
+      },
+
       // host analysis
       totalHostNum: 0,
       errorHostPercentage: 0,
@@ -119,12 +169,38 @@ export default {
   created() {
     this.getTotalNum();
     this.getSecurityStats();
-    this.getTotalNum();
-    this.getSecurityStats();
   },
   methods: {
+
     getTotalNum(){
       this.loading = true;
+
+      getCaStats().then(response => {
+        const rawData = response.data;
+
+        // 排序并提取前10
+        const entries = Object.entries(rawData).sort((a, b) => b[1] - a[1]);
+        const top10 = entries.slice(0, 10);
+        const other = entries.slice(10);
+
+        const otherCount = other.reduce((acc, [_, val]) => acc + val, 0);
+
+        const pieData = top10.map(([name, value]) => ({ name, value }));
+        if (otherCount > 0) {
+          pieData.push({ name: 'Other', value: otherCount });
+        }
+
+        this.caMarket = pieData;
+
+        // 总量
+        this.totalCaNum = Object.keys(rawData).length;
+        this.loading = false;
+      }).catch(error => {
+        console.error("Failed to fetch CA stats:", error);
+        this.loading = false;
+      });
+
+
       // return jsonify({'msg': 'Success', 'code': 200, 'data': count})
       getTotalHosts().then(response => {
         this.totalHostNum = response.data;
@@ -147,6 +223,39 @@ export default {
         this.errorCertPercentage = (1 - (this.certSecurityStat.certificates_without_error / this.certSecurityStat.total_certificates)) * 100;
       })
       this.loading = false;
+    },
+
+    getCaPieOption(data) {
+      return {
+        title: {
+          text: 'CA 市场占比',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter: '{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'right'
+        },
+        series: [
+          {
+            name: 'CA',
+            type: 'pie',
+            radius: ['40%', '70%'], // 环形图
+            avoidLabelOverlap: false,
+            label: {
+              show: true,
+              formatter: '{b}: {d}%'
+            },
+            labelLine: {
+              show: true
+            },
+            data: data
+          }
+        ]
+      };
     },
 
     getPieOption(code, count) {

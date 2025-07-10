@@ -1,9 +1,11 @@
 
+import os
 import json
 import redis
+import base64
 import pymysql
 from backend.config.config_loader import DB_CONFIG
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str, get_sha256_hex_from_bytes
 from backend.logger.logger import primary_logger
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert, engine_tls
@@ -59,8 +61,8 @@ def input_scan_save_result(result: dict):
 
         # 计算证书哈希值
         cert_hashes = [
-            get_cert_sha256_hex_from_str(cert_pem)
-            for cert_pem in peer_certs
+            get_sha256_hex_from_str(cert_der)
+            for cert_der in peer_certs
         ]
 
         primary_logger.debug(f"Saving data for {destination_host} : {destination_ip}")
@@ -117,15 +119,18 @@ def input_scan_save_result(result: dict):
 @celery_app.task
 def batch_flush_results(min_batch_size=2000):
 
-    queue_len = r.llen('tls_results_queue')
+    queue_len = r.llen('scan_results_queue')
+    primary_logger.info(f"Current LLEN: {queue_len}")
+
     if queue_len > 2 * min_batch_size:
         batch_size = int(queue_len / 2)
     else:
         batch_size = min_batch_size
 
     results = []
+    primary_logger.info(f"Batch Size: {batch_size}")
     for _ in range(batch_size):
-        raw = r.lpop("tls_results_queue")
+        raw = r.lpop("scan_results_queue")
         if raw:
             results.append(json.loads(raw))
 
@@ -139,29 +144,59 @@ def batch_flush_results(min_batch_size=2000):
     try:
         # --- Step 1: 批量写入 cert 表 ---
         cert_data = []
+        ca_cert_data = []
         for result in results:
-            peer_certs = result.get("ssl_result", {}).get("peer_certs", [])
-            for cert_pem in peer_certs:
-                cert_hash = get_cert_sha256_hex_from_str(cert_pem)
-                cert_data.append((cert_hash, cert_pem))
+
+            ct_cert = result.get("cert_pem", None)
+            if ct_cert is None:
+                # this is TLS scan result
+                peer_certs = result.get("ssl_result", {}).get("peer_certs", [])
+                for i, cert_der_str in enumerate(peer_certs):
+                    cert_der_bytes = base64.b64decode(cert_der_str)
+                    cert_sha256 = get_sha256_hex_from_bytes(cert_der_bytes)
+                    cert_data.append((cert_sha256, cert_der_bytes))
+                    if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))
+            else:
+                # this is CT scan result
+                cert_sha256 = get_sha256_hex_from_str(ct_cert)
+                cert_data.append((cert_sha256, ct_cert))
+
+                if result.get("is_ca_cert", False):
+                    out_dir = result.get("out_dir", None)
+                    if out_dir is not None:
+                        with open(os.path.join(out_dir, "unique_ca_certs"), "a") as f:
+                            f.write(ct_cert)
 
         if cert_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert (cert_hash, cert_pem) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO cert (sha256, cert_der) VALUES (%s, %s)",
                     cert_data
+                )
+            cert_conn.commit()
+
+        if ca_cert_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO ca_cert (sha256, cert_der) VALUES (%s, %s)",
+                    ca_cert_data
                 )
             cert_conn.commit()
 
         # --- Step 2: 批量写入 tlshandshake 表 ---
         tls_data = []
         for result in results:
+
+            ct_cert = result.get("cert_pem", None)
+            if ct_cert is not None: continue
+
             ssl_result = result.get("ssl_result", {})
             peer_certs = ssl_result.get("peer_certs", [])
-            cert_hashes = [
-                get_cert_sha256_hex_from_str(cert_pem)
-                for cert_pem in peer_certs
+            cert_sha256_list = [
+                get_sha256_hex_from_bytes(base64.b64decode(cert_der_str))
+                for cert_der_str in peer_certs
             ]
+
             tls_data.append((
                 result.get("destination_host"),
                 result.get("destination_ip"),
@@ -170,9 +205,16 @@ def batch_flush_results(min_batch_size=2000):
                 result.get("jarm_hash"),
                 ssl_result.get("tls_version"),
                 ssl_result.get("tls_cipher"),
-                json.dumps(cert_hashes),
+                json.dumps(cert_sha256_list),
                 ssl_result.get("error")
             ))
+
+            # check for file output
+            out_file = result.get("out_file", None)
+            if out_file:
+                with open(out_file, "a") as out:
+                    out.write(json.dumps(result))
+                    out.write("\n")
 
         if tls_data:
             with tls_conn.cursor() as cursor:
@@ -180,7 +222,7 @@ def batch_flush_results(min_batch_size=2000):
                     """
                     INSERT INTO tlshandshake (
                         destination_host, destination_ip, scan_time, jarm, jarm_hash,
-                        tls_version, tls_cipher, cert_hash_list, error
+                        tls_version, tls_cipher, cert_sha256_list, error
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     tls_data

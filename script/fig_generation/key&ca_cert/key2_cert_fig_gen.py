@@ -7,7 +7,7 @@ from sqlalchemy import MetaData
 import numpy as np
 import matplotlib.pyplot as plt
 from backend.utils.exception import UnknownTableError, ParseError
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.parser.cert_parser_base import X509CertParser
 from backend.parser.cert_parser_extension import SubjectKeyIdentifier, SubjectKeyIdentifierResult
 from collections import Counter
@@ -68,7 +68,7 @@ with app.app_context():
             key_id = key_id.key_identifier
             ca_key_table[row[4]][key_id] += 1
         else:
-            key_id = get_cert_sha256_hex_from_str(cert_parse_result.pub_key_raw)
+            key_id = get_sha256_hex_from_str(cert_parse_result.pub_key_raw)
             ca_key_table[row[4]][key_id] += 1
 
     # print(ca_key_table)

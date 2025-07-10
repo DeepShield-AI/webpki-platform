@@ -15,6 +15,12 @@ function check_command {
 # ===== Install APT Package =====
 function install_apt_package {
     echo -e "${GREEN}Installing $1 via apt...${NC}"
+    
+    if ! grep -q "tuna.tsinghua.edu.cn" /etc/apt/sources.list; then
+        echo -e "${GREEN}Switching to Tsinghua mirror...${NC}"
+        sudo sed -i.bak -E 's|http://([a-z\.]*\.)?ubuntu\.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list
+    fi
+
     sudo apt-get update
     sudo apt-get install -y "$1"
 }
@@ -49,8 +55,8 @@ install_apt_package "python$PYVER-venv"
 rm -rf myenv
 python3 -m venv myenv
 source ./myenv/bin/activate
-pip install --upgrade pip
-pip install -e .
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -e .
 
 echo "==== Setting Up MySQL Service ===="
 
@@ -62,7 +68,7 @@ else
     echo -e "${GREEN}MySQL client found${NC}"
 fi
 
-if ! systemctl list-units --type=service | grep -q mysql; then
+if ! sudo systemctl list-units --type=service | grep -q mysql; then
     echo -e "${RED}MySQL service not found. Installing...${NC}"
     install_apt_package mysql-server
     echo "You can start it with: sudo systemctl enable --now mysql"
@@ -97,22 +103,22 @@ fi
 echo -e "${GREEN}Found configuration file: $CONFIG_FILE${NC}"
 
 # --- Backup and Modify innodb_buffer_pool_size ---
-cp "$CONFIG_FILE" "${CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+sudo cp "$CONFIG_FILE" "${CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
 echo "Backed up original config file"
 
 if grep -q "innodb_buffer_pool_size" "$CONFIG_FILE"; then
-  sed -i "s/^innodb_buffer_pool_size.*/innodb_buffer_pool_size = $INNODB_SIZE_BYTES/" "$CONFIG_FILE"
+  sudo sed -i "s/^innodb_buffer_pool_size.*/innodb_buffer_pool_size = $INNODB_SIZE_BYTES/" "$CONFIG_FILE"
   echo "Updated innodb_buffer_pool_size = $INNODB_SIZE_BYTES"
 else
-  sed -i "/^\[mysqld\]/a innodb_buffer_pool_size = $INNODB_SIZE_BYTES" "$CONFIG_FILE"
+  sudo sed -i "/^\[mysqld\]/a innodb_buffer_pool_size = $INNODB_SIZE_BYTES" "$CONFIG_FILE"
   echo "Added innodb_buffer_pool_size to [mysqld] block"
 fi
 
 # --- Configure systemd MemoryMax ---
 echo "Setting systemd MemoryMax = $MEMORY_MAX"
 
-mkdir -p /etc/systemd/system/mysql.service.d
-cat <<EOF | sudo tee /etc/systemd/system/mysql.service.d/override.conf > /dev/null
+sudo mkdir -p /etc/systemd/system/mysql.service.d
+sudo cat <<EOF | sudo tee /etc/systemd/system/mysql.service.d/override.conf > /dev/null
 [Service]
 MemoryMax=$MEMORY_MAX
 EOF
@@ -120,10 +126,10 @@ EOF
 # --- Reload systemd and restart MySQL ---
 echo "Reloading systemd and restarting MySQL..."
 
-systemctl daemon-reexec
-systemctl daemon-reload
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
 
-if systemctl restart mysql 2>/dev/null || systemctl restart mysqld 2>/dev/null; then
+if sudo systemctl restart mysql 2>/dev/null || sudo systemctl restart mysqld 2>/dev/null; then
   echo -e "${GREEN}MySQL restarted successfully. Memory limit applied.${NC}"
 else
   echo -e "${RED}Failed to restart MySQL. Check if service is named mysql or mysqld${NC}"
@@ -133,9 +139,9 @@ echo "==== Initializing MySQL Schema ===="
 
 if [ -f "./script/db_action/db.sql" ]; then
     echo "Importing database initialization script..."
-    mysql < ./script/db_action/db.sql
-    mysql < ./script/db_action/db-new.sql
-    mysql < ./script/db_action/init-db.sql
+    sudo mysql < ./script/db_action/db.sql
+    sudo mysql < ./script/db_action/init-db.sql
+    sudo mysql < ./script/db_action/db-new.sql
 else
     echo -e "${RED}SQL file not found. Skipping initialization.${NC}"
 fi
@@ -171,6 +177,13 @@ if check_command redis-cli; then
 fi
 
 echo "==== Installing Node.js and Frontend Dependencies ===="
+
+if ! check_command curl; then
+    echo -e "${RED}curl not found. Installing...${NC}"
+    install_apt_package curl
+else
+    echo -e "${GREEN}curl found${NC}"
+fi
 
 if ! check_command npm || ! check_command node; then
     echo -e "${RED}Node.js/npm not found. Installing via NodeSource...${NC}"

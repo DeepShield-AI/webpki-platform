@@ -1,25 +1,21 @@
 
-import sys
-sys.path.append(r"/root/global_ca_monitor")
-
-from backend import app
 from backend.config.scan_config import CTScanConfig
-from backend.utils.type import ScanType
-from backend.celery import g_manager
-from backend.celery.task import TaskBatchTemplate
-
-log_address = "oak.ct.letsencrypt.org/2024h1"
-header_request = f"https://{log_address}/ct/v1/get-sth"
+from backend.scanner.celery_scan_task import launch_scan_task
 
 if __name__ == "__main__":
-    with app.app_context():
-        scan_type = ScanType(ScanType.SCAN_BY_CT)
-        scan_args = {
-            'SCAN_PROCESS_NAME': "oak 2024h1 test",
-            'CT_LOG_ADDRESS' : log_address,
-            'WINDOW_SIZE' : 20
-        }
+    test_config = CTScanConfig(
+        scan_task_name="yeti2025 1780M-1790M",
+        output_file_dir=r"/home/tianyuz23/data/pki-internet-platform/data/ca_certs",
+        proxy_host=None,
+        proxy_port=None,
+        scan_timeout=2,
+        max_retry=10,
+        ct_log_name="yeti2025",
+        ct_log_address="yeti2025.ct.digicert.com/log",
+        entry_start= 1780000000,
+        entry_end= 1790000000,
+        window_size= 200
+    )
 
-        config = CTScanConfig(**scan_args)
-        task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])
-        g_manager.start_submitted_tasks()
+    launch_scan_task(test_config.to_dict())
+

@@ -18,19 +18,19 @@ from backend.parser.pem_parser import PEMParser
 from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_cert_hash
+from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
 
 @celery_app.task
 def build_all_from_table(cert_table: str) -> str:
 
-    for row in stream_by_cert_hash(cert_table):
+    for row in stream_by_sha256(cert_table):
         # row[1] is the real pem data
-        build_cert_fp.delay(row[0], row[1])
+        build_cert_fp.delay(row[1], row[2])
 
 
 @celery_app.task
 def build_cert_fp(_hash : str, asn_1: str) -> str:
-    parsed_cert = PEMParser.parse_native(asn_1)
+    parsed_cert = PEMParser.parse_native_pem(asn_1)
     fp = ASN1StructFP.build_fp(parsed_cert)
     enqueue_result({
         "flag": AnalyzeConfig.TASK_CERT_FP,
