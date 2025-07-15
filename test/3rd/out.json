@@ -1,0 +1,150 @@
+{
+    "tbs_certificate": {
+        "version": "v3",
+        "serial_number": 10333698977508394938978438630763224864,
+        "signature": {
+            "algorithm": "sha256_rsa",
+            "parameters": null
+        },
+        "issuer": {
+            "country_name": "US",
+            "organization_name": "DigiCert Inc",
+            "common_name": "DigiCert Secure Site Pro CN CA G3"
+        },
+        "validity": {
+            "not_before": "2023-01-30T00:00:00+00:00",
+            "not_after": "2024-02-27T23:59:59+00:00"
+        },
+        "subject": {
+            "country_name": "CN",
+            "state_or_province_name": "\u5317\u4eac\u5e02",
+            "organization_name": "BeiJing Baidu Netcom Science Technology Co., Ltd",
+            "common_name": "www.baidu.cn"
+        },
+        "subject_public_key_info": {
+            "algorithm": {
+                "algorithm": "rsa",
+                "parameters": null
+            },
+            "public_key": {
+                "modulus": 20158124241215979194994087846495483742564766138319806533590210466334631831811682726689884320965590960604709454939080824917853341862643606142598329757005015688425488800242163716115455077884413175310942344075091525532735643781924771155209795683245796719406101076499069933029019227136854506536923123299857960790691606600597819993635339878643760757237961792115633779040484085376282737095735808524972389666923968185454683198458709383425793914697335482749310754245681825017317203721776661719478740699157873780562364869660325251226237891836020995507402126354141985230483599543439274340041995655858492432122431037372616396253,
+                "public_exponent": 65537
+            }
+        },
+        "issuer_unique_id": null,
+        "subject_unique_id": null,
+        "extensions": [
+            {
+                "extn_id": "authority_key_identifier",
+                "critical": false,
+                "extn_value": {
+                    "key_identifier": "e6P6//XVCV0e+Sr/hVPtr0eo13o=",
+                    "authority_cert_issuer": null,
+                    "authority_cert_serial_number": null
+                }
+            },
+            {
+                "extn_id": "key_identifier",
+                "critical": false,
+                "extn_value": "g9g9mOdy4mtwV5jgOLWe5w/3/Xk="
+            },
+            {
+                "extn_id": "subject_alt_name",
+                "critical": false,
+                "extn_value": [
+                    "www.baidu.cn",
+                    "baidu.cn",
+                    "baidu.com",
+                    "baidu.com.cn",
+                    "w.baidu.com",
+                    "ww.baidu.com",
+                    "www.baidu.com.cn",
+                    "www.baidu.com.hk",
+                    "www.baidu.hk",
+                    "www.baidu.net.au",
+                    "www.baidu.net.ph",
+                    "www.baidu.net.tw",
+                    "www.baidu.net.vn",
+                    "wwww.baidu.com",
+                    "wwww.baidu.com.cn"
+                ]
+            },
+            {
+                "extn_id": "key_usage",
+                "critical": true,
+                "extn_value": [
+                    "key_encipherment",
+                    "digital_signature"
+                ]
+            },
+            {
+                "extn_id": "extended_key_usage",
+                "critical": false,
+                "extn_value": [
+                    "server_auth",
+                    "client_auth"
+                ]
+            },
+            {
+                "extn_id": "crl_distribution_points",
+                "critical": false,
+                "extn_value": [
+                    {
+                        "distribution_point": [
+                            "http://crl.digicert.cn/DigiCertSecureSiteProCNCAG3.crl"
+                        ],
+                        "reasons": null,
+                        "crl_issuer": null
+                    }
+                ]
+            },
+            {
+                "extn_id": "certificate_policies",
+                "critical": false,
+                "extn_value": [
+                    {
+                        "policy_identifier": "2.23.140.1.2.2",
+                        "policy_qualifiers": [
+                            {
+                                "policy_qualifier_id": "certification_practice_statement",
+                                "qualifier": "http://www.digicert.com/CPS"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "extn_id": "authority_information_access",
+                "critical": false,
+                "extn_value": [
+                    {
+                        "access_method": "ocsp",
+                        "access_location": "http://ocsp.digicert.cn"
+                    },
+                    {
+                        "access_method": "ca_issuers",
+                        "access_location": "http://cacerts.digicert.cn/DigiCertSecureSiteProCNCAG3.crt"
+                    }
+                ]
+            },
+            {
+                "extn_id": "basic_constraints",
+                "critical": false,
+                "extn_value": {
+                    "ca": false,
+                    "path_len_constraint": null
+                }
+            },
+            {
+                "extn_id": "signed_certificate_timestamp_list",
+                "critical": false,
+                "extn_value": "AWYAdgB2/4g/Crb7lVHCYcz1h7o0tKTNuyncaEIKn+ZnTFo6dAAAAYYASawnAAAEAwBHMEUCIQDjgYP/sUkGbJROWuXuN97rM6NHB3lq6x+Z985+S10eswIgb9fiOCYt3IBsthHmATZ4Bl48LTMAX1d5ttPai+nN9icAdQBIsONr2qZHNA/lagL6nTDrHFIBy1bdLIHZu7+rOdiEcwAAAYYASawNAAAEAwBGMEQCICMM+RwiopeB0Y6aG8WIUWQYuDVH4K3BSY5kgILtisKmAiAJFzqWcq1mhr+w2G7l0m9H0Xkt+0H7KlW4lwdSu3Oj3gB1ADtTd3U+LbmAToswWwb+QDtn2E/D9Me9AA0tcm/h+tQXAAABhgBJrAMAAAQDAEYwRAIgE+X6Wx31mLqicumqpdHFeiQuaIqkIKbSx+WjR1GCV7MCICIyLxexhSqWaz3jG49bC7fOmrz0irdkl2fQstyTs8oN"
+            }
+        ]
+    },
+    "signature_algorithm": {
+        "algorithm": "sha256_rsa",
+        "parameters": null
+    },
+    "signature_value": "IQaeaXINZBnioZo4+lTNI+NBru5I0lEWevV4pae28jFNRARNO34Lad0t58svnL6QfwWBYuj3JNPMh93TuAWN8qeg3NLk6QUS6xlx78Tw3SSJGrtBIhztFWanKWdgUIikaUF4QgwJ+zI093vsZle4EfK0WZVJu4oS2E9G+5rlVtp9RoVIcj0H2B+UFwCsm28chElCuBcFZztSWY/+lkUOfKI+JQPQ4IXV57jhaEI8LA0ZsfLdzbkcmN+2yFDwaXQcCoR63t1AnUs75bL6rY/Roq8szpMevdWiKj8+Ev5tMGLWTeX+8+sn/8XHUSTO/ezhTxvICaOF2kilUnGRFFUWzA=="
+}
