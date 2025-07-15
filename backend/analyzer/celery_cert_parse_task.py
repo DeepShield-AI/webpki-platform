@@ -40,6 +40,8 @@ def _cert_parse(row: list) -> str:
             "issuer" : parsed.issuer,
             "spkisha256" : parsed.spkisha256,
             "ski" : parsed.ski,
+            "not_valid_before" : parsed.not_before,
+            "not_valid_after" : parsed.not_after,
         }
 
     except Exception as e:
