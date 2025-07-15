@@ -169,7 +169,7 @@ export const dynamicRoutes = [
     permissions: ['cert:cert_search:list'],
     children: [
       {
-        path: ':certSha256(.*)',
+        path: ':certId(.*)',
         component: () => import('@/views/cert/cert_search/data'),
         name: 'CertSearchData',
         meta: { title: '证书详情', activeMenu: '/cert/cert_search' }

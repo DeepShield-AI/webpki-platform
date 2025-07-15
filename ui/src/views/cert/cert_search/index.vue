@@ -59,6 +59,7 @@
       :tree-props="{children: 'children', hasChildren: 'hasChildren'}"
       >
       
+      <el-table-column prop="id" label="证书 ID" width="75"></el-table-column>
       <el-table-column prop="sha256" label="证书 Sha256" width="275"></el-table-column>
 
       <el-table-column prop="subject_cn_list" label="主体名称" align="center" width="225">
@@ -78,14 +79,20 @@
         </template>
       </el-table-column>
 
-      <el-table-column prop="subject_org" label="所属机构" align="center" width="225"></el-table-column>
+      <el-table-column
+        label="所属机构"
+        align="left"
+        width="250"
+        :formatter="formatSubject"
+      >
+      </el-table-column>
 
-      <el-table-column label="签发者" align="center" width="225">
-        <template #default="scope">
-          <div align="left">CN: {{ scope.row.issuer_cn || '-' }}</div>
-          <div align="left">O: {{ scope.row.issuer_org || '-' }}</div>
-          <div align="left">C: {{ scope.row.issuer_country || '-' }}</div>
-        </template>
+      <el-table-column
+        label="签发者"
+        align="left"
+        width="250"
+        :formatter="formatIssuer"
+      >
       </el-table-column>
 
       <el-table-column prop="not_valid_before" label="有效期开始时间" align="center" width="160">
@@ -101,7 +108,7 @@
       
       <el-table-column label="Cert Link" align="center" width="100">
         <template slot-scope="scope">
-          <router-link :to="'/cert/cert_view/' + scope.row.sha256" class="link-type">
+          <router-link :to="'/cert/cert_view/' + scope.row.id" class="link-type">
             <span>{{ "See Details" }}</span>
           </router-link>
         </template>
@@ -188,7 +195,41 @@ export default {
       } catch {
         return [];
       }
+    },
+    formatSubject(row) {
+      return this.formatX509(row.subject);
+    },
+    formatIssuer(row) {
+      return this.formatX509(row.issuer);
+    },
+    formatX509(obj) {
+      if (!obj) return '';
+      if (typeof obj === 'string') {
+        try {
+          obj = JSON.parse(obj);
+        } catch {
+          return '';
+        }
+      }
+      const fieldMap = {
+        common_name: 'CN',
+        country_name: 'C',
+        organization_name: 'O',
+        organizational_unit_name: 'OU',
+      };
+      const result = Object.entries(obj)
+        // .filter(([k]) => k !== 'common_name')
+        .map(([k, v]) => `${fieldMap[k] || k}: ${v}`)
+        .join('\n');
+      // console.log('formatX509 output:', result);
+      return result;
     }
   },
 };
 </script>
+
+<style>
+.el-table .cell {
+  white-space: pre-line;
+}
+</style>

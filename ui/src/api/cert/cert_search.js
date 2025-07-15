@@ -9,18 +9,35 @@ export function searchCert(query) {
   })
 }
 
-
-export function getCertInfo(certSha256) {
+export function getCertInfo(certId) {
   return request({
-    url: '/cert/cert_retrieve/' + certSha256,
+    url: '/cert/cert_retrieve/' + certId,
     method: 'get'
   })
 }
 
-export function getCertDeployInfo(certSha256) {
+export function getCertDeployInfo(certId) {
   return request({
-    url: '/cert/cert_retrieve/' + certSha256 + '/deploy',
+    url: '/cert/cert_retrieve/' + certId + '/deploy',
     method: 'get'
+  })
+}
+
+export function getCertRevocationRecords(certId) {
+  return request({
+    url: '/cert/cert_retrieve/' + certId + '/revoke',
+    method: 'get'
+  })
+}
+
+export function checkRevoke(type, certId, distPoint) {
+  return request({
+    url: '/cert/cert_retrieve/' + certId + '/get_revoke',
+    method: 'get',
+    params: {
+      "type" : type,
+      "dist_point" : distPoint
+    }
   })
 }
 
