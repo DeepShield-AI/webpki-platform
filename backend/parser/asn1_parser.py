@@ -36,7 +36,7 @@ from backend.utils.json import fix_large_ints_to_hex
         `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
 '''
 @dataclass
-class PEMResult():
+class ASN1Result():
 
     '''
         For search cert
@@ -163,7 +163,7 @@ class ASN1Parser():
                 policy = ext['extn_value'].native[0].get('policy_identifier', None)
                 # print(policy)
 
-        pem_result = PEMResult(
+        pem_result = ASN1Result(
             sha256=get_sha256_hex_from_bytes(der_bytes),
             serial=format(cert['tbs_certificate']['serial_number'].native, 'x'),
             subject_cn_list=list(set(subject_cn_list)),
@@ -196,5 +196,5 @@ class ASN1Parser():
         return asdict(self.parse_pem_cert(pem_str))
 
     @classmethod
-    def convert_pem_result_to_json(self, pem_result : PEMResult):
+    def convert_pem_result_to_json(self, pem_result : ASN1Result):
         return asdict(pem_result)

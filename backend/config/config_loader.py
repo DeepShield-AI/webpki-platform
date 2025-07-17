@@ -30,7 +30,7 @@ DEFAULT_IP_BLACKLIST = [ip.strip() for ip in os.getenv("IP_BLACKLIST", "").split
 
 # proxy
 PROXY_HOST = os.getenv("PROXY_HOST", "127.0.0.1")
-PROXY_PORT = int(os.getenv("PROXY_PORT", 33210))
+PROXY_PORT = int(p) if (p := os.getenv("PROXY_PORT", 33210)) else None
 
 # 数据库配置
 DB_CONFIG = {

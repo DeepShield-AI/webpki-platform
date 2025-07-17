@@ -9,7 +9,7 @@ from flask_app.blueprint import base
 from flask_app.logger.logger import flask_logger    
 
 from backend.celery.celery_db_pool import engine_cert, engine_tls
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 from backend.analyzer.celery_cert_revocation_task import get_revocation_status_from_crl, get_revocation_status_from_ocsp, get_issuer
 

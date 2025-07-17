@@ -4,7 +4,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 
 @celery_app.task
 def build_all_from_table() -> str:
@@ -19,7 +19,7 @@ def ca_info_from_row(row: list) -> str:
 
 def _ca_info(cert_der: bytes) -> str:
     try:
-        parsed: PEMResult = ASN1Parser.parse_der_cert(cert_der)
+        parsed: ASN1Result = ASN1Parser.parse_der_cert(cert_der)
 
         #   `subject` JSON,
         #   `spki` JSON,

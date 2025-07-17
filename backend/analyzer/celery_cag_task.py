@@ -4,7 +4,7 @@ from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_tls, engine_cert
 from backend.config.analyze_config import AnalyzeConfig
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 from backend.utils.cert import get_sha256_hex_from_str, get_sha256_hex_from_bytes
 
 @celery_app.task

@@ -31,7 +31,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 
 # Cache for CRL results
 CRL_CACHE_TIMEOUT = timedelta(hours=1)

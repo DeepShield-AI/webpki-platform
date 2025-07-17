@@ -11,7 +11,7 @@ from backend.celery.celery_app import celery_app
 from backend.config.analyze_config import AnalyzeConfig
 from backend.config.path_config import ZLINT_PATH
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 from backend.utils.exception import *
 
 accepted_cipher_list = [
@@ -58,6 +58,7 @@ def _web_security_analyze(
 
     try:
         # 1. check for https deployment
+        # print(tls_version, tls_cipher, cert_sha256_list)
         if not tls_version and not tls_cipher and not cert_sha256_list:
             error_code.add("no_https")
             raise Exception("No TLS info avaliable")
@@ -67,7 +68,7 @@ def _web_security_analyze(
         # 770	0x0302	TLS 1.1
         # 771	0x0303	TLS 1.2
         # 772	0x0304	TLS 1.3
-        if tls_version != "771" and tls_version != "772":
+        if int(tls_version) != 771 and int(tls_version) != 772:
             error_code.add("weak_tls_version")
 
         # 3. check for TLS cipher
@@ -90,11 +91,10 @@ def _web_security_analyze(
         hash_to_row = {r[1]: r[2] for r in all_rows}  # 假设 cert_hash 是第一列
         cursor.close()
 
-        leaf_cert: str = hash_to_row[cert_sha256_list[0]]
+        leaf_cert_der: bytes = hash_to_row[cert_sha256_list[0]]
 
         try:
-            parsed_leaf = ASN1Parser.parse_native_pem(leaf_cert)
-            parsed_leaf: PEMResult = ASN1Parser.parse_der_cert(leaf_cert)
+            parsed_leaf: ASN1Result = ASN1Parser.parse_der_cert(leaf_cert_der)
         except Exception:
             raise ParseError
 
@@ -117,16 +117,16 @@ def _web_security_analyze(
         # 7. check for chain success
         ca_subject_sha_set = set()
         for ca_cert_hash in cert_sha256_list[1:]:
-            ca_cert = hash_to_row[ca_cert_hash]
-            parsed_ca: PEMResult = ASN1Parser.parse_pem_cert(ca_cert)
+            ca_cert_der = hash_to_row[ca_cert_hash]
+            parsed_ca: ASN1Result = ASN1Parser.parse_der_cert(ca_cert_der)
             ca_subject_sha_set.add(parsed_ca.subject_sha)
 
         if parsed_leaf.issuer_sha not in ca_subject_sha_set:
             error_code.add("chain_not_verified")
 
         # 8. check sig and encrypt alg
-        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
-            temp_cert_file.write(leaf_cert.encode())
+        with tempfile.NamedTemporaryFile(suffix=".der", delete=False) as temp_cert_file:
+            temp_cert_file.write(leaf_cert_der)  # ← 写入原始 DER 二进制
             temp_cert_path = temp_cert_file.name
 
         try:
@@ -171,7 +171,7 @@ def _web_security_analyze(
                     error_code.add("weak_hash")
 
         except RuntimeError as e:
-            print(e)
+            primary_logger.error(e)
             error_code.add("cert_broke")
 
         finally:
@@ -180,7 +180,8 @@ def _web_security_analyze(
             except OSError:
                 pass
 
-    except ParseError:
+    except ParseError as e:
+        primary_logger.error(e)
         error_code.add("cert_broke")
 
     except Exception as e:

@@ -12,7 +12,7 @@ from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.config.analyze_config import AnalyzeConfig
 from backend.config.path_config import ZLINT_PATH, ROOT_DIR
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
@@ -53,8 +53,8 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
             error_info["validity_too_long"] = validity
 
         # 3. check sig and encrypt alg
-        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
-            temp_cert_file.write(ASN1Parser.der2pem(cert_der).encode())
+        with tempfile.NamedTemporaryFile(suffix=".der", delete=False) as temp_cert_file:
+            temp_cert_file.write(cert_der)
             temp_cert_path = temp_cert_file.name
 
         try:

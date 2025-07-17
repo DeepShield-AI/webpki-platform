@@ -300,7 +300,7 @@ def _do_ssl_handshake(host : str, ip : str, scan_config : InputScanConfig):
             SSL.TLS1_2_VERSION : 2,
             SSL.TLS1_3_VERSION : 3
         '''
-        tls_version = sock_ssl.get_protocol_version()
+        tls_version = str(sock_ssl.get_protocol_version())
         tls_cipher = sock_ssl.get_cipher_name()
     
         # Retrieve the peer certificate
@@ -357,13 +357,60 @@ def run_zgrab2(input_file, output_file):
 
 @celery_app.task
 def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
+
+    scan_config : CTScanConfig = CTScanConfig.from_dict(config_dict)
+    received_entries = request_ct_log(start_entry, end_entry, scan_config)
+
+    for entry in received_entries:
+        try:
+            leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
+            if leaf_cert.LogEntryType == "X509LogEntryType":
+                # We have a normal x509 entry
+                cert_data_string = certificate.parse(leaf_cert.Entry).CertData
+                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+
+                # Parse the `extra_data` structure for the rest of the chain
+                extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
+                chain = []
+                for cert in extra_data.Chain:
+                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+
+            else:
+                # We have a precert entry
+                extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
+                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
+
+                chain = []
+                for cert in extra_data.CertChain.Chain:
+                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
+
+            # check for ca cert sha conflict to avoid add ca certs repeatedly
+            enqueue_scan_result({
+                "cert_pem" : leaf_pem,
+                "is_ca_cert" : False
+            })
+
+            for ca_cert in chain:
+                sha256_hash = get_sha256_hex_from_str(ca_cert)
+                if r.sadd("unique_ca_certs", sha256_hash) == 1:
+                    enqueue_scan_result({
+                        "cert_pem" : ca_cert,
+                        "is_ca_cert" : True,
+                        "out_dir" : scan_config.output_file_dir
+                    })
+        except Exception as e:
+            primary_logger.error(e)
+            continue
+
+
+@celery_app.task
+def request_ct_log(start_entry : int, end_entry : int, scan_config : CTScanConfig):
+
     # Each scan thread needs to take the last entry into account
     # Means to add -1 at the "end"
     # Currently, there exists WHOLE thread results missing,
     # so we need to try to catch all possible exceptions (as executor.subit() won't give any exception
     # output if you do not add .result() at the end......)
-
-    scan_config : CTScanConfig = CTScanConfig.from_dict(config_dict)
 
     try:
         # check window_size fits the start and the end range
@@ -421,45 +468,8 @@ def single_ct_scan_task(start_entry : int, end_entry : int, config_dict : dict):
         if retry_times > scan_config.max_retry:
             primary_logger.error(f"Requesting CT entries from {start_entry} to {end_entry} failed after {scan_config.max_retry} times.")
 
-        # Cache the received results
-        for entry in received_entries:
-
-            leaf_cert = merkle_tree_header.parse(base64.b64decode(entry['leaf_input']))
-            if leaf_cert.LogEntryType == "X509LogEntryType":
-                # We have a normal x509 entry
-                cert_data_string = certificate.parse(leaf_cert.Entry).CertData
-                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, cert_data_string).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
-
-                # Parse the `extra_data` structure for the rest of the chain
-                extra_data = certificate_chain.parse(base64.b64decode(entry['extra_data']))
-                chain = []
-                for cert in extra_data.Chain:
-                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
-
-            else:
-                # We have a precert entry
-                extra_data = pre_cert_entry.parse(base64.b64decode(entry['extra_data']))
-                leaf_pem = crypto.load_certificate(crypto.FILETYPE_ASN1, extra_data.LeafCert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8')
-
-                chain = []
-                for cert in extra_data.CertChain.Chain:
-                    chain.append(crypto.load_certificate(crypto.FILETYPE_ASN1, cert.CertData).to_cryptography().public_bytes(Encoding.PEM).decode('utf-8'))
-
-            # check for ca cert sha conflict to avoid add ca certs repeatedly
-            enqueue_scan_result({
-                "cert_pem" : leaf_pem,
-                "is_ca_cert" : False
-            })
-
-            for ca_cert in chain:
-                sha256_hash = get_sha256_hex_from_str(ca_cert)
-                if r.sadd("unique_ca_certs", sha256_hash) == 1:
-                    enqueue_scan_result({
-                        "cert_pem" : ca_cert,
-                        "is_ca_cert" : True,
-                        "out_dir" : scan_config.output_file_dir
-                    })
+        return received_entries
 
     except Exception as e:
         primary_logger.error(f"Exception {e} happens in thread for {start_entry} to {end_entry}")
-        pass
+        return []
