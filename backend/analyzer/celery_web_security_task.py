@@ -1,23 +1,18 @@
 
 import os
 import json
-import redis
-import hashlib
-import base64
-from datetime import datetime
-from collections import OrderedDict
-import subprocess
 import tempfile
+import subprocess
 
+from datetime import datetime
+from backend.analyzer.utils import enqueue_result, stream_by_id
+from backend.celery.celery_db_pool import engine_cert, engine_tls
+from backend.celery.celery_app import celery_app
 from backend.config.analyze_config import AnalyzeConfig
 from backend.config.path_config import ZLINT_PATH
-from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.pem_parser import ASN1Parser, PEMResult
 from backend.utils.exception import *
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
-from backend.utils.cert import get_sha256_hex_from_str
-from backend.celery.celery_db_pool import engine_cert, engine_tls
 
 accepted_cipher_list = [
     "TLS_AES_128_GCM_SHA256",
@@ -32,29 +27,38 @@ accepted_cipher_list = [
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
     for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake"):
-        web_security_analyze.delay(row, output_dir)
+        web_security_analyze_from_row.delay(row, output_dir)
     return True
 
 
 @celery_app.task
-def web_security_analyze(row: list, output_dir: str) -> str:
-    enqueue_result(_web_security_analyze(row, output_dir))
+def web_security_analyze_from_row(row: list, output_dir: str) -> str:
+    analysis_result = _web_security_analyze(
+        row[1],
+        row[2],
+        row[-4],
+        row[-3],
+        json.loads(row[-2])
+    )
+    analysis_result["out_dir"] = output_dir
+    enqueue_result(analysis_result)
     return True
 
 
-def _web_security_analyze(row: list, output_dir: str) -> str:
+def _web_security_analyze(
+        domain : str,
+        ip : str,
+        tls_version : str,
+        tls_cipher : str,
+        cert_sha256_list : list
+    ) -> str:
 
-    domain = row[1] # domain could be none
-    ip = row[2]
     host: str = domain if domain else ip
     error_code = set()
-    tls_cipher = row[-3]
-    tls_version = row[-4]
-    cert_hash_list = json.loads(row[-2])
 
     try:
         # 1. check for https deployment
-        if not tls_version and not tls_cipher and not cert_hash_list:
+        if not tls_version and not tls_cipher and not cert_sha256_list:
             error_code.add("no_https")
             raise Exception("No TLS info avaliable")
 
@@ -70,27 +74,27 @@ def _web_security_analyze(row: list, output_dir: str) -> str:
         if tls_cipher not in accepted_cipher_list:
             error_code.add("weak_tls_cipher")
 
-        assert(cert_hash_list)
+        assert(cert_sha256_list)
         conn = engine_cert.raw_connection()
         cursor = conn.cursor()
 
-        placeholders = ','.join(['%s'] * len(cert_hash_list))
+        placeholders = ','.join(['%s'] * len(cert_sha256_list))
         query = f"""
             SELECT * FROM cert
-            WHERE cert_hash IN ({placeholders})
+            WHERE sha256 IN ({placeholders})
         """
-        cursor.execute(query, cert_hash_list)
+        cursor.execute(query, cert_sha256_list)
         all_rows = cursor.fetchall()
 
         # 用 dict 映射 cert_hash 到结果
-        hash_to_row = {r[0]: r[1] for r in all_rows}  # 假设 cert_hash 是第一列
+        hash_to_row = {r[1]: r[2] for r in all_rows}  # 假设 cert_hash 是第一列
         cursor.close()
 
-        leaf_cert: str = hash_to_row[cert_hash_list[0]]
+        leaf_cert: str = hash_to_row[cert_sha256_list[0]]
 
         try:
-            parsed_leaf = PEMParser.parse_native_pem(leaf_cert)
-            parsed_leaf: PEMResult = PEMParser.parse_pem_cert(leaf_cert)
+            parsed_leaf = ASN1Parser.parse_native_pem(leaf_cert)
+            parsed_leaf: PEMResult = ASN1Parser.parse_der_cert(leaf_cert)
         except Exception:
             raise ParseError
 
@@ -112,9 +116,9 @@ def _web_security_analyze(row: list, output_dir: str) -> str:
 
         # 7. check for chain success
         ca_subject_sha_set = set()
-        for ca_cert_hash in cert_hash_list[1:]:
+        for ca_cert_hash in cert_sha256_list[1:]:
             ca_cert = hash_to_row[ca_cert_hash]
-            parsed_ca: PEMResult = PEMParser.parse_pem_cert(ca_cert)
+            parsed_ca: PEMResult = ASN1Parser.parse_pem_cert(ca_cert)
             ca_subject_sha_set.add(parsed_ca.subject_sha)
 
         if parsed_leaf.issuer_sha not in ca_subject_sha_set:
@@ -185,11 +189,10 @@ def _web_security_analyze(row: list, output_dir: str) -> str:
     finally:
         return {
             "flag" : AnalyzeConfig.TASK_WEB_SECURITY,
-            "out_dir" : output_dir,
             "domain" : domain,
             "ip" : ip,
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
-            "cert_hash_list" : cert_hash_list,
+            "cert_hash_list" : cert_sha256_list,
             "error_code" : list(error_code)
         }

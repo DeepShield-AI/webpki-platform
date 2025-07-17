@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.dialects.mysql import insert
 
 from backend import db, app
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.pem_parser import ASN1Parser, PEMResult
 from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.json import custom_serializer
@@ -93,7 +93,7 @@ class Analyzer():
         except IndexError:
             return
 
-        parsed : PEMResult = PEMParser.parse_pem_cert(cert_chain[0])
+        parsed : PEMResult = ASN1Parser.parse_pem_cert(cert_chain[0])
         self.data_queue.put({
             "sha256" : sha256,
             "issuer" : parsed.issuer_org,

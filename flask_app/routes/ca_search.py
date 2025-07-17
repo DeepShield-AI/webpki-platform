@@ -1,13 +1,8 @@
 
-import json
-from datetime import datetime
 from flask import jsonify, request, Response
 from flask_login import login_required, current_user
-
 from flask_app.blueprint import base
 from flask_app.logger.logger import flask_logger    
-
-from backend.parser.pem_parser import PEMParser
 from backend.celery.celery_db_pool import engine_ca
 
 @base.route('/ca/ca_search/search', methods=['GET'])

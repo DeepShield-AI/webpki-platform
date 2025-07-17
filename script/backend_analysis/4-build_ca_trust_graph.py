@@ -10,7 +10,7 @@ from queue import PriorityQueue, Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
 from backend.config.analyze_config import TRUST_ROOT_DIR
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.pem_parser import ASN1Parser, PEMResult
 from backend.utils.cert import get_sha256_hex_from_str, is_issuer
 from backend.utils.json import custom_serializer
 
@@ -97,7 +97,7 @@ class Analyzer():
 
     def analyze_single(self, cert):
 
-        parsed : PEMResult = PEMParser.parse_pem_cert(cert)
+        parsed : PEMResult = ASN1Parser.parse_pem_cert(cert)
         sha256 = get_sha256_hex_from_str(cert)
 
         # add node

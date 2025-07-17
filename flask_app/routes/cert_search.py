@@ -9,7 +9,7 @@ from flask_app.blueprint import base
 from flask_app.logger.logger import flask_logger    
 
 from backend.celery.celery_db_pool import engine_cert, engine_tls
-from backend.parser.pem_parser import PEMParser
+from backend.parser.pem_parser import ASN1Parser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 from backend.analyzer.celery_cert_revocation_task import get_revocation_status_from_crl, get_revocation_status_from_ocsp, get_issuer
 
@@ -153,7 +153,7 @@ def get_cert_info(cert_id):
     if not row:
         return jsonify({'msg': 'No Such Cert', 'code': 404})
 
-    cert_parsed = PEMParser.parse_native_pretty_der(row[2])
+    cert_parsed = ASN1Parser.parse_native_pretty_der(row[2])
     analyze_result = _cert_security_analyze(row, "/")
 
     try:
@@ -287,7 +287,7 @@ def check_revoke(cert_id):
     elif type == '1':
 
         print("OCSP")
-        parsed: dict = PEMParser.parse_native_pretty_der(cert_der)
+        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
         extensions = parsed['tbs_certificate']["extensions"]
         def find_ext(name):
             if extensions:

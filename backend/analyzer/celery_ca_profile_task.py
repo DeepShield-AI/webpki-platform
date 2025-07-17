@@ -1,27 +1,25 @@
 
+from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
+from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
-from backend.celery.celery_db_pool import engine_cert, engine_tls
+from backend.parser.pem_parser import ASN1Parser, PEMResult
 
 @celery_app.task
 def build_all_from_table() -> str:
     for row in stream_by_id(engine_cert.raw_connection(), "ca_cert"):
-        ca_info.delay(row)
+        ca_info_from_row.delay(row)
     return True
 
 @celery_app.task
-def ca_info(row: list) -> str:
-    enqueue_result(_ca_info(row))
+def ca_info_from_row(row: list) -> str:
+    enqueue_result(_ca_info(row[2]))
     return True
 
-def _ca_info(row: list) -> str:
-
+def _ca_info(cert_der: bytes) -> str:
     try:
-        cert: bytes = row[2]
-        parsed: PEMResult = PEMParser.parse_der_cert(cert)
+        parsed: PEMResult = ASN1Parser.parse_der_cert(cert_der)
 
         #   `subject` JSON,
         #   `spki` JSON,

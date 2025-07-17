@@ -10,7 +10,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser
+from backend.parser.pem_parser import ASN1Parser
 from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.json import custom_serializer

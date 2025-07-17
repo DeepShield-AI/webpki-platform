@@ -1,8 +1,8 @@
 
 import requests
-from requests.exceptions import RequestException
-from readerwriterlock import rwlock
 from datetime import datetime, timedelta, timezone
+from readerwriterlock import rwlock
+from requests.exceptions import RequestException
 from typing import Dict, Tuple
 
 from cryptography.hazmat.backends import default_backend
@@ -26,23 +26,16 @@ from cryptography.x509.ocsp import (
     load_der_ocsp_response
 )
 
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_sha256
+from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
-from backend.celery.celery_db_pool import engine_cert, engine_tls
+from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser, PEMResult
-
+from backend.parser.pem_parser import ASN1Parser
 
 # Cache for CRL results
-
-# 配置缓存时间（比如 1 小时）
 CRL_CACHE_TIMEOUT = timedelta(hours=1)
-
-# 缓存结构
 crl_cache: Dict[str, Tuple[datetime, CertificateRevocationList]] = {}
-
-# 读写锁
 lock = rwlock.RWLockFair()
 
 def get_crl_from_cache(key: str):
@@ -99,21 +92,18 @@ def cleanup_crl_cache():
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
     for row in stream_by_id(engine_cert.raw_connection(), "cert"):
-        # primary_logger.debug(row)
-        analyze_cert_revocation.delay(row, output_dir)
+        analyze_cert_revocation_from_row.delay(row, output_dir)
     return True
 
 
 @celery_app.task
-def analyze_cert_revocation(row: list, output_dir: str) -> str:
+def analyze_cert_revocation_from_row(row: list, output_dir: str) -> str:
+    _analyze_cert_revocation(row[0], row[2])
 
+
+def _analyze_cert_revocation(id: int, cert_der: bytes) -> str:
     try:
-        cert_id = row[0]
-        cert_sha256 = row[1]
-        cert_der: bytes = row[2]
-        parsed: dict = PEMParser.parse_native_pretty_der(cert_der)
-
-        serial_number : int = parsed['tbs_certificate']['serial_number']
+        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
         extensions = parsed['tbs_certificate']["extensions"]
         def find_ext(name):
             if extensions:
@@ -126,49 +116,48 @@ def analyze_cert_revocation(row: list, output_dir: str) -> str:
         primary_logger.error(e)
         return
 
-    # try:
-    # CRL
-    crl_ext = find_ext("crl_distribution_points")
-    if crl_ext:
-        values = crl_ext["extn_value"]
-        for value in values:
-            distribution_points = value["distribution_point"]
+    try:
+        # CRL
+        crl_ext = find_ext("crl_distribution_points")
+        if crl_ext:
+            values = crl_ext["extn_value"]
+            for value in values:
+                distribution_points = value["distribution_point"]
 
-            for distribution_point in distribution_points:
-                primary_logger.info(distribution_point)
-                enqueue_result({
-                    "flag" : AnalyzeConfig.TASK_CERT_REVOKE,
-                    "id" : cert_id,
-                    "type" : TYPE_CRL,
-                    "result" : get_revocation_status_from_crl(distribution_point, cert_der)
-                })
-    # except Exception as e:
-    #     primary_logger.error(e)
-    #     pass
+                for distribution_point in distribution_points:
+                    primary_logger.info(distribution_point)
+                    enqueue_result({
+                        "flag" : AnalyzeConfig.TASK_CERT_REVOKE,
+                        "id" : id,
+                        "type" : TYPE_CRL,
+                        "result" : get_revocation_status_from_crl(distribution_point, cert_der)
+                    })
+    except Exception as e:
+        primary_logger.error(e)
+        pass
 
-    # try:
-    # OCSP
-    aia_ext = find_ext("authority_information_access")
-    if aia_ext:
-        values = aia_ext["extn_value"]
-        for value in values:
-            if value.get("access_method", None) == "ca_issuers":
-                issuer_location = value.get("access_location", None)
-                ca_issuer = get_issuer(issuer_location)
-                if ca_issuer:
-                    for value in values:
-                        if value.get("access_method", None) == "ocsp":
-                            access_location = value.get("access_location", None)
-                            if access_location: enqueue_result({
-                                                    "flag" : AnalyzeConfig.TASK_CERT_REVOKE,
-                                                    "id" : cert_id,
-                                                    "type" : TYPE_OCSP,
-                                                    "result" : get_revocation_status_from_ocsp(access_location, cert_der, ca_issuer)
-                                                })
-
-    # except Exception as e:
-    #     primary_logger.error(e)
-    #     pass
+    try:
+        # OCSP
+        aia_ext = find_ext("authority_information_access")
+        if aia_ext:
+            values = aia_ext["extn_value"]
+            for value in values:
+                if value.get("access_method", None) == "ca_issuers":
+                    issuer_location = value.get("access_location", None)
+                    ca_issuer = get_issuer(issuer_location)
+                    if ca_issuer:
+                        for value in values:
+                            if value.get("access_method", None) == "ocsp":
+                                access_location = value.get("access_location", None)
+                                if access_location: enqueue_result({
+                                                        "flag" : AnalyzeConfig.TASK_CERT_REVOKE,
+                                                        "id" : id,
+                                                        "type" : TYPE_OCSP,
+                                                        "result" : get_revocation_status_from_ocsp(access_location, cert_der, ca_issuer)
+                                                    })
+    except Exception as e:
+        primary_logger.error(e)
+        pass
 
 
 # return dict to enqueue
@@ -184,7 +173,7 @@ def get_revocation_status_from_crl(
         Sometimes, the CA might remove the cert from CRL after a period of time of expiration to reduce the CRL size
         So make sure to check whether the cert is expired in the caller
     '''
-    parsed: dict = PEMParser.parse_native_pretty_der(cert_der)
+    parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
     serial_number : int = parsed['tbs_certificate']['serial_number']
     request_time, crl = request_crl(crl_distribution_point, use_proxy=use_proxy)
 
@@ -418,57 +407,3 @@ def request_ocsp(
     except Exception as e:
         primary_logger.error(f"Error when getting OCSP response: {e}")
         return (request_time, None)
-
-
-# with self.crl_result_list_lock:
-#     crl_data = []
-#     primary_logger.info(f"Converting crl {len(self.crl_result_list)} data...")
-#     for res in self.crl_result_list:
-#         crl_data.append({
-#             'CERT_ID' :  res[0],
-#             'CHECK_TIME' : res[1],
-#             'CRL_POSITION' : res[2],
-#             'REVOCATION_STATUS' : res[3],
-#             'REVOCATION_TIME' : res[4],
-#             'REVOCATION_REASON' : REASONFLAG_MAPPING[res[5]]
-#         })
-#     try:
-#         insert_crl_store_statement = insert(CertRevocationStatusCRL).values(crl_data).prefix_with('IGNORE')
-#         db.session.execute(insert_crl_store_statement)
-#         db.session.commit()
-#     except Exception as e:
-#         primary_logger.error(f"Error insertion CRL data: {e} \n {e.with_traceback()}")
-#     finally:
-#         self.crl_result_list = []
-
-# with self.ocsp_result_list_lock:
-#     ocsp_data = []
-#     primary_logger.info(f"Converting ocsp {len(self.ocsp_result_list)} data...")
-#     for res in self.ocsp_result_list:
-#         if res[4]:
-#             if res[4] == OCSPResponseStatus.UNAUTHORIZED:
-#                 status = 0
-#             elif res[4] == OCSPResponseStatus.SUCCESSFUL:
-#                 status = OCSP_STATUS_MAPPING[res[5]]
-#             else:
-#                 status = None
-#         else:
-#             status = None
-
-#         ocsp_data.append({
-#             'CERT_ID' : res[0],
-#             'CHECK_TIME' : res[1],
-#             'AIA_LOCATION' : res[2],
-#             'ISSUER_ID' : res[3],
-#             'REVOCATION_STATUS' : status,
-#             'REVOCATION_TIME' : res[6],
-#             'REVOCATION_REASON' : REASONFLAG_MAPPING[res[7]]
-#         })
-#     try:
-#         insert_ocsp_store_statement = insert(CertRevocationStatusOCSP).values(ocsp_data).prefix_with('IGNORE')
-#         db.session.execute(insert_ocsp_store_statement)
-#         db.session.commit()
-#     except Exception as e:
-#         primary_logger.error(f"Error insertion OCSP data: {e} \n {e.with_traceback()}")
-#     finally:
-#         self.ocsp_result_list = []

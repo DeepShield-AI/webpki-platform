@@ -52,9 +52,10 @@ def batch_flush_results(max_batch_size=2000):
     for result in results:
         try:
             if result.get("flag", "") == AnalyzeConfig.TASK_CERT_FP:
-                cert_hash = result.get("cert_hash", "")
-                cert_fp = result.get("cert_fp", "")
-                cert_fp_data.append((cert_hash, cert_fp))
+                cert_fp_data.append((
+                    result.get("id", ""),
+                    json.dumps(result.get("fp", ""))
+                ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_PARSE:
 
@@ -189,7 +190,7 @@ def batch_flush_results(max_batch_size=2000):
         if cert_fp_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert_fp (cert_hash, cert_fp) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO cert_fp (id, cert_fp) VALUES (%s, %s)",
                     cert_fp_data
                 )
             cert_conn.commit()
