@@ -209,6 +209,13 @@ def batch_flush_results(min_batch_size=2000):
                 ssl_result.get("error")
             ))
 
+            # check for file output
+            out_file = result.get("out_file", None)
+            if out_file:
+                with open(out_file, "a") as out:
+                    out.write(json.dumps(result))
+                    out.write("\n")
+
         if tls_data:
             with tls_conn.cursor() as cursor:
                 cursor.executemany(

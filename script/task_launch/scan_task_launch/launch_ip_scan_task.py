@@ -8,7 +8,7 @@ if __name__ == "__main__":
         proxy_host=None,
         proxy_port=None,
         input_list_file=r"/root/open443.txt",
-        skip_first=1100000
+        skip_first=3630000
     )
 
-    launch_scan_task.delay(test_config.to_dict())
+    launch_scan_task(test_config.to_dict())
