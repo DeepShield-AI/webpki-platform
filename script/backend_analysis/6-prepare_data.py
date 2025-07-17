@@ -12,7 +12,7 @@ import subprocess
 from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.pem_parser import ASN1Parser, PEMResult
 from backend.config.analyze_config import ZLINT_PATH
 from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
@@ -123,7 +123,7 @@ class Analyzer():
                 # step 3: check if certs:
                 cert = data["result"]["handshake_log"]["server_certificates"]
                 leaf = cert["certificate"]
-                parsed_leaf : PEMResult = PEMParser.parse_pem_cert(base64_to_pem(leaf["raw"]))
+                parsed_leaf : PEMResult = ASN1Parser.parse_pem_cert(base64_to_pem(leaf["raw"]))
                 
                 if leaf["raw"] is None:
                     key_words_set.add("no_leaf_cert")
@@ -135,7 +135,7 @@ class Analyzer():
 
                     # Step 4: check if cert valid
                     ca_cert :str = chain[0]
-                    parsed_ca : PEMResult = PEMParser.parse_pem_cert(base64_to_pem(ca_cert["raw"]))
+                    parsed_ca : PEMResult = ASN1Parser.parse_pem_cert(base64_to_pem(ca_cert["raw"]))
                     # parsed_chain = [PEMParser.parse_pem_cert(cert) for cert in chain]
 
                     # step 4.1 cert chain not verified

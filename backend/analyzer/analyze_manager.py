@@ -10,6 +10,7 @@ from backend.analyzer.celery_cert_parse_task import build_all_from_table as buil
 from backend.analyzer.celery_cert_security_task import build_all_from_table as build_cert_security
 from backend.analyzer.celery_web_security_task import build_all_from_table as build_web_security
 from backend.analyzer.celery_ca_profile_task import build_all_from_table as build_ca_profile
+from backend.analyzer.celery_cert_revocation_task import build_all_from_table as build_cert_revocation
 
 class AnalyzeManager():
 
@@ -42,6 +43,8 @@ class AnalyzeManager():
             build_cert_fp.delay(self.config.cert_table)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_PARSE:
             build_cert_parse.delay()
+        if self.config.task_flag & AnalyzeConfig.TASK_CERT_REVOKE:
+            build_cert_revocation.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_CAG:
             build_cag.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_SECURITY:

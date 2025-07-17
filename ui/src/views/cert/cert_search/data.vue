@@ -131,9 +131,9 @@
             <template slot-scope="{ row }">
               <ul style="padding-left: 16px; margin: 0;">
                 <li
-                  v-for="(sha, shaIdx) in Array.isArray(row.cert_hash_list)
-                    ? row.cert_hash_list
-                    : JSON.parse(row.cert_hash_list || '[]')"
+                  v-for="(sha, shaIdx) in Array.isArray(row.cert_sha256_list)
+                    ? row.cert_sha256_list
+                    : JSON.parse(row.cert_sha256_list || '[]')"
                   :key="shaIdx"
                 >
                   <router-link :to="`/cert/cert_view/${sha}`" style="color: #409EFF;">
@@ -145,12 +145,70 @@
           </el-table-column>
         </el-table>
       </el-tab-pane>
+
+      <!-- 证书吊销分析 -->
+      <el-tab-pane label="证书吊销分析" name="revocation">
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书吊销分析</h2>
+          </el-col>
+        </el-row>
+
+        <el-table
+          v-if="refreshTable"
+          v-loading="loading"
+          :data="revocationRecords"
+          :default-expand-all="isExpandAll"
+          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        >
+          <el-table-column prop="type" label="撤销类型" width="100" :formatter="formatRevokeType" />
+          <el-table-column prop="dist_point" label="分发点 URL" width="400"></el-table-column>
+          <el-table-column prop="request_time" label="最后检查时间" width="160" :formatter="formatRequestTime" />
+          <el-table-column prop="status" label="撤销状态" width="100" :formatter="formatRevokeStatus" />
+          <el-table-column prop="revoke_time" label="吊销时间" width="160" :formatter="formatRevokeTime" />
+          <el-table-column prop="reason_flag" label="撤销原因" width="160" :formatter="formatReason" />
+          <el-table-column label="操作" width="120">
+            <template slot-scope="scope">
+              <el-button
+                size="mini"
+                type="primary"
+                :loading="loadingIds.includes(scope.row.dist_point)"
+                @click="doRealtimeCheck(scope.row)"
+              >
+                实时验证
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- 结果显示区域 -->
+        <el-row v-if="revokeResult" class="result-panel" type="flex" justify="center" style="margin-top: 20px;">
+          <el-col :span="24">
+            <div class="result-content">
+              <h3>实时验证结果</h3>
+              <p><strong>撤销URL:</strong> {{ revokeResult.dist_point }}</p>
+              <p><strong>验证时间:</strong> {{ revokeResult.request_time }}</p>
+              <p><strong>撤销状态:</strong>
+                {{ 
+                  revokeResult.status === 0 ? '未知' : 
+                  revokeResult.status === 1 ? '未吊销' : 
+                  revokeResult.status === 2 ? '吊销' : 
+                  revokeResult.status === 3 ? '未授权' : '状态未知' 
+                }}
+              </p>
+              <p><strong>吊销时间:</strong> {{ revokeResult.revoke_time }}</p>
+              <p><strong>撤销原因:</strong> {{ revokeResult.reason_flag }}</p>
+            </div>
+          </el-col>
+        </el-row>
+
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
 
 <script>
-import { getCertInfo, getCertDeployInfo } from "@/api/cert/cert_search";
+import { getCertInfo, getCertDeployInfo, getCertRevocationRecords, checkRevoke } from "@/api/cert/cert_search";
 import { getSubCag } from "@/api/host/host_analysis";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
@@ -176,6 +234,9 @@ export default {
       certSecurity: [],
       certGraphData: {},
       deployedHosts: [],
+      revocationRecords: [],
+      loadingIds: [],   // 正在加载的行id集合
+      revokeResult: null, // 保存最新验证结果
 
       // static error key info
       errorKeyInfo: {
@@ -195,14 +256,14 @@ export default {
     };
   },
   created() {
-    this.certSha256 = this.$route.params && this.$route.params.certSha256;
-    this.getCert(this.certSha256);
+    this.certId = this.$route.params && this.$route.params.certId;
+    this.getCert(this.certId);
   },
   methods: {
-    getCert(certSha256) {
+    getCert(certId) {
       this.loading = true;
       // {'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result}
-      getCertInfo(certSha256).then(response => {
+      getCertInfo(certId).then(response => {
         console.log(response.cert_data);
         this.certData = response.cert_data;
 
@@ -227,10 +288,10 @@ export default {
         this.loading = false;
       });
     },
-    getCag(certSha256){
+    getCag(certId){
       this.loading = true;
       const query = {
-        "cert_sha256" : certSha256
+        "cert_sha256" : certId
       };
       // return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
       getSubCag(query).then(response => {
@@ -238,11 +299,18 @@ export default {
         this.loading = false;
       });
     },
-    getHost(certSha256) {
+    getHost(certId) {
       this.loading = true;
       // return jsonify({'msg': 'Success', 'code': 200, "web_security" : final_result})
-      getCertDeployInfo(certSha256).then(response => {
+      getCertDeployInfo(certId).then(response => {
         this.deployedHosts = response.deploy_hosts;
+        this.loading = false;
+      });
+    },
+    getRevoke(certId) {
+      this.loading = true;
+      getCertRevocationRecords(certId).then(response => {
+        this.revocationRecords = response.data;
         this.loading = false;
       });
     },
@@ -252,10 +320,13 @@ export default {
     handleTabChange(val) {
       this.activeTab = val;
       if (val === 'graph' && Object.keys(this.certGraphData).length === 0) {
-        this.getCag(this.certSha256);
+        this.getCag(this.certId);
       }
       if (val === 'deploy' && this.deployedHosts.length === 0) {
-        this.getHost(this.certSha256);
+        this.getHost(this.certId);
+      }
+      if (val === 'revocation' && this.revocationRecords.length === 0) {
+        this.getRevoke(this.certId);
       }
     },
     formatInfo(val) {
@@ -273,6 +344,54 @@ export default {
         772: 'TLS 1.3',
       };
       return versionMap[version] || version;
+    },
+    formatRevokeType(row) {
+      return row.type === 0 ? 'CRL' : row.type === 1 ? 'OCSP' : '未知';
+    },
+    formatRequestTime(row) {
+      const dt = row.request_time;
+      if (!dt) return '';
+      return dt.replace('T', ' ').split('.')[0];
+    },
+    formatRevokeTime(row) {
+      const dt = row.revoke_time;
+      if (!dt) return '';
+      return dt.replace('T', ' ').split('.')[0];
+    },
+    formatRevokeStatus(row) {
+      return row.status === 1 ? '未吊销' : row.status === 2 ? '吊销' : row.status === 3 ? '未授权' : '未知';
+    },
+    formatReason(row) {
+      const reasonMap = {
+        0: '未指定',
+        1: '密钥泄露',
+        2: 'CA 误发',
+        3: '所属变更',
+        4: '被替代',
+        5: '已停用',
+        6: '证书保留',
+        8: '撤销不再需要',
+      };
+      return reasonMap[row.reason_flag] || '';
+    },
+    async doRealtimeCheck(row) {
+      if (this.loadingIds.includes(row.dist_point)) return; // 防止重复点击
+
+      this.loadingIds.push(row.dist_point); // 设置当前行的加载状态
+      try {
+        // 使用 await 调用异步函数 checkRevoke，确保等待结果返回
+        const res = await checkRevoke(row.type, this.certId, row.dist_point);
+        
+        // 更新验证结果
+        console.log(res.data);
+        this.revokeResult = res.data;
+
+      } catch (error) {
+        this.$message.error('网络或服务器错误');
+      } finally {
+        // 完成后移除当前行的加载状态
+        this.loadingIds = this.loadingIds.filter(id => id !== row.dist_point);
+      }
     }
   }
 };

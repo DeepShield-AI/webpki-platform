@@ -6,7 +6,7 @@ from datetime import datetime
 import sys
 sys.path.append(r"D:\global_ca_monitor")
 
-from backend.parser.pem_parser import PEMParser
+from backend.parser.pem_parser import ASN1Parser
 
 
 def check_entry_time(timestamp):
@@ -32,7 +32,7 @@ for file_name in file_name_list:
             data = json.load(file)
 
             for entry in data.values():
-                pem_parser = PEMParser()
+                pem_parser = ASN1Parser()
                 leaf_cert_native = pem_parser.parse_pem_cert(entry['leaf'])
                 check_entry_time(entry['timestamp'])
                 print(f"Not Before Time: {leaf_cert_native.not_before}")

@@ -46,12 +46,16 @@ def batch_flush_results(max_batch_size=2000):
     ca_data = []
     ca_conn = engine_ca.raw_connection()
 
+    # cert revoke
+    cert_revoke_data = []
+
     for result in results:
         try:
             if result.get("flag", "") == AnalyzeConfig.TASK_CERT_FP:
-                cert_hash = result.get("cert_hash", "")
-                cert_fp = result.get("cert_fp", "")
-                cert_fp_data.append((cert_hash, cert_fp))
+                cert_fp_data.append((
+                    result.get("id", ""),
+                    json.dumps(result.get("fp", ""))
+                ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_PARSE:
 
@@ -64,6 +68,23 @@ def batch_flush_results(max_batch_size=2000):
                     json.dumps(result.get("issuer", "")),
                     result.get("spkisha256", ""),
                     result.get("ski", ""),
+                    result.get("not_valid_before", ""),
+                    result.get("not_valid_after", "")
+                ))
+
+            elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_REVOKE:
+
+                primary_logger.info(result)
+
+                revoke_result = result.get("result", {})
+                cert_revoke_data.append((
+                    result.get("id", ""),
+                    result.get("type", ""),
+                    revoke_result.get("dist_point", ""),
+                    revoke_result.get("request_time", ""),
+                    revoke_result.get("status", ""),
+                    revoke_result.get("revoke_time", ""),
+                    revoke_result.get("reason_flag", "")
                 ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CAG:
@@ -144,15 +165,32 @@ def batch_flush_results(max_batch_size=2000):
         if cert_parse_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert_search VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    """
+                    INSERT IGNORE INTO cert_search
+                    (id, sha256, serial, subject_cn_list, subject, issuer,
+                    spkisha256, ski, not_valid_before, not_valid_after)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
                     cert_parse_data
+                )
+            cert_conn.commit()
+
+        if cert_revoke_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT INTO cert_revocation
+                    (cert_id, type, dist_point, request_time, status, revoke_time, reason_flag)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    cert_revoke_data
                 )
             cert_conn.commit()
 
         if cert_fp_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert_fp (cert_hash, cert_fp) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO cert_fp (id, cert_fp) VALUES (%s, %s)",
                     cert_fp_data
                 )
             cert_conn.commit()

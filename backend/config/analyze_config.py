@@ -6,7 +6,7 @@ class AnalyzeConfig:
     # Task flag constants (bitwise OR for multiple subtasks)
     TASK_CERT_FP: int = field(init=False, default=0b1)  # for parsing certificates
     TASK_CERT_PARSE: int = field(init=False, default=0b10)  # for cert parse
-    TASK_REVOKE: int = field(init=False, default=0b100) # for checking revocation
+    TASK_CERT_REVOKE: int = field(init=False, default=0b100) # for checking revocation
     TASK_CAG: int = field(init=False, default=0b1000) # for building CAG for certain webpages
 
     TASK_CERT_SECURITY: int = field(init=False, default=0b10000) # for checking cert content conform

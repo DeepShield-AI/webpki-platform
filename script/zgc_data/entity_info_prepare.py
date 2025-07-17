@@ -12,9 +12,10 @@ from urllib.parse import urlparse
 from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.config.path_config import ZLINT_PATH
-from backend.utils.cert import get_cert_sha1_hex_from_str
+from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
+from backend.parser.pem_parser import ASN1Parser, PEMResult
+from backend.config.analyze_config import ZLINT_PATH
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.logger.logger import primary_logger
 
@@ -308,7 +309,7 @@ class Analyzer():
         # Step 1: check if has cert
         try:
             cert :str = cert_chain[0]
-            parsed : PEMResult = PEMParser.parse_pem_cert(cert)
+            parsed : PEMResult = ASN1Parser.parse_pem_cert(cert)
             
             # Step 2: parse basic info
             subject_cn = parsed.subject_cn_list[0]
@@ -392,7 +393,7 @@ class Analyzer():
                 except OSError:
                     pass
 
-            parsed_chain = [PEMParser.parse_pem_cert(cert) for cert in cert_chain]
+            parsed_chain = [ASN1Parser.parse_pem_cert(cert) for cert in cert_chain]
 
             # 3.3 self-signed certs
             if len(cert_chain) == 1 and parsed.self_signed:

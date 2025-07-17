@@ -3,6 +3,7 @@
 # Use pem library to parse the certificates
 # In case of any exception raised by cryptography library
 
+import base64
 from asn1crypto import pem, x509
 from dataclasses import dataclass, asdict
 from backend.utils.cert import ordered_dict_to_dict, get_sha256_hex_from_str, get_sha256_hex_from_bytes
@@ -69,18 +70,26 @@ class PEMResult():
     ca_id_sha256 : str
 
 
-class PEMParser():
+class ASN1Parser():
 
     def __init__(self) -> None:
         pass
 
     @classmethod
-    def pem_to_der(self, pem_str : str):
-        pem_bytes = pem_str.encode('utf-8')
-
-        if pem.detect(pem_bytes):
-            type_name, headers, der_bytes = pem.unarmor(pem_bytes)
+    def pem2der(self, pem_str : str) -> bytes:
+        pem_bytes_str = pem_str.encode('utf-8')
+        if pem.detect(pem_bytes_str):
+            type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
             return der_bytes
+
+    @classmethod
+    def der2pem(self, der_bytes: bytes, type_name="CERTIFICATE") -> str:
+        # Base64 编码，每 64 个字符换行
+        b64_encoded = base64.encodebytes(der_bytes).decode('ascii')
+        b64_lines = [line.strip() for line in b64_encoded.strip().splitlines()]
+        pem_body = '\n'.join(b64_lines)
+
+        return f"-----BEGIN {type_name}-----\n{pem_body}\n-----END {type_name}-----\n"
 
     @classmethod
     def parse_native_pem(self, pem_str : str):
@@ -100,6 +109,11 @@ class PEMParser():
         return cert
 
     @classmethod
+    def parse_native_der(self, der_bytes : bytes):
+        cert = x509.Certificate.load(der_bytes)
+        return cert.native
+
+    @classmethod
     def parse_native_pretty_der(self, der_bytes : bytes):
         return ordered_dict_to_dict(self.parse_der(der_bytes).native)
 
@@ -108,7 +122,7 @@ class PEMParser():
         pem_bytes_str = pem_str.encode('utf-8')
         if pem.detect(pem_bytes_str):
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
-            return PEMParser.parse_der_cert(der_bytes)
+            return ASN1Parser.parse_der_cert(der_bytes)
 
     @classmethod
     def parse_der_cert(self, der_bytes : bytes):
