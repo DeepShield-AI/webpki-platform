@@ -9,6 +9,8 @@ from backend.analyzer.celery_cert_fp_task import build_all_from_table as build_c
 from backend.analyzer.celery_cert_parse_task import build_all_from_table as build_cert_parse
 from backend.analyzer.celery_cert_security_task import build_all_from_table as build_cert_security
 from backend.analyzer.celery_web_security_task import build_all_from_table as build_web_security
+from backend.analyzer.celery_ca_profile_task import build_all_from_table as build_ca_profile
+from backend.analyzer.celery_cert_revocation_task import build_all_from_table as build_cert_revocation
 
 class AnalyzeManager():
 
@@ -39,14 +41,18 @@ class AnalyzeManager():
         # check flags
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_FP:
             build_cert_fp.delay(self.config.cert_table)
-        if self.config.task_flag & AnalyzeConfig.TASK_PARSE:
+        if self.config.task_flag & AnalyzeConfig.TASK_CERT_PARSE:
             build_cert_parse.delay()
+        if self.config.task_flag & AnalyzeConfig.TASK_CERT_REVOKE:
+            build_cert_revocation.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_CAG:
             build_cag.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_SECURITY:
             build_cert_security.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_WEB_SECURITY:
             build_web_security.delay(self.config.out_dir)
+        if self.config.task_flag & AnalyzeConfig.TASK_CA_PROFILE:
+            build_ca_profile.delay()
 
         while True:
             pass

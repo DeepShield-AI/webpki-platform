@@ -12,9 +12,9 @@ import subprocess
 from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 from backend.config.analyze_config import ZLINT_PATH
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
 from backend.logger.logger import primary_logger
 
@@ -22,7 +22,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.logger.logger import primary_logger
 from backend.utils.json import custom_serializer
-from backend.utils.cert import get_cert_sha256_hex_from_str, base64_to_pem
+from backend.utils.cert import get_sha256_hex_from_str, base64_to_pem
 from collections import defaultdict
 
 final_data = defaultdict(int)  # or defaultdict(dict), depending on your needs
@@ -123,7 +123,7 @@ class Analyzer():
                 # step 3: check if certs:
                 cert = data["result"]["handshake_log"]["server_certificates"]
                 leaf = cert["certificate"]
-                parsed_leaf : PEMResult = PEMParser.parse_pem_cert(base64_to_pem(leaf["raw"]))
+                parsed_leaf : ASN1Result = ASN1Parser.parse_pem_cert(base64_to_pem(leaf["raw"]))
                 
                 if leaf["raw"] is None:
                     key_words_set.add("no_leaf_cert")
@@ -135,7 +135,7 @@ class Analyzer():
 
                     # Step 4: check if cert valid
                     ca_cert :str = chain[0]
-                    parsed_ca : PEMResult = PEMParser.parse_pem_cert(base64_to_pem(ca_cert["raw"]))
+                    parsed_ca : ASN1Result = ASN1Parser.parse_pem_cert(base64_to_pem(ca_cert["raw"]))
                     # parsed_chain = [PEMParser.parse_pem_cert(cert) for cert in chain]
 
                     # step 4.1 cert chain not verified
@@ -145,10 +145,10 @@ class Analyzer():
                     pass
 
                 # Step 4.2: hostname mismatch
-                if domain not in parsed_leaf.subject:
+                if domain not in parsed_leaf.subject_cn_list:
                     domain : str
                     wildcard_domain = ".".join(["*"] + domain.split(".")[1:])
-                    if wildcard_domain not in parsed_leaf.subject:
+                    if wildcard_domain not in parsed_leaf.subject_cn_list:
                         key_words_set.add("hostname_mismatch")
 
                 # step 4.3 check expired certs

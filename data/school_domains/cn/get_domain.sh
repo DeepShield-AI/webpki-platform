@@ -1,0 +1,1 @@
+awk -F',' '$4 ~ /211工程|985工程/' data20230918.csv | cut -d',' -f5 | tr ';' '\n' | sed -E 's#https?://##;s#/.*##' | grep -v '^$' > domains.txt

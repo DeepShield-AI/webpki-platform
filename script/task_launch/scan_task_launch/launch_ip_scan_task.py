@@ -1,34 +1,14 @@
 
-import sys
-sys.path.append(r"/root/pki-internet-platform")
-
-import time
-from backend import app
-from backend.config.scan_config import IPScanConfig
-from backend.utils.type import ScanType
-from backend.celery import g_manager
-from backend.celery.task import TaskBatchTemplate
+from backend.config.scan_config import InputScanConfig
+from backend.scanner.celery_scan_task import launch_scan_task
 
 if __name__ == "__main__":
-    with app.app_context():
-        scan_type = ScanType(ScanType.SCAN_BY_IP)
-        scan_args = {
-            'SCAN_TOOL' : "zmap + zgrab2",
-            'MAX_THREADS_ALLOC' : 1000,
-            'THREAD_WORKLOAD' : 2,
-            'INPUT_IP_LIST_FILE' : r"/root/pki-internet-platform/data/top_domains/cisco-top-1m.csv",
-            'SCAN_PROCESS_NAME': "Full IPv4 20250311",
-            'SCAN_PORT' : 433,
-            'STORAGE_DIR' : r"/data/ip_scan_data",
-            'SCAN_TIMEOUT' : 10,
-            'MAX_RETRY' : 10,
-            'TLS_FP_TYPE' : "jarm",
-            'TLS_FP_ONLY' : True
-        }
+    test_config = InputScanConfig(
+        "IPv4 20250628",
+        proxy_host=None,
+        proxy_port=None,
+        input_list_file=r"/root/open443.txt",
+        skip_first=3630000
+    )
 
-        config = IPScanConfig(**scan_args)
-        task_id = g_manager.submit_task([TaskBatchTemplate.create_scan_task_without_analysis(config)])
-        g_manager.start_submitted_tasks()
-
-        while True:
-            time.sleep(1)
+    launch_scan_task(test_config.to_dict())

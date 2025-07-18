@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import colorama
 from colorama import Fore, Style
 
+from backend.config.config_loader import FLASK_LOGGER_DIR
+
 colorama.init(autoreset=True)
 
 class ColoredConsoleHandler(logging.StreamHandler):
@@ -53,4 +55,4 @@ def get_logger(name="Flask",
 
     return logger
 
-flask_logger = get_logger("Flask", log_file_dir="/data/flask_log", level=logging.DEBUG)
+flask_logger = get_logger("Flask", log_file_dir=FLASK_LOGGER_DIR, level=logging.DEBUG)

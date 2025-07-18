@@ -1,16 +1,28 @@
 
 import base64
-import json
+import json, math
 from datetime import datetime
 from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert
 from flask_app.logger.logger import flask_logger    
 
-from backend.parser.pem_parser import PEMParser
+from backend.celery.celery_db_pool import engine_cert, engine_tls
+from backend.parser.asn1_parser import ASN1Parser
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
+from backend.analyzer.celery_cert_revocation_task import get_revocation_status_from_crl, get_revocation_status_from_ocsp, get_issuer
+
+def json_default(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
+    if isinstance(obj, bytearray):
+        return base64.b64encode(obj).decode('utf-8')
+
+    # 可以扩展支持其他类型
+    return str(obj)  # fallback: 转成字符串
 
 @base.route('/cert/cert_search/search', methods=['GET'])
 @login_required
@@ -18,6 +30,7 @@ def cert_search():
     flask_logger.info(f"{request.args}")
 
     # 参数获取
+    id = request.args.get('id', "")
     cert_sha256 = request.args.get('sha256', "")
     subject = request.args.get('subject', "")
     begin_not_valid_before = request.args.get('params[beginNotValidBefore]', "")
@@ -32,12 +45,17 @@ def cert_search():
     where_clauses = []
     params = []
 
+    if id:
+        where_clauses.append("id = %s")
+        params.append(id)
+
     if cert_sha256:
         where_clauses.append("sha256 = %s")
         params.append(cert_sha256)
 
     if subject:
-        where_clauses.append("JSON_CONTAINS(subject_cn_list, '\"%s\"')" % subject)
+        where_clauses.append("subject_cn_list LIKE %s")
+        params.append(f"%{subject}%")
 
     if begin_not_valid_before:
         where_clauses.append("not_valid_before >= %s")
@@ -62,13 +80,13 @@ def cert_search():
     conn = engine_cert.raw_connection()
     with conn.cursor() as cursor:
         # 总数
-        count_query = f"SELECT COUNT(*) FROM cert_search_basic {where_sql}"
+        count_query = f"SELECT COUNT(*) FROM cert_search {where_sql}"
         cursor.execute(count_query, tuple(params))
         total = cursor.fetchone()[0]
 
         # 数据查询
         data_query = f"""
-            SELECT * FROM cert_search_basic
+            SELECT * FROM cert_search
             {where_sql}
             LIMIT %s OFFSET %s
         """
@@ -78,6 +96,7 @@ def cert_search():
         columns = [desc[0] for desc in cursor.description]
         result = [dict(zip(columns, row)) for row in rows]
 
+    print(result)
     return jsonify({
         'code': 200,
         'msg': 'success',
@@ -115,9 +134,9 @@ def cert_search():
     # return jsonify({'msg': '操作成功', 'code': 200, "data": [search_cert.to_json() for search_cert in search_certs], "total" : pagination.total})
 
 
-@base.route('/cert/cert_retrieve/<cert_sha256>', methods=['GET'])
+@base.route('/cert/cert_retrieve/<cert_id>', methods=['GET'])
 @login_required
-def get_cert_info(cert_sha256):
+def get_cert_info(cert_id):
 
     flask_logger.info(f"{request.args}")
 
@@ -125,29 +144,27 @@ def get_cert_info(cert_sha256):
     with conn.cursor() as cursor:
         query = """
             SELECT * FROM cert
-            WHERE cert_hash = %s
+            WHERE id = %s
         """
-        cursor.execute(query, (cert_sha256,))
+        cursor.execute(query, (cert_id,))
         row = cursor.fetchone()
 
     # print(row)
     if not row:
         return jsonify({'msg': 'No Such Cert', 'code': 404})
 
-    cert_parsed = PEMParser.parse_native_pretty(row[1])
+    cert_parsed = ASN1Parser.parse_native_pretty_der(row[2])
     analyze_result = _cert_security_analyze(row, "/")
 
-    def json_default(obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, bytes):
-            return base64.b64encode(obj).decode('utf-8')  # 将 bytes 转换为 Base64 编码的字符串
-        if isinstance(obj, bytearray):
-            return base64.b64encode(obj).decode('utf-8')
+    try:
+        modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
+        modulus = hex(modulus).upper().replace('0X', '')
+        cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus'] = modulus
+    except:
+        # probably be ec key
+        pass
 
-        # 可以扩展支持其他类型
-        return str(obj)  # fallback: 转成字符串
-
+    conn.close()
     return Response(
         json.dumps({
             'msg': 'Success',
@@ -158,48 +175,136 @@ def get_cert_info(cert_sha256):
         mimetype='application/json'
     )
 
-    # return jsonify({'msg': 'Success', 'code': 200, "cert_data": cert_parsed, "cert_security" : analyze_result})
+
+@base.route('/cert/cert_retrieve/<cert_id>/deploy', methods=['GET'])
+@login_required
+def get_cert_deploy_info(cert_id):
+
+    flask_logger.info(f"{request.args}")
+
+    conn = engine_cert.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT * FROM cert
+            WHERE id = %s
+        """
+        cursor.execute(query, (cert_id,))
+        row = cursor.fetchone()
+
+    if not row:
+        return jsonify({'msg': 'No Cert Found', 'code': 404})
+
+    cert_sha256 = row[1]
+
+    conn = engine_tls.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT t.*
+            FROM tlshandshake t
+            JOIN (
+                SELECT destination_host, destination_ip
+                FROM tlshandshake
+                WHERE JSON_CONTAINS(cert_sha256_list, %s)
+                GROUP BY destination_host, destination_ip
+                LIMIT 200
+            ) AS limited_hosts
+            ON t.destination_host = limited_hosts.destination_host
+            AND t.destination_ip = limited_hosts.destination_ip
+            WHERE JSON_CONTAINS(t.cert_sha256_list, %s);
+        """
+        cursor.execute(query, (json.dumps([cert_sha256]), json.dumps([cert_sha256])))
+        rows = cursor.fetchall()
+
+        print(rows)
+        if not rows:
+            return jsonify({'msg': 'No Host Found', 'code': 404})
+
+        columns = [desc[0] for desc in cursor.description]
+        result = [dict(zip(columns, row)) for row in rows]
+
+    conn.close()
+    return jsonify({'msg': 'Success', 'code': 200, "deploy_hosts": result})
 
 
-# @deprecated
-# @base.route('/cert/zlint/<cert_id>', methods=['GET'])
-# @login_required
-# def get_cert_zlint(cert_id):
+@base.route('/cert/cert_retrieve/<cert_id>/revoke', methods=['GET'])
+@login_required
+def get_cert_revoke_info(cert_id):
+    flask_logger.info(f"{request.args}")
 
-#     cert_pem = CertStore.query.get(cert_id).get_raw()
+    conn = engine_cert.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT r.*
+            FROM cert_revocation r
+            INNER JOIN (
+                SELECT dist_point, MAX(request_time) AS latest_time
+                FROM cert_revocation
+                WHERE cert_id = %s
+                GROUP BY dist_point
+            ) latest
+            ON r.dist_point = latest.dist_point AND r.request_time = latest.latest_time
+            WHERE r.cert_id = %s
+            ORDER BY r.request_time DESC;
+        """
+        cursor.execute(query, (cert_id, cert_id))
+        rows = cursor.fetchall()
 
-#     """
-#     调用 Zlint 验证证书。
-#     :param cert_pem: str, PEM 格式的证书字符串。
-#     :return: dict, Zlint 输出结果。
-#     """
-#     # 创建一个临时文件存储证书内容
-#     with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
-#         temp_cert_file.write(cert_pem.encode())
-#         temp_cert_path = temp_cert_file.name
+        print(rows)
+        if not rows:
+            return jsonify({'msg': 'No Revoke Record Found', 'code': 404})
 
-#     try:
-#         # 调用 Zlint
-#         result = subprocess.run(
-#             [ZLINT_PATH, temp_cert_path],
-#             stdout=subprocess.PIPE,
-#             stderr=subprocess.PIPE,
-#             text=True
-#         )
+        columns = [desc[0] for desc in cursor.description]
+        result = [dict(zip(columns, row)) for row in rows]
 
-#         # 检查是否有错误输出
-#         if result.returncode != 0:
-#             raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
+    conn.close()
+    return jsonify({'msg': 'Success', 'code': 200, "data": result})
 
-#         # 解析 JSON 输出
-#         zlint_output = json.loads(result.stdout)
 
-#     finally:
-#         # 删除临时文件
-#         try:
-#             import os
-#             os.unlink(temp_cert_path)
-#         except OSError:
-#             pass
+@base.route('/cert/cert_retrieve/<cert_id>/get_revoke', methods=['GET'])
+@login_required
+def check_revoke(cert_id):
+    flask_logger.info(f"{request.args}")
 
-#     return jsonify({'code': 200, 'msg': '操作成功', "zlint_result" : zlint_output})
+    type = request.args.get('type', "")
+    dist_point = request.args.get('dist_point', "")
+
+    conn = engine_cert.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT * from cert
+            WHERE id = %s
+        """
+        cursor.execute(query, (cert_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            return jsonify({'msg': 'No Cert Found', 'code': 404})
+        cert_der = row[2]
+        
+    if type == '0':
+        print("CRL")
+        res = get_revocation_status_from_crl(dist_point, cert_der)
+    elif type == '1':
+
+        print("OCSP")
+        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+        extensions = parsed['tbs_certificate']["extensions"]
+        def find_ext(name):
+            if extensions:
+                for e in extensions:
+                    if e["extn_id"] == name:
+                        return e
+            return None
+        aia_ext = find_ext("authority_information_access")
+        if aia_ext:
+            values = aia_ext["extn_value"]
+            for value in values:
+                if value.get("access_method", None) == "ca_issuers":
+                    issuer_location = value.get("access_location", None)
+                    ca_issuer = get_issuer(issuer_location)
+                    if ca_issuer:
+                        res = get_revocation_status_from_ocsp(dist_point, cert_der, ca_issuer)
+
+    print(res)
+    conn.close()
+    return jsonify({'msg': 'Success', 'code': 200, "data": res})

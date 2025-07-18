@@ -15,8 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from sqlalchemy.dialects.mysql import insert
 
 from backend import db, app
-from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.type import ScanType, ScanStatusType
 from backend.utils.json import custom_serializer
 from backend.utils.network import resolve_host_dns
@@ -89,11 +89,11 @@ class Analyzer():
         cert_chain = json_obj["cert_chain"]
 
         try:
-            sha256 = get_cert_sha256_hex_from_str(cert_chain[0])
+            sha256 = get_sha256_hex_from_str(cert_chain[0])
         except IndexError:
             return
 
-        parsed : PEMResult = PEMParser.parse_pem_cert(cert_chain[0])
+        parsed : ASN1Result = ASN1Parser.parse_pem_cert(cert_chain[0])
         self.data_queue.put({
             "sha256" : sha256,
             "issuer" : parsed.issuer_org,

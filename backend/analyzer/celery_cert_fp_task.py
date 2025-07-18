@@ -4,40 +4,39 @@
 '''
     Reference "https://github.com/zzma/asn1-fingerprint"
 '''
-import json
-import redis
 import hashlib
 import base64
 from datetime import datetime
 from collections import OrderedDict
 
+from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
+from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser
+from backend.parser.asn1_parser import ASN1Parser
 from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_cert_hash
 
 @celery_app.task
 def build_all_from_table(cert_table: str) -> str:
-
-    for row in stream_by_cert_hash(cert_table):
-        # row[1] is the real pem data
-        build_cert_fp.delay(row[0], row[1])
+    for row in stream_by_id(engine_cert.raw_connection(), cert_table):
+        build_cert_fp_from_row.delay(row)
 
 
 @celery_app.task
-def build_cert_fp(_hash : str, asn_1: str) -> str:
-    parsed_cert = PEMParser.parse_native(asn_1)
-    fp = ASN1StructFP.build_fp(parsed_cert)
+def build_cert_fp_from_row(row: list):
     enqueue_result({
         "flag": AnalyzeConfig.TASK_CERT_FP,
-        "cert_hash" : _hash,
-        "cert_fp" : fp
+        "id" : row[0],
+        "fp" : _build_cert_fp(row[2])
     })
+    return True
 
+
+def _build_cert_fp(der_bytes: bytes) -> str:
+    return ASN1StructFP.build_fp(der_bytes)
 
 class ASN1StructFP:
     # Static type indicators
@@ -54,16 +53,16 @@ class ASN1StructFP:
     policy_lookup = CertificatePolicyLookup()
 
     @staticmethod
-    def build_fp(parsed_cert: OrderedDict) -> tuple[str, str]:
+    def build_fp(der_bytes: bytes) -> tuple[str, str]:
+
+        parsed_cert = ASN1Parser.parse_native_der(der_bytes)
         if type(parsed_cert) != OrderedDict:
             primary_logger.error("Certificate should be passed in OrderDict type")
             return ""
 
         fp_raw = []
         ASN1StructFP.fp_recursive(parsed_cert["tbs_certificate"], fp_raw)
-        fp_raw = [str(item) for item in fp_raw]
-        fp_raw_string = ",".join(fp_raw)
-        return ASN1StructFP.fp_hash(fp_raw_string)
+        return fp_raw
 
     @staticmethod
     def fp_recursive(obj: any, current_fp_raw: list, obj_type: int = None) -> None:
@@ -100,6 +99,7 @@ class ASN1StructFP:
                 elif key in ["issuer_unique_id", "subject_unique_id"]:
                     ASN1StructFP.fp_recursive(value, current_fp_raw)
                 elif key == "extensions":
+                    if not value: continue
                     for extension in value:
                         ASN1StructFP.fp_recursive(bool(extension["critical"]), current_fp_raw)
                         extn_id = extension["extn_id"]

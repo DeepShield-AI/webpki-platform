@@ -6,7 +6,7 @@ from datetime import datetime
 import sys
 sys.path.append(r"D:\global_ca_monitor")
 
-from backend.parser.pem_parser import PEMParser
+from backend.parser.asn1_parser import ASN1Parser
 
 
 def check_entry_time(timestamp):
@@ -32,13 +32,13 @@ for file_name in file_name_list:
             data = json.load(file)
 
             for entry in data.values():
-                pem_parser = PEMParser()
+                pem_parser = ASN1Parser()
                 leaf_cert_native = pem_parser.parse_pem_cert(entry['leaf'])
                 check_entry_time(entry['timestamp'])
                 print(f"Not Before Time: {leaf_cert_native.not_before}")
                 print(f"Not After Time: {leaf_cert_native.not_after}")
                 try:
-                    print(f"Subject: {leaf_cert_native.subject}")
+                    print(f"Subject: {leaf_cert_native.subject_cn_list}")
                 except UnicodeEncodeError:
-                    print(f"Subject: {[item.encode() for item in leaf_cert_native.subject]}")
+                    print(f"Subject: {[item.encode() for item in leaf_cert_native.subject_cn_list]}")
 

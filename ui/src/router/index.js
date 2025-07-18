@@ -70,7 +70,7 @@ export const constantRoutes = [
         path: 'dashboard',
         component: () => import('@/views/dashboard/index'),
         name: 'Dashboard',
-        meta: { title: 'DASHBOARD', icon: 'dashboard', affix: true }
+        meta: { title: '仪表盘', icon: 'dashboard', affix: true }
       }
     ]
   },
@@ -169,7 +169,7 @@ export const dynamicRoutes = [
     permissions: ['cert:cert_search:list'],
     children: [
       {
-        path: ':certSha256(.*)',
+        path: ':certId(.*)',
         component: () => import('@/views/cert/cert_search/data'),
         name: 'CertSearchData',
         meta: { title: '证书详情', activeMenu: '/cert/cert_search' }
@@ -187,7 +187,7 @@ export const dynamicRoutes = [
         path: ':host(.*)',
         component: () => import('@/views/host/host_search/data'),
         name: 'HostSearchData',
-        meta: { title: 'Host详情', activeMenu: '/host/host_search' }
+        meta: { title: '网站详情', activeMenu: '/host/host_search' }
       }
     ]
   },
@@ -199,7 +199,7 @@ export const dynamicRoutes = [
     permissions: ['ca:ca_search:list'],
     children: [
       {
-        path: ':caName(.*)',
+        path: ':caId(.*)',
         component: () => import('@/views/ca/ca_search/data'),
         name: 'CaSearchData',
         meta: { title: 'CA 详情', activeMenu: '/ca/ca_search' }

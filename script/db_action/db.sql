@@ -133,30 +133,30 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	-- see router/index.js
 
 	-- Host Analysis Tab
-	('host', '2015-08-25 10:34:53', 'Host Analysis', 'monitor', 'Host Analysis', 1, '', '2023-05-16 20:03:02', '/host', NULL, NULL, NULL, '3', '0'),
-	('hostSearch', '2015-08-25 10:34:53', 'Host查询', 'tree', 'Host查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'host/host_search/index', 'host:host_search:list', 'host', '0', '0'),
-	('hostOverview', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'host/host_analysis/index', 'host:host_analysis:list', 'host', '0', '0'),
-	('hostCag', '2015-08-25 10:34:53', 'Host CAG', 'tree', 'Host CAG', 7, '', '2022-05-25 00:48:32', 'host_cag', 'host/host_cag/index', 'host:host_cag:list', 'host', '0', '0'),
+	('host', '2015-08-25 10:34:53', 'Host Analysis', 'monitor', '网站分析', 2, '', '2023-05-16 20:03:02', '/host', NULL, NULL, NULL, '3', '0'),
+	('hostSearch', '2015-08-25 10:34:53', 'Host 信息查询', 'tree', '网站信息查询', 4, '', '2022-05-25 00:48:32', 'host_search', 'host/host_search/index', 'host:host_search:list', 'host', '0', '0'),
+	-- ('hostOverview', '2015-08-25 10:34:53', 'Host分析结果', 'tree', 'Host结果', 7, '', '2022-05-25 00:48:32', 'host_analysis', 'host/host_analysis/index', 'host:host_analysis:list', 'host', '0', '0'),
+	-- ('hostCag', '2015-08-25 10:34:53', 'Host CAG', 'tree', 'Host CAG', 7, '', '2022-05-25 00:48:32', 'host_cag', 'host/host_cag/index', 'host:host_cag:list', 'host', '0', '0'),
 
 	-- CA Analysis Tab
-	('ca', '2015-08-25 10:34:53', 'CA Analysis', 'monitor', 'CA Analysis', 2, '', '2023-05-16 20:03:02', '/ca', NULL, NULL, NULL, '3', '0'),
-	('caOverview', '2015-08-25 10:34:53', 'CA分析结果', 'tree', 'CA结果', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'ca/ca_analysis/index', 'ca:ca_analysis:list', 'ca', '0', '0'),
-	('caSearch', '2015-08-25 10:34:53', 'CA查询', 'tree', 'CA查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'ca/ca_search/index', 'ca:ca_search:list', 'ca', '0', '0'),
-	('caService', '2015-08-25 10:34:53', 'CA Service', 'tree', 'CA Service', 3, '', '2022-05-25 00:48:32', 'ca_service', 'ca/ca_service_monitor/index', 'ca:ca_service:list', 'ca', '0', '0'),
+	('ca', '2015-08-25 10:34:53', 'CA Analysis', 'monitor', 'CA 分析', 4, '', '2023-05-16 20:03:02', '/ca', NULL, NULL, NULL, '3', '0'),
+	-- ('caOverview', '2015-08-25 10:34:53', 'CA 信息查询', 'tree', 'CA 信息查询', 6, '', '2022-05-25 00:48:32', 'ca_analysis', 'ca/ca_analysis/index', 'ca:ca_analysis:list', 'ca', '0', '0'),
+	('caSearch', '2015-08-25 10:34:53', 'CA 信息查询', 'tree', 'CA 信息查询', 3, '', '2022-05-25 00:48:32', 'ca_search', 'ca/ca_search/index', 'ca:ca_search:list', 'ca', '0', '0'),
+	('caService', '2015-08-25 10:34:53', 'CA Service', 'tree', 'CA 服务监控', 3, '', '2022-05-25 00:48:32', 'ca_service', 'ca/ca_service_monitor/index', 'ca:ca_service:list', 'ca', '0', '0'),
 
 	-- Client Analysis Tab
-	('client', '2015-08-25 10:34:53', 'Client Analysis', 'monitor', 'Client Analysis', 3, '', '2023-05-16 20:03:02', '/client', NULL, NULL, NULL, '3', '0'),
-	('clientOverview', '2015-08-25 10:34:53', 'Cient分析结果', 'tree', 'Client结果', 7, '', '2022-05-25 00:48:32', 'client_analysis', 'client/client_analysis/index', 'client:client_analysis:list', 'client', '0', '0'),
-	('clientSearch', '2015-08-25 10:34:53', 'Client查询', 'tree', 'Client查询', 4, '', '2022-05-25 00:48:32', 'client_search', 'client/client_search/index', 'client:client_search:list', 'client', '0', '0'),
+	('client', '2015-08-25 10:34:53', 'Client Analysis', 'monitor', '客户端分析', 3, '', '2023-05-16 20:03:02', '/client', NULL, NULL, NULL, '3', '0'),
+	-- ('clientOverview', '2015-08-25 10:34:53', 'Cient分析结果', 'tree', '客户端信息', 7, '', '2022-05-25 00:48:32', 'client_analysis', 'client/client_analysis/index', 'client:client_analysis:list', 'client', '0', '0'),
+	('clientSearch', '2015-08-25 10:34:53', 'Client查询', 'tree', '客户端查询', 4, '', '2022-05-25 00:48:32', 'client_search', 'client/client_search/index', 'client:client_search:list', 'client', '0', '0'),
 
 	-- Cert Analysis Tab
-	('cert', '2015-08-25 10:34:53', 'Certificate Analysis', 'monitor', 'Certificate Analysis', 4, '', '2023-05-16 20:03:02', '/cert', NULL, NULL, NULL, '3', '0'),
+	('cert', '2015-08-25 10:34:53', 'Certificate Analysis', 'monitor', '证书分析', 2, '', '2023-05-16 20:03:02', '/cert', NULL, NULL, NULL, '3', '0'),
 	('certSearch', '2015-08-25 10:34:53', '证书查询', 'tree', '证书查询', 2, '', '2022-05-25 00:48:32', 'cert_search', 'cert/cert_search/index', 'cert:cert_search:list', 'cert', '0', '0'),
-	('certOverview', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'cert/cert_analysis/index', 'cert:cert_analysis:list', 'cert', '0', '0'),
+	-- ('certOverview', '2015-08-25 10:34:53', '证书分析结果', 'tree', '证书结果', 5, '', '2022-05-25 00:48:32', 'cert_analysis', 'cert/cert_analysis/index', 'cert:cert_analysis:list', 'cert', '0', '0'),
 
 	-- CT Monitoring Tab
-	('ct', '2015-08-25 10:34:53', 'Certificate Transparency Analysis', 'monitor', 'CT Analysis', 5, '', '2023-05-16 20:03:02', '/ct', NULL, NULL, NULL, '3', '0'),
-	('ctMonitor', '2015-08-25 10:34:53', 'CT Monitor', 'tree', 'CT Monitor', 5, '', '2022-05-25 00:48:32', 'ct_monitor', 'ct/ct_monitor/index', 'ct:ct_monitor:list', 'ct', '0', '0'),
+	-- ('ct', '2015-08-25 10:34:53', 'Certificate Transparency Analysis', 'monitor', 'CT Analysis', 5, '', '2023-05-16 20:03:02', '/ct', NULL, NULL, NULL, '3', '0'),
+	-- ('ctMonitor', '2015-08-25 10:34:53', 'CT Monitor', 'tree', 'CT Monitor', 5, '', '2022-05-25 00:48:32', 'ct_monitor', 'ct/ct_monitor/index', 'ct:ct_monitor:list', 'ct', '0', '0'),
 
 	-- System Management Tab
 	('xtgl', '2015-08-25 10:34:53', '管理系统的资源、角色、机构、用户等信息', 'system', '系统管理', 6, '', '2023-05-16 20:03:02', '/system', NULL, NULL, NULL, '3', '0'),
@@ -177,7 +177,7 @@ INSERT INTO `SYRESOURCE` (`ID`, `CREATEDATETIME`, `DESCRIPTION`, `ICONCLS`, `NAM
 	('zytj', '2015-08-25 10:34:53', '添加资源', 'ext-icon-bullet_wrench', '添加资源', 1, '', '2015-08-25 10:34:53', NULL, '/base/syresource!save', 'system:menu:add', 'zygl', '1', '0'),
 
 	-- System Monitoring Tab
-	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'eye', '系统监控', 7, '', '2022-06-10 00:48:47', '/monitor', NULL, NULL, NULL, '0', '0'),
+	('xtjk', '2015-08-25 10:34:53', '监控系统运行情况等信息', 'eye', '系统监控', 10, '', '2022-06-10 00:48:47', '/monitor', NULL, NULL, NULL, '0', '0'),
 	('log', '2015-08-25 10:34:53', '监控 Log', 'tree', 'System Log', 1, '', '2022-06-10 00:53:22', 'log', 'monitor/log/index', 'monitor:log:list', 'xtjk', '0', '0'),
 	('online', '2015-08-25 10:34:53', '监控用户登录、注销', 'tree', '登录历史', 1, '', '2022-06-10 00:53:22', 'logininfor', 'monitor/logininfor/index', 'monitor:logininfor:list', 'xtjk', '0', '0'),
 	('onlineGrid', '2015-08-25 10:34:53', '用户登录、注销历史记录列表', 'ext-icon-bullet_wrench', '用户登录历史列表', 1, '', '2022-05-28 13:16:37', NULL, '/base/syonline!grid', 'monitor:logininfor:list', 'online', '1', '0'),
@@ -561,165 +561,6 @@ INSERT INTO `SYUSER_SYROLE` (`SYUSER_ID`, `SYROLE_ID`) VALUES
 -- 在此处添加新的Table
 -- 
 
--- 1. 扫描状态信息：
--- scan_status 存储扫描进程状态
-CREATE TABLE IF NOT EXISTS `SCAN_STATUS` (
-  `ID` varchar(36) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
-  `NAME` varchar(36) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
-  `TYPE` INT DEFAULT 0 COMMENT "see SYS_DICT_DATA",
-  `START_TIME` datetime NOT NULL,
-  `END_TIME` datetime DEFAULT NULL,
-  `STATUS` INT DEFAULT 0 COMMENT "see SYS_DICT_DATA",
-  `SCAN_TIME_IN_SECONDS` INT DEFAULT 0,
-  `SCANNED_DOMAINS` INT DEFAULT 0,
-  `SCANNED_IPS` INT DEFAULT 0,
-  `CT_LOG_ADDRESS` varchar(256) CHARACTER SET gbk COLLATE gbk_chinese_ci,
-  `SCANNED_RNTRIES` INT DEFAULT 0,
-  `SUCCESSES` INT DEFAULT 0,
-  `ERRORS` INT DEFAULT 0,
-  `SCANNED_CERTS` INT DEFAULT 0,
-  `NUM_THREADS` INT DEFAULT 0,
-  `CERT_STORE_TABLE` char(32),
---   `SCAN_DATA_TABLE` char(32),
-  PRIMARY KEY (`ID`, `START_TIME`) USING BTREE,
-  UNIQUE KEY `FK_scan_status_id` (`ID`) USING BTREE,
-  UNIQUE KEY `FK_scan_status_start_time` (`START_TIME`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-INSERT INTO `SCAN_STATUS` (`ID`, `NAME`, `TYPE`, `START_TIME`, `END_TIME`, `CERT_STORE_TABLE`, `STATUS`, `SCAN_TIME_IN_SECONDS`, `SCANNED_DOMAINS`, `SCANNED_IPS`, `CT_LOG_ADDRESS`, `SCANNED_RNTRIES`, `SUCCESSES`, `ERRORS`, `SCANNED_CERTS`) VALUES
--- For overall analysis
-  ('0', 'ALL', '0', '2000-01-01 00:00:00', '2000-01-01 00:00:00', 'cert_store_raw', '2', '0', '0', '0', '', '0', '0', '0', '0');
-
-
--- 2. 证书扫描原始数据
--- scan_data 存储扫描日期（分区）网站域名以及返回的证书链（索引），按照扫描的日期来分区（一个月分一次）
--- CREATE TABLE IF NOT EXISTS `SCAN_DATA` (
---   `SCAN_TIME` datetime NOT NULL,
---   `DOMAIN` TEXT CHARACTER SET gbk COLLATE gbk_chinese_ci,
---   `IP` varchar(128),
---   `ERROR_MSG` TEXT,
---   `RECEIVED_CERTS` JSON,
---   `TLS_VERSION` INT,
---   `TLS_CIPHER` varchar(128),
---   PRIMARY KEY (`SCAN_TIME`, `DOMAIN`(255), `IP`) USING BTREE
-
--- 	-- 
--- 	-- Error Code: 1506. Foreign keys are not yet supported in conjunction with partitioning
--- 	-- 
--- 	--   KEY `FK_scan_data_scan_time` (`SCAN_TIME`) USING BTREE,
--- 	--   CONSTRAINT `FK_scan_data_scan_time` FOREIGN KEY (`SCAN_TIME`) REFERENCES `SCAN_STATUS` (`START_TIME`) ON DELETE RESTRICT
-
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC PARTITION BY RANGE(TO_DAYS(`SCAN_TIME`)) (
---    PARTITION p0 VALUES LESS THAN (TO_DAYS('2024-02-01')),
---    PARTITION pm VALUES LESS THAN(MAXVALUE)
--- );
-
--- CREATE INDEX FK_scan_data_domain ON `SCAN_DATA` (`DOMAIN`(255));
-
-
--- -- 由于数据较少，暂时不需要进行分区，所以先使用外键
--- -- cert_store_raw 存储证书的原始PEM数据
--- CREATE TABLE IF NOT EXISTS `CERT_STORE_RAW` (
---   `CERT_ID` varchar(64) NOT NULL,
---   `CERT_RAW` TEXT NOT NULL,
---   PRIMARY KEY (`CERT_ID`) USING BTREE,
---   UNIQUE KEY `UK_cert_id_cert_store_raw` (`CERT_ID`) USING BTREE
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-
--- -- cert_scan_metadata 存储证书的扫描元数据
--- -- 由于有大量的修改更新操作，且需保障查询的灵活性和对扫描数据的分析，选择将每个扫描数据存储为单独的行
--- CREATE TABLE IF NOT EXISTS `CERT_SCAN_METADATA` (
---   `CERT_ID` varchar(64) NOT NULL,
---   `SCAN_DATE` datetime NOT NULL,
---   `SCAN_DOMAIN` TEXT CHARACTER SET gbk COLLATE gbk_chinese_ci,
---   `SCAN_IP` varchar(128),
---   PRIMARY KEY (`CERT_ID`, `SCAN_DATE`, `SCAN_DOMAIN`(255), `SCAN_IP`) USING BTREE,
---   KEY `FK_cert_id_cert_scan_metadata` (`CERT_ID`) USING BTREE,
---   CONSTRAINT `FK_cert_id_cert_scan_metadata` FOREIGN KEY (`CERT_ID`) REFERENCES `CERT_STORE_RAW` (`CERT_ID`) ON DELETE RESTRICT
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
--- CREATE INDEX FK_domain_cert_scan_metadata ON `CERT_SCAN_METADATA` (`SCAN_DOMAIN`(255));
-
-
--- 3. 证书解析数据
--- cert_store_content 存储证书本身的数据和解析结果
--- CREATE TABLE IF NOT EXISTS `CERT_STORE_CONTENT` (
---   `CERT_ID` varchar(64) NOT NULL,
---   `CERT_TYPE` INT NOT NULL DEFAULT 0 COMMENT "leaf intermediate or root",
---   `SUBJECT_CN` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
---   `ISSUER_CN` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
---   `ISSUER_ORG` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
---   `ISSUER_COUNTRY` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
---   `KEY_SIZE` INT NOT NULL,
---   `KEY_TYPE` INT NOT NULL,
---   `NOT_VALID_BEFORE` datetime NOT NULL,
---   `NOT_VALID_AFTER` datetime NOT NULL,
---   `VALIDATION_PERIOD` INT NOT NULL,
---   `FINGERPRINT` JSON NOT NULL,
---   PRIMARY KEY (`CERT_ID`) USING BTREE,
---   UNIQUE KEY `UK_cert_id_cert_store_content` (`CERT_ID`) USING BTREE,
---   CONSTRAINT `UK_cert_id_cert_store_content` FOREIGN KEY (`CERT_ID`) REFERENCES `CERT_STORE_RAW` (`CERT_ID`) ON DELETE RESTRICT
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-
--- ca_cert_store 存储所有扫描到的CA中间证书和CA根证书
--- CREATE TABLE IF NOT EXISTS `CA_CERT_STORE` (
---   `CERT_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `CERT_RAW` TEXT NOT NULL,
---   `CERT_TYPE` INT NOT NULL DEFAULT '1',
---   `CA_COMMON_NAME` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   `CA_ORG_NAME` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   `CA_COUNTRY_NAME` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   PRIMARY KEY (`CERT_ID`) USING BTREE,
---   KEY `FK_ca_cert_store_cert_id` (`CERT_ID`) USING BTREE,
---   CONSTRAINT `FK_ca_cert_store_cert_id` FOREIGN KEY (`CERT_ID`) REFERENCES `CERT_STORE_RAW` (`CERT_ID`) ON DELETE RESTRICT
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
--- -- ca_key_store 存储所有收集到的CA签发用的公钥
--- CREATE TABLE IF NOT EXISTS `CA_KEY_STORE` (
---   `KEY_ID` VARCHAR(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `KEY_RAW` TEXT NOT NULL,
---   `KEY_TYPE` VARCHAR(32) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `CA_COMMON_NAME` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   `CA_ORG_NAME` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   `CA_COUNTRY_NAME` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
---   PRIMARY KEY (`KEY_ID`)
--- ) ENGINE = InnoDB DEFAULT CHARACTER SET = gbk COLLATE = gbk_chinese_ci ROW_FORMAT=DYNAMIC;
-
-
--- 4. 证书统计分析数据
--- cert_stat_result 存储每次扫描的证书分析结果
--- CREATE TABLE IF NOT EXISTS `CERT_STAT_RESULT` (
---   `SCAN_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `SCAN_TIME` datetime NOT NULL,
---   `SCAN_TYPE` INT DEFAULT 0,
---   `SCANNED_CERT_NUM` INT DEFAULT 0,
---   `ISSUER_ORG_COUNT` JSON,
---   `KEY_SIZE_COUNT` JSON,
---   `KEY_TYPE_COUNT` JSON,
---   `SIG_ALG_COUNT` JSON,
---   `VALIDATION_PERIOD_COUNT` JSON,
---   `EXPIRED_PERCENT` FLOAT DEFAULT 0,
---   PRIMARY KEY (`SCAN_ID`, `SCAN_TIME`) USING BTREE,
---   UNIQUE KEY `UK_cert_stat_result_scan_time` (`SCAN_TIME`) USING BTREE,
---   UNIQUE KEY `UK_cert_stat_result_scan_id` (`SCAN_ID`) USING BTREE,
---   CONSTRAINT `UK_cert_stat_result_scan_id` FOREIGN KEY (`SCAN_ID`) REFERENCES `SCAN_STATUS` (`ID`) ON DELETE RESTRICT
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-
--- -- cert_chain_relation 存储证书在证书链中的父亲（可能不只一个父亲）
--- CREATE TABLE IF NOT EXISTS `CERT_CHAIN_RELATION` (
---   `CERT_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `CERT_PARENT_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   PRIMARY KEY (`CERT_ID`, `CERT_PARENT_ID`) USING BTREE,
---   KEY `FK_cert_id_cert_chain_relation` (`CERT_ID`) USING BTREE,
---   CONSTRAINT `FK_cert_id_cert_chain_relation` FOREIGN KEY (`CERT_ID`) REFERENCES `CERT_STORE_RAW` (`CERT_ID`) ON DELETE RESTRICT,
---   KEY `FK_cert_parent_id_cert_chain_relation` (`CERT_PARENT_ID`) USING BTREE,
---   CONSTRAINT `FK_cert_parent_id_cert_chain_relation` FOREIGN KEY (`CERT_PARENT_ID`) REFERENCES `CA_CERT_STORE` (`CERT_ID`) ON DELETE RESTRICT
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-
 -- -- cert_revocation_status_ocsp 存储使用OCSP协议验证证书吊销状态的信息
 -- CREATE TABLE IF NOT EXISTS `CERT_REVOCATION_STATUS_OCSP` (
 --   `CERT_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
@@ -755,34 +596,6 @@ INSERT INTO `SCAN_STATUS` (`ID`, `NAME`, `TYPE`, `START_TIME`, `END_TIME`, `CERT
 --   `CRL_DATA` LONGBLOB NOT NULL,
 --   PRIMARY KEY (`CRL_POSITION`(255), `STORE_TIME`)
 -- ) ENGINE = InnoDB DEFAULT CHARACTER SET = gbk COLLATE = gbk_chinese_ci ROW_FORMAT=DYNAMIC;
-
-
--- 5. CA统计数据
--- ca_stat_result 存储每次扫描的CA分析结果
--- CREATE TABLE IF NOT EXISTS `CA_STAT_RESULT` (
---   `SCAN_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
--- --   `CREATEDATETIME` datetime DEFAULT NULL,
---   `SCANNED_CA_NUM` INT DEFAULT 0,
---   `CA_DATA_TABLE` VARCHAR(32) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   PRIMARY KEY (`SCAN_ID`) USING BTREE
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
-
--- 6. 证书副本
--- CREATE TABLE IF NOT EXISTS `CERTIFICATE_REPLICA_ENTRY` (
---   `CERT_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci NOT NULL,
---   `SIGNATURE` varchar(16) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   `ISSUER_CN` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
---   `ISSUER_ORG` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
---   `NOT_BEFORE` varchar(32) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   `NOT_AFTER` varchar(32) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   `SUBJECT` json NOT NULL,
---   `KEY_ALG` varchar(16) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   `KEY_ID` varchar(64) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   `POLICY` varchar(128) CHARACTER SET gbk COLLATE gbk_chinese_ci DEFAULT NULL,
---   PRIMARY KEY (`CERT_ID`) USING BTREE
--- ) ENGINE=InnoDB DEFAULT CHARSET=gbk ROW_FORMAT=DYNAMIC;
-
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

@@ -1,45 +1,41 @@
 
 import os
 import json
-import redis
-import hashlib
-import base64
-from datetime import datetime, timezone
-from collections import OrderedDict
-import subprocess
 import tempfile
 import ipaddress
+import subprocess
 
+from datetime import datetime, timezone
+from backend.analyzer.utils import enqueue_result, stream_by_id
+from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.config.analyze_config import AnalyzeConfig
 from backend.config.path_config import ZLINT_PATH, ROOT_DIR
-from backend.celery.celery_app import celery_app
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import PEMParser, PEMResult
-from backend.utils.exception import *
-from backend.analyzer.utils import enqueue_result, stream_by_id, stream_by_cert_hash
+from backend.parser.asn1_parser import ASN1Parser
 
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_cert_hash("cert"):
-        # primary_logger.debug(row)
+    for row in stream_by_id(engine_cert.raw_connection(), "cert"):
         cert_security_analyze.delay(row, output_dir)
     return True
 
 
 @celery_app.task
 def cert_security_analyze(row: list, output_dir: str) -> str:
-    enqueue_result(_cert_security_analyze(row, output_dir))
+    analysis_result = _cert_security_analyze(row[1], row[2])
+    analysis_result["id"] = row[0]
+    analysis_result["out_dir"] = output_dir
+    enqueue_result(analysis_result)
     return True
 
 
-def _cert_security_analyze(row: list, output_dir: str) -> str:
+def _cert_security_analyze(sha256: str, cert_der: str) -> str:
 
     try:
-        cert: str = row[1]
         error_code = set()
         error_info = {}
-        parsed: dict = PEMParser.parse_native_pretty(cert)
+        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
         # primary_logger.debug(parsed)
 
         # 1. check expired certs
@@ -57,8 +53,8 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
             error_info["validity_too_long"] = validity
 
         # 3. check sig and encrypt alg
-        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as temp_cert_file:
-            temp_cert_file.write(cert.encode())
+        with tempfile.NamedTemporaryFile(suffix=".der", delete=False) as temp_cert_file:
+            temp_cert_file.write(cert_der)
             temp_cert_path = temp_cert_file.name
 
         try:
@@ -119,7 +115,7 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
             error_code.add("self_signed")
 
         # 5. if cert is deployed on any ip that is in abuseipdb or drop
-        ips = find_ip_by_cert_sha256(row[0])
+        ips = find_ip_by_cert_sha256(sha256)
         filtered_ips = filter_abuse_ip(ips)
         if filtered_ips:
             error_code.add("abuse_ip")
@@ -190,8 +186,6 @@ def _cert_security_analyze(row: list, output_dir: str) -> str:
         # only add cert node if the cert structure is broken
         return {
             "flag" : AnalyzeConfig.TASK_CERT_SECURITY,
-            "out_dir" : output_dir,
-            "cert_hash" : row[0],
             "error_code" : list(error_code),
             "error_info" : error_info
         }
@@ -204,7 +198,7 @@ def find_ip_by_cert_sha256(cert_sha256):
     cursor = conn.cursor()
     query = f"""
         SELECT * FROM tlshandshake
-        WHERE JSON_CONTAINS (cert_hash_list, %s)
+        WHERE JSON_CONTAINS (cert_sha256_list, %s)
         LIMIT 200
     """
     cursor.execute(query, (json.dumps([cert_sha256]), ))

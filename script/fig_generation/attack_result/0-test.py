@@ -29,9 +29,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn, TaskID
 from rich.console import Console
 from threading import Lock, Thread
-from backend.parser.pem_parser import PEMParser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 from backend.utils.json import custom_serializer, split_json_objects
-from backend.utils.cert import get_cert_sha256_hex_from_str
+from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.domain_lookup import DomainLookup
 
 class ParseTopCerts():
@@ -91,14 +91,14 @@ class ParseTopCerts():
                 for json_str in split_json_objects(data):
                     try:
                         entry = json.loads(json_str)
-                        leaf_info = PEMParser.parse_pem_cert(entry["leaf"])
+                        leaf_info = ASN1Parser.parse_pem_cert(entry["leaf"])
 
                         entry = {
-                            "sha256" : get_cert_sha256_hex_from_str(entry["leaf"]),
+                            "sha256" : get_sha256_hex_from_str(entry["leaf"]),
                             "timestamp" : entry["timestamp"],
-                            "san" : list(set(leaf_info.subject)),
+                            "san" : list(set(leaf_info.subject_cn_list)),
                             "pub_key_alg" : leaf_info.pub_key_alg,
-                            "pub_key" : leaf_info.pub_key
+                            "pub_key" : leaf_info.spki
                         }
                         self.queue.put(entry)
 

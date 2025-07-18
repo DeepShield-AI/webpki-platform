@@ -2,15 +2,9 @@
 import json
 from flask import jsonify, request
 from flask_login import login_required, current_user
-from collections import defaultdict, deque
-
 from flask_app.blueprint import base
-from flask_app.config.db_pool import engine_cert, engine_tls
 from flask_app.logger.logger import flask_logger    
-
-from backend.config.path_config import ROOT_DIR
-from backend.parser.cert_parser_base import X509CertParser
-from backend.parser.pem_parser import PEMParser
+from backend.celery.celery_db_pool import engine_cert, engine_tls
 from backend.analyzer.celery_web_security_task import _web_security_analyze
 from backend.utils.domain import check_input_type
 
