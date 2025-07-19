@@ -28,12 +28,22 @@ def _ca_info(cert_der: bytes) -> str:
         #   `parent` JSON,
         #   `child` JSON
 
+        cert_conn = engine_cert.raw_connection()
+        with cert_conn.cursor() as cursor:
+            query = """
+                SELECT id from cert
+                WHERE sha256 = %s
+            """
+            cursor.execute(query, (parsed.sha256,))
+            row = cursor.fetchone()
+
         return {
             "flag" : AnalyzeConfig.TASK_CA_PROFILE,
             "ca_sha256" : parsed.ca_id_sha256,
             "subject" : parsed.subject,
             "spki" : parsed.spki,
-            "cert_sha256" : parsed.sha256
+            "ski" : parsed.ski,
+            "cert_id" : row[0]
         }
 
     except Exception as e:

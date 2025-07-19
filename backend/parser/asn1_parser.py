@@ -5,6 +5,7 @@
 
 import base64
 from asn1crypto import pem, x509
+from asn1crypto.keys import PublicKeyInfo
 from dataclasses import dataclass, asdict
 from backend.utils.cert import ordered_dict_to_dict, get_sha256_hex_from_str, get_sha256_hex_from_bytes
 from backend.utils.json import fix_large_ints_to_hex
@@ -52,7 +53,7 @@ class ASN1Result():
     '''
         Other info
     '''
-    signature : str
+    signature_algo : str
     issuer_cn : str
     issuer_org : str
     issuer_country : str
@@ -60,7 +61,7 @@ class ASN1Result():
     not_after : str
     subject_org : str
     pub_key_alg : str
-    spki : dict
+    spki : bytes
     policy : str
     self_signed : bool
     subject_sha : str
@@ -68,12 +69,20 @@ class ASN1Result():
     
     # for ca unique key
     ca_id_sha256 : str
+    aki : str
 
 
 class ASN1Parser():
 
     def __init__(self) -> None:
         pass
+
+    @classmethod
+    def base64str2pem(certificate_base64):
+        # 将 Base64 数据分割为每 64 个字符一行
+        formatted_certificate = "\n".join([certificate_base64[i:i+64] for i in range(0, len(certificate_base64), 64)])
+        pem_certificate = f"-----BEGIN CERTIFICATE-----\n{formatted_certificate}\n-----END CERTIFICATE-----"
+        return pem_certificate
 
     @classmethod
     def pem2der(self, pem_str : str) -> bytes:
@@ -88,11 +97,10 @@ class ASN1Parser():
         b64_encoded = base64.encodebytes(der_bytes).decode('ascii')
         b64_lines = [line.strip() for line in b64_encoded.strip().splitlines()]
         pem_body = '\n'.join(b64_lines)
-
         return f"-----BEGIN {type_name}-----\n{pem_body}\n-----END {type_name}-----\n"
 
     @classmethod
-    def parse_native_pem(self, pem_str : str):
+    def parse_pem_native(self, pem_str : str):
         pem_bytes_str = pem_str.encode('utf-8')
         if pem.detect(pem_bytes_str):
             type_name, headers, der_bytes = pem.unarmor(pem_bytes_str)
@@ -100,22 +108,22 @@ class ASN1Parser():
             return cert.native
 
     @classmethod
-    def parse_native_pretty_pem(self, pem_str : str):
-        return ordered_dict_to_dict(self.parse_native_pem(pem_str))
+    def parse_pem_native_pretty(self, pem_str : str):
+        return ordered_dict_to_dict(self.parse_pem_native(pem_str))
 
     @classmethod
-    def parse_der(self, der_bytes : bytes):
+    def parse_der_raw(self, der_bytes : bytes):
         cert = x509.Certificate.load(der_bytes)
         return cert
 
     @classmethod
-    def parse_native_der(self, der_bytes : bytes):
+    def parse_der_native(self, der_bytes : bytes):
         cert = x509.Certificate.load(der_bytes)
         return cert.native
 
     @classmethod
-    def parse_native_pretty_der(self, der_bytes : bytes):
-        return ordered_dict_to_dict(self.parse_der(der_bytes).native)
+    def parse_der_native_pretty(self, der_bytes : bytes):
+        return ordered_dict_to_dict(self.parse_der_raw(der_bytes).native)
 
     @classmethod
     def parse_pem_cert(self, pem_str : str):
@@ -138,10 +146,10 @@ class ASN1Parser():
         der_subject = subject.dump()
         ca_id_sha256 = get_sha256_hex_from_bytes(der_subject + der_spki)
 
-        subject_cn_list = []
-        pub_key_id = b''
+        ski = b''
+        aki = b''
         policy = ''
-        subject_cn_list.append(cert['tbs_certificate']['subject'].native.get('common_name', None))
+        subject_cn_list = []
         extensions = cert['tbs_certificate']['extensions']
 
         for ext in extensions:
@@ -149,30 +157,32 @@ class ASN1Parser():
 
             if ext_id == 'subject_alt_name':
                 try:
-                    subject_cn_list += ext['extn_value'].native
-                    # print(subject)
+                    subject_cn_list = ext['extn_value'].native
+                    subject_cn = cert['tbs_certificate']['subject'].native.get('common_name', None)
+                    if subject_cn not in subject_cn_list:
+                        subject_cn_list.append(subject_cn)
+
                 except UnicodeError:
-                    # print(ext['extn_value'])
                     # subject += [idna.encode(domain_unicode) for domain_unicode in ext['extn_value'].native]
                     pass
 
-            if ext_id == 'key_identifier':
-                pub_key_id = ext['extn_value'].native   # this is base64 bytes
-                # print(pub_key_id)
-            if ext_id == 'certificate_policies':
+            elif ext_id == 'key_identifier':
+                ski = ext['extn_value'].native   # this is base64 bytes
+            elif ext_id == 'authority_key_identifier':
+                aki = ext['extn_value'].native['key_identifier']    # this is base64 bytes
+            elif ext_id == 'certificate_policies':
                 policy = ext['extn_value'].native[0].get('policy_identifier', None)
-                # print(policy)
 
         pem_result = ASN1Result(
             sha256=get_sha256_hex_from_bytes(der_bytes),
             serial=format(cert['tbs_certificate']['serial_number'].native, 'x'),
-            subject_cn_list=list(set(subject_cn_list)),
+            subject_cn_list=subject_cn_list,
             subject=cert['tbs_certificate']['subject'].native,
             issuer=cert['tbs_certificate']['issuer'].native,
-            ski=pub_key_id.hex(),
+            ski=ski.hex(),
             spkisha256=spki_sha256,
 
-            signature=cert['tbs_certificate']['signature']['algorithm'].native,
+            signature_algo=cert['tbs_certificate']['signature']['algorithm'].native,
             issuer_cn=cert['tbs_certificate']['issuer'].native.get('common_name', None),
             issuer_org=cert['tbs_certificate']['issuer'].native.get('organization_name', None),
             issuer_country=cert['tbs_certificate']['issuer'].native.get('country_name', None),
@@ -180,13 +190,15 @@ class ASN1Parser():
             not_after=cert['tbs_certificate']['validity']['not_after'].native.strftime("%Y-%m-%d-%H-%M-%S"),
             subject_org=cert['tbs_certificate']['subject'].native.get('organization_name', None),
             pub_key_alg=cert['tbs_certificate']['subject_public_key_info']['algorithm']['algorithm'].native,
-            spki=fix_large_ints_to_hex(cert['tbs_certificate']['subject_public_key_info'].native),
+            # spki=fix_large_ints_to_hex(cert['tbs_certificate']['subject_public_key_info'].native),
+            spki=der_spki,
             policy=policy,
             self_signed=cert['tbs_certificate']['issuer'].native == cert['tbs_certificate']['subject'].native,
             subject_sha=get_sha256_hex_from_str(str(cert['tbs_certificate']['subject'].native)),
             issuer_sha=get_sha256_hex_from_str(str(cert['tbs_certificate']['issuer'].native)),
 
-            ca_id_sha256=ca_id_sha256
+            ca_id_sha256=ca_id_sha256,
+            aki=aki.hex()
         )
 
         return pem_result
@@ -198,3 +210,8 @@ class ASN1Parser():
     @classmethod
     def convert_pem_result_to_json(self, pem_result : ASN1Result):
         return asdict(pem_result)
+
+    @classmethod
+    def parse_der_spki_native(self, der_bytes : bytes):
+        pub_key = PublicKeyInfo.load(der_bytes)
+        return pub_key.native
