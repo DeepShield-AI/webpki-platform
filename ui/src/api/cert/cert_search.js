@@ -41,6 +41,12 @@ export function checkRevoke(type, certId, distPoint) {
   })
 }
 
+export function getCertCag(certId) {
+  return request({
+    url: '/cert/cert_retrieve/' + certId + '/get_cag',
+    method: 'get',
+  })
+}
 
 // export function getCertZlintInfo(certId) {
 //   return request({

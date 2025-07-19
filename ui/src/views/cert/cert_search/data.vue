@@ -208,8 +208,7 @@
 </template>
 
 <script>
-import { getCertInfo, getCertDeployInfo, getCertRevocationRecords, checkRevoke } from "@/api/cert/cert_search";
-import { getSubCag } from "@/api/host/host_analysis";
+import { getCertInfo, getCertDeployInfo, getCertRevocationRecords, checkRevoke, getCertCag } from "@/api/cert/cert_search";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
@@ -290,11 +289,8 @@ export default {
     },
     getCag(certId){
       this.loading = true;
-      const query = {
-        "cert_sha256" : certId
-      };
       // return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
-      getSubCag(query).then(response => {
+      getCertCag(certId).then(response => {
         this.certGraphData = response.data;
         this.loading = false;
       });
