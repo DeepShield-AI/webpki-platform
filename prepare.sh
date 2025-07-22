@@ -55,8 +55,11 @@ install_apt_package "python$PYVER-venv"
 rm -rf myenv
 python3 -m venv myenv
 source ./myenv/bin/activate
-pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
-pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -e .
+# pip install -i https://pypi.org/simple setuptools
+# pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+# pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -e .
+pip install --upgrade pip
+pip install -e .
 
 echo "==== Setting Up MySQL Service ===="
 
@@ -78,7 +81,7 @@ fi
 
 # --- Configuration Parameters ---
 INNODB_SIZE="1G"
-MEMORY_MAX="1.5G"
+MEMORY_MAX="1G"
 INNODB_SIZE_BYTES=$((1024 * 1024 * 1024))
 
 # --- Locate MySQL config file ---
@@ -140,8 +143,10 @@ echo "==== Initializing MySQL Schema ===="
 if [ -f "./script/db_action/db.sql" ]; then
     echo "Importing database initialization script..."
     sudo mysql < ./script/db_action/db.sql
-    sudo mysql < ./script/db_action/init-db.sql
-    sudo mysql < ./script/db_action/db-new.sql
+    sudo mysql < ./script/db_action/db-cert.sql
+    sudo mysql < ./script/db_action/db-ca.sql
+    sudo mysql < ./script/db_action/db-tls.sql
+    sudo mysql < ./script/db_action/db-scan.sql
 else
     echo -e "${RED}SQL file not found. Skipping initialization.${NC}"
 fi

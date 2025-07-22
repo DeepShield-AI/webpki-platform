@@ -174,7 +174,7 @@ def cag_add_dns(domain: str, current_graph_data):
 
     if domain.startswith("*."): return current_graph_data
 
-    v4, v6 = resolve_host_dns(domain)
+    v4, v6 = resolve_host_dns(domain, lifetime=1, timeout=1)
     for ip in v4 + v6:
         current_graph_data["nodes"].append({
             "id" : ip,
