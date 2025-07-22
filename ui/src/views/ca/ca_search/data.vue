@@ -13,7 +13,7 @@
           <el-col :sm="24" :lg="24" style="padding-left: 20px">
             <h2>CA详情</h2>
             <el-card>
-              <RecursiveDict :data="JSON.parse(caInfo.subject)" />
+              <RecursiveDict :data="caInfo.subject" />
             </el-card>
           </el-col>
         </el-row>
@@ -22,7 +22,7 @@
           <el-col :sm="24" :lg="24" style="padding-left: 20px">
             <h2>CA详情</h2>
             <el-card>
-              <RecursiveDict :data="JSON.parse(caInfo.spki)" />
+              <RecursiveDict :data="caInfo.spki" />
             </el-card>
           </el-col>
         </el-row>
@@ -34,7 +34,7 @@
             <div v-if="caInfo.certs.length">
               <ul style="padding-left: 10px;">
                 <li
-                  v-for="(sha, index) in JSON.parse(caInfo.certs)"
+                  v-for="(sha, index) in caInfo.certs"
                   :key="index"
                   style="margin: 6px 0;"
                 >
@@ -56,6 +56,19 @@
       </el-tab-pane>
 
       <!-- Tab 2：CA 颁发行为分析 -->
+      <el-tab-pane label="CA资源关系图" name="graph">  
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>CA资源关系图</h2>
+          </el-col>
+        </el-row>
+
+        <el-card style="width: 67%; margin: 0 auto;">
+          <cag :graph-data="caGraphData" />
+        </el-card>
+      </el-tab-pane>
+
+      <!-- Tab 3：CA 颁发行为分析 -->
       <el-tab-pane label="证书签发情况" name="issuing">
         <el-row>
           <el-col :span="24" style="padding: 20px;">
@@ -66,7 +79,7 @@
         </el-row>
       </el-tab-pane>
 
-      <!-- Tab 3：CA 服务信息 -->
+      <!-- Tab 4：CA 服务信息 -->
       <el-tab-pane label="服务信息" name="service">
         <el-row>
           <el-col :span="24" style="padding: 20px;">
@@ -82,7 +95,7 @@
 </template>
 
 <script>
-import { getCaInfo } from "@/api/ca/ca_search";
+import { getCaInfo, getCaCag } from "@/api/ca/ca_search";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
 import Cag from '@/views/host/host_analysis/cag';
 import EChart from 'vue-echarts';
@@ -100,6 +113,7 @@ export default {
       caId: this.$route.params.caId,
       caInfo: {},
       caFps: [],
+      caGraphData: {}
     };
   },
   created() {
@@ -115,11 +129,18 @@ export default {
         this.loading = false;
       });
     },
+    getCag(){
+      this.loading = true;
+      getCaCag(this.caId).then(response => {
+        this.caGraphData = response.data;
+        this.loading = false;
+      });
+    },
     handleTabChange(val) {
       this.activeTab = val;
-
-      // 可选：根据 tab 加载对应模块的数据
-      // if (val === 'issuing') this.loadIssuingStats();
+      if (val === 'graph' && Object.keys(this.caGraphData).length === 0) {
+        this.getCag();
+      }
     }
   }
 };

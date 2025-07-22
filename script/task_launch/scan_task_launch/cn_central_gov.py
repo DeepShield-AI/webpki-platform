@@ -11,4 +11,4 @@ if __name__ == "__main__":
         output_file_dir=r"/home/tianyuz23/data/pki-internet-platform/data/gov_domains/cn/",
     )
 
-    launch_scan_task.delay(test_config.to_dict())
+    launch_scan_task(test_config.to_dict())

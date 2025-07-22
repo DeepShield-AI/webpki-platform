@@ -103,7 +103,7 @@ def analyze_cert_revocation_from_row(row: list, output_dir: str) -> str:
 
 def _analyze_cert_revocation(id: int, cert_der: bytes) -> str:
     try:
-        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+        parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
         extensions = parsed['tbs_certificate']["extensions"]
         def find_ext(name):
             if extensions:
@@ -173,7 +173,7 @@ def get_revocation_status_from_crl(
         Sometimes, the CA might remove the cert from CRL after a period of time of expiration to reduce the CRL size
         So make sure to check whether the cert is expired in the caller
     '''
-    parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+    parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
     serial_number : int = parsed['tbs_certificate']['serial_number']
     request_time, crl = request_crl(crl_distribution_point, use_proxy=use_proxy)
 

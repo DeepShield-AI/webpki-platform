@@ -12,4 +12,4 @@ if __name__ == "__main__":
         input_list_file=r"/root/pki-internet-platform/data/top_domains/cisco-top-1m-new.csv",
     )
 
-    launch_scan_task.delay(test_config.to_dict())
+    launch_scan_task(test_config.to_dict())

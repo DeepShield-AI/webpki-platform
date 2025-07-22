@@ -55,7 +55,7 @@ class ASN1StructFP:
     @staticmethod
     def build_fp(der_bytes: bytes) -> tuple[str, str]:
 
-        parsed_cert = ASN1Parser.parse_native_der(der_bytes)
+        parsed_cert = ASN1Parser.parse_der_native(der_bytes)
         if type(parsed_cert) != OrderedDict:
             primary_logger.error("Certificate should be passed in OrderDict type")
             return ""

@@ -35,7 +35,7 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
     try:
         error_code = set()
         error_info = {}
-        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+        parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
         # primary_logger.debug(parsed)
 
         # 1. check expired certs

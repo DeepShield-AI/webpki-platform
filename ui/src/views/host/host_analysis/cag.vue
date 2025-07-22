@@ -16,13 +16,13 @@
                 width="50"
               />
 
-              <el-table-column prop="sha256" label="Hash">
+              <el-table-column prop="cert_id" label="Hash">
                 <template #default="{ row }">
                   <router-link
-                    :to="`/system/cert_view/${row.sha256}`"
+                    :to="`/cert/cert_view/${row.cert_id}`"
                     style="color: #409EFF;"
                   >
-                    {{ row.sha256 }}
+                    {{ row.cert_id }}
                   </router-link>
                 </template>
               </el-table-column>
@@ -138,7 +138,7 @@ export default {
             .id(d => d.id)
             // .distance(d => (d.source.root || d.target.root) ? 100 : 50)
         )
-        .force("charge", d3.forceManyBody().strength(-200))
+        .force("charge", d3.forceManyBody().strength(-1000))
         .force("collide", d3.forceCollide().radius(15))
         .force("center", d3.forceCenter(this.width / 2, this.height / 2).strength(0.5))
     },
@@ -379,7 +379,7 @@ export default {
           certCount++;
           this.certList.push({
             index: certCount,
-            sha256: node.id.slice(5),
+            cert_id: node.id,
           });
         }
       }

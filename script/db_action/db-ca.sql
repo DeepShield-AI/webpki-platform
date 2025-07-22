@@ -9,8 +9,9 @@ CREATE TABLE IF NOT EXISTS `ca` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,  -- sha256 of subject and spki
   `subject` JSON,
-  `spki` JSON,
-  `certs` JSON,
+  `spki` MEDIUMBLOB,
+  `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
+  `certs` JSON,   -- list of owned certs with same sha256, with cert_id in it
   `issued_certs` INT,
   `parent` JSON,
   `child` JSON

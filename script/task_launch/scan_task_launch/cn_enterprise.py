@@ -7,8 +7,8 @@ if __name__ == "__main__":
         "CN_SOE_20250630",
         proxy_host=None,
         proxy_port=None,
-        input_list_file=r"/home/tianyuz23/data/pki-internet-platform/data/enterprise_domains/cn/domains.txt",
-        output_file_dir=r"/home/tianyuz23/data/pki-internet-platform/data/enterprise_domains/cn/",
+        input_list_file=r"/home/tianyu/pki-internet-platform/data/enterprise_domains/cn/domains.txt",
+        output_file_dir=r"/home/tianyu/pki-internet-platform/data/enterprise_domains/cn/",
     )
 
-    launch_scan_task.delay(test_config.to_dict())
+    launch_scan_task(test_config.to_dict())

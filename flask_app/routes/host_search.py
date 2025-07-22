@@ -41,7 +41,13 @@ def get_host_info(host):
 
     final_result = set()
     for row in rows:
-        final_result.add(json.dumps(_web_security_analyze(row, "/")))
+        final_result.add(json.dumps(_web_security_analyze(
+            row[1],
+            row[2],
+            row[-4],
+            row[-3],
+            json.loads(row[-2])
+        )))
 
     final_result = [json.loads(i) for i in final_result]
     print(final_result)
