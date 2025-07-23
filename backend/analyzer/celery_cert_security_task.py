@@ -25,6 +25,7 @@ def build_all_from_table(output_dir: str) -> str:
 def cert_security_analyze(row: list, output_dir: str) -> str:
     analysis_result = _cert_security_analyze(row[1], row[2])
     analysis_result["id"] = row[0]
+    analysis_result["sha256"] = row[1]
     analysis_result["out_dir"] = output_dir
     enqueue_result(analysis_result)
     return True
@@ -32,11 +33,35 @@ def cert_security_analyze(row: list, output_dir: str) -> str:
 
 def _cert_security_analyze(sha256: str, cert_der: str) -> str:
 
+    def find_ext(name):
+        if extensions:
+            for e in extensions:
+                if e["extn_id"] == name:
+                    return e
+        return None
+    
+    LEAF = 0
+    INTER = 1
+    ROOT = 2
+
     try:
         error_code = set()
         error_info = {}
         parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
         # primary_logger.debug(parsed)
+
+        # well, this has to be done, check if the cert is CA cert
+        extensions = parsed['tbs_certificate']["extensions"]
+
+        if not find_ext("basic_constraints"):
+            cert_type = LEAF
+        else:
+            if find_ext("basic_constraints")["extn_value"]["ca"]:
+                issuer = parsed['tbs_certificate']['issuer']
+                subject = parsed['tbs_certificate']['subject']
+                if issuer == subject: cert_type = ROOT
+                else: cert_type = INTER
+            else: cert_type = LEAF
 
         # 1. check expired certs
         not_before = parsed['tbs_certificate']['validity']['not_before']
@@ -48,7 +73,15 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
 
         # 2. check validity time
         validity = (not_after - not_before).days
-        if validity > 398:
+        if cert_type == LEAF and validity > 398:
+            error_code.add("validity_too_long")
+            error_info["validity_too_long"] = validity
+
+        elif cert_type == INTER and validity > 3650:
+            error_code.add("validity_too_long")
+            error_info["validity_too_long"] = validity
+
+        elif cert_type == ROOT and validity > 9132:
             error_code.add("validity_too_long")
             error_info["validity_too_long"] = validity
 
@@ -108,23 +141,24 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
             except OSError:
                 pass
 
-        # 4. self-signed cert
+        # 4. self-signed cert for non-root
         issuer = parsed['tbs_certificate']['issuer']
         subject = parsed['tbs_certificate']['subject']
-        if issuer == subject:
+        if cert_type != ROOT and issuer == subject:
             error_code.add("self_signed")
 
         # 5. if cert is deployed on any ip that is in abuseipdb or drop
-        ips = find_ip_by_cert_sha256(sha256)
-        filtered_ips = filter_abuse_ip(ips)
-        if filtered_ips:
-            error_code.add("abuse_ip")
-            error_info["abuse_ip"] = filtered_ips
+        if cert_type == LEAF:
+            ips = find_ip_by_cert_sha256(sha256)
+            filtered_ips = filter_abuse_ip(ips)
+            if filtered_ips:
+                error_code.add("abuse_ip")
+                error_info["abuse_ip"] = filtered_ips
 
-        filtered_ips = filter_drop_ip(ips)
-        if filtered_ips:
-            error_code.add("DROP")
-            error_info["DROP"] = filtered_ips
+            filtered_ips = filter_drop_ip(ips)
+            if filtered_ips:
+                error_code.add("DROP")
+                error_info["DROP"] = filtered_ips
 
         # 6 version
         version = parsed['tbs_certificate']['version']
@@ -133,48 +167,52 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
             error_info["wrong_version"] = version
 
         # 7 key usage
-        extensions = parsed['tbs_certificate']["extensions"]
         error_info["wrong_key_usage"] = []
         error_info["no_revoke"] = []
 
-        def find_ext(name):
-            if extensions:
-                for e in extensions:
-                    if e["extn_id"] == name:
-                        return e
-            return None
-
-        if not find_ext("extended_key_usage"):
-            error_code.add("wrong_key_usage")
-            error_info["wrong_key_usage"].append("No Ext Key Usage")
-        else:
-            if "server_auth" not in find_ext("extended_key_usage")["extn_value"]:
+        if cert_type == LEAF:
+            if not find_ext("extended_key_usage"):
                 error_code.add("wrong_key_usage")
-                error_info["wrong_key_usage"].append("No Server Auth")
+                error_info["wrong_key_usage"].append("No Ext Key Usage")
+            else:
+                if "server_auth" not in find_ext("extended_key_usage")["extn_value"]:
+                    error_code.add("wrong_key_usage")
+                    error_info["wrong_key_usage"].append("No Server Auth")
 
         if not find_ext("key_usage"):
             error_code.add("wrong_key_usage")
             error_info["wrong_key_usage"].append("No Key Usage")
         else:
-            if "digital_signature" not in find_ext("key_usage")["extn_value"]:
-                error_code.add("wrong_key_usage")
-                error_info["wrong_key_usage"].append("No Digital Sig")
+            if cert_type != ROOT:
+                if "digital_signature" not in find_ext("key_usage")["extn_value"]:
+                    error_code.add("wrong_key_usage")
+                    error_info["wrong_key_usage"].append("No Digital Sig")
+
+            elif cert_type != LEAF:
+                if "crl_sign" not in find_ext("key_usage")["extn_value"]:
+                    error_code.add("wrong_key_usage")
+                    error_info["wrong_key_usage"].append("No CRL Sign")
+
+                if "key_cert_sign" not in find_ext("key_usage")["extn_value"]:
+                    error_code.add("wrong_key_usage")
+                    error_info["wrong_key_usage"].append("No Key Cert Sign")
 
         # 8 revoke info
-        if not find_ext("crl_distribution_points"):
-            error_code.add("no_revoke")
-            error_info["no_revoke"].append("No CRL")
-        else:
-            if not find_ext("crl_distribution_points")["extn_value"]:
-                error_code.add("wrong_key_usage")
+        if cert_type != ROOT:
+            if not find_ext("crl_distribution_points"):
+                error_code.add("no_revoke")
                 error_info["no_revoke"].append("No CRL")
+            else:
+                if not find_ext("crl_distribution_points")["extn_value"]:
+                    error_code.add("wrong_key_usage")
+                    error_info["no_revoke"].append("No CRL")
 
-        if not find_ext("authority_information_access"):
-            error_code.add("no_revoke")
-            error_info["no_revoke"].append("No OCSP")
+            if not find_ext("authority_information_access"):
+                error_code.add("no_revoke")
+                error_info["no_revoke"].append("No OCSP")
 
         # 9 SCT
-        if not find_ext("signed_certificate_timestamp_list"):
+        if cert_type == LEAF and not find_ext("signed_certificate_timestamp_list"):
             error_code.add("no_sct")
             error_info["no_sct"] = "No SCT"
 
@@ -186,6 +224,7 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
         # only add cert node if the cert structure is broken
         return {
             "flag" : AnalyzeConfig.TASK_CERT_SECURITY,
+            "cert_type" : cert_type,
             "error_code" : list(error_code),
             "error_info" : error_info
         }

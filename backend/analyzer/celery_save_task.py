@@ -124,7 +124,7 @@ def batch_flush_results(max_batch_size=2000):
                     cert_security_file = open(os.path.join(out_dir, "cert_security.json"), "a", encoding='utf-8', newline='')
 
                 json_result = json.dumps({
-                    "hash" : result.get("cert_hash", ""),
+                    "sha256" : result.get("sha256", ""),
                     "error_code" : result.get("error_code", ""),
                     "error_info" : result.get("error_info", "")
                 })
