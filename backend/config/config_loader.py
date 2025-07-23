@@ -45,7 +45,7 @@ DB_CONFIG = {
 # Web Page 关联域名递归深度
 RECURSIVE_DEPTH = int(os.getenv("RECURSIVE_DEPTH", 0))
 
-# Logger
+# Logger path (raletive to the project root dir)
 PRIMARY_LOGGER_DIR = os.getenv("PRIMARY_LOGGER_DIR", "log/")
 CELERY_LOGGER_DIR = os.getenv("CELERY_LOGGER_DIR", "log/")
 FLASK_LOGGER_DIR = os.getenv("FLASK_LOGGER_DIR", "log/")

@@ -214,7 +214,7 @@ def cag_add_cert_chain(cert_id, current_graph_data):
 
     cert_der = row[2]
     parsed : ASN1Result = ASN1Parser.parse_der_cert(cert_der)
-    current_issuer_cn = parsed.issuer["common_name"]
+    current_issuer_cn = parsed.issuer.get("common_name") or parsed.issuer.get("organization_name")
     if parsed.subject == parsed.issuer:
         # loop until reach self-signed root
         return current_graph_data

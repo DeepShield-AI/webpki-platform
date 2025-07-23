@@ -21,6 +21,13 @@
           </el-col>
         </el-row>
 
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书类别：{{ this.certType }} </h2>
+            <h2>(0 : LEAF, 1 : INTERMEDIATE, 2 : ROOT)</h2>
+          </el-col>
+        </el-row>
+
         <el-table
           v-if="refreshTable"
           v-loading="loading"
@@ -229,6 +236,7 @@ export default {
       isExpandAll: true,
 
       activeTab: 'detail',
+      certType: 0,
       certData: {},
       certSecurity: [],
       certGraphData: {},
@@ -265,6 +273,7 @@ export default {
       getCertInfo(certId).then(response => {
         console.log(response.cert_data);
         this.certData = response.cert_data;
+        this.certType = response.cert_security.cert_type
 
         // 转换为表格需要的数组形式
         this.certSecurity = Object.keys(this.errorKeyInfo).map(code => {
