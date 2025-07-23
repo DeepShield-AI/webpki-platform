@@ -173,9 +173,19 @@ def cag_add_dns(domain: str, current_graph_data):
     })
 
     if domain.startswith("*."): return current_graph_data
+    # v4, v6 = resolve_host_dns(domain, lifetime=1, timeout=1)
 
-    v4, v6 = resolve_host_dns(domain, lifetime=1, timeout=1)
-    for ip in v4 + v6:
+    tls_conn = engine_tls.raw_connection()
+    with tls_conn.cursor() as cursor:
+        query = """
+            SELECT DISTINCT destination_ip FROM tlshandshake
+            WHERE destination_host = %s
+        """
+        cursor.execute(query, (domain,))
+        rows = cursor.fetchall()
+
+    for row in rows:
+        ip = row[0]
         current_graph_data["nodes"].append({
             "id" : ip,
             "name" : ip,
