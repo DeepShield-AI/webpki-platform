@@ -31,7 +31,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 
 # Cache for CRL results
 CRL_CACHE_TIMEOUT = timedelta(hours=1)
@@ -103,7 +103,7 @@ def analyze_cert_revocation_from_row(row: list, output_dir: str) -> str:
 
 def _analyze_cert_revocation(id: int, cert_der: bytes) -> str:
     try:
-        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+        parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
         extensions = parsed['tbs_certificate']["extensions"]
         def find_ext(name):
             if extensions:
@@ -173,7 +173,7 @@ def get_revocation_status_from_crl(
         Sometimes, the CA might remove the cert from CRL after a period of time of expiration to reduce the CRL size
         So make sure to check whether the cert is expired in the caller
     '''
-    parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+    parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
     serial_number : int = parsed['tbs_certificate']['serial_number']
     request_time, crl = request_crl(crl_distribution_point, use_proxy=use_proxy)
 

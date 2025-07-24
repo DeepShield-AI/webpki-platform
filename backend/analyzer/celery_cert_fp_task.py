@@ -14,7 +14,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
 from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
@@ -55,7 +55,7 @@ class ASN1StructFP:
     @staticmethod
     def build_fp(der_bytes: bytes) -> tuple[str, str]:
 
-        parsed_cert = ASN1Parser.parse_native_der(der_bytes)
+        parsed_cert = ASN1Parser.parse_der_native(der_bytes)
         if type(parsed_cert) != OrderedDict:
             primary_logger.error("Certificate should be passed in OrderDict type")
             return ""
@@ -99,6 +99,7 @@ class ASN1StructFP:
                 elif key in ["issuer_unique_id", "subject_unique_id"]:
                     ASN1StructFP.fp_recursive(value, current_fp_raw)
                 elif key == "extensions":
+                    if not value: continue
                     for extension in value:
                         ASN1StructFP.fp_recursive(bool(extension["critical"]), current_fp_raw)
                         extn_id = extension["extn_id"]

@@ -1,10 +1,10 @@
 
-import os
-from backend.parser.pem_parser import ASN1Parser
-from backend.analyzer.celery_cert_fp_task import ASN1StructFP, _build_cert_fp
+import os, sys
+from backend.parser.asn1_parser import ASN1Parser
+from backend.analyzer.celery_cert_fp_task import ASN1StructFP
 from pprint import pprint
 
-test_cert_path = os.path.join(os.path.dirname(__file__), "supplement/cert/github.com_single.pem")
+test_cert_path = os.path.join(os.path.dirname(__file__), sys.argv[1])
 with open(test_cert_path, 'r') as f:
     pem_data = f.read()
 

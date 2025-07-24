@@ -2,7 +2,7 @@
 import csv
 import base64
 import hashlib
-from backend.parser.pem_parser import PEMParser
+from backend.parser.asn1_parser import PEMParser
 
 input_file = '/var/lib/mysql-files/cert.csv'
 output_file = '/var/lib/mysql-files/converted.csv'

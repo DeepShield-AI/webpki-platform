@@ -3,7 +3,8 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.env'))
+load_dotenv(dotenv_path=dotenv_path, override=True)
 
 def get_bool(key: str, default=False):
     return os.getenv(key, str(default)).lower() == "true"
@@ -30,7 +31,7 @@ DEFAULT_IP_BLACKLIST = [ip.strip() for ip in os.getenv("IP_BLACKLIST", "").split
 
 # proxy
 PROXY_HOST = os.getenv("PROXY_HOST", "127.0.0.1")
-PROXY_PORT = int(os.getenv("PROXY_PORT", 33210))
+PROXY_PORT = int(p) if (p := os.getenv("PROXY_PORT", 33210)) else None
 
 # 数据库配置
 DB_CONFIG = {
@@ -44,7 +45,7 @@ DB_CONFIG = {
 # Web Page 关联域名递归深度
 RECURSIVE_DEPTH = int(os.getenv("RECURSIVE_DEPTH", 0))
 
-# Logger
+# Logger path (raletive to the project root dir)
 PRIMARY_LOGGER_DIR = os.getenv("PRIMARY_LOGGER_DIR", "log/")
 CELERY_LOGGER_DIR = os.getenv("CELERY_LOGGER_DIR", "log/")
 FLASK_LOGGER_DIR = os.getenv("FLASK_LOGGER_DIR", "log/")

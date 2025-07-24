@@ -6,6 +6,7 @@ import colorama
 from colorama import Fore, Style
 
 from backend.config.config_loader import FLASK_LOGGER_DIR
+from backend.config.path_config import ROOT_DIR
 
 colorama.init(autoreset=True)
 
@@ -55,4 +56,4 @@ def get_logger(name="Flask",
 
     return logger
 
-flask_logger = get_logger("Flask", log_file_dir=FLASK_LOGGER_DIR, level=logging.DEBUG)
+flask_logger = get_logger("Flask", log_file_dir=os.path.join(ROOT_DIR, FLASK_LOGGER_DIR), level=logging.DEBUG)

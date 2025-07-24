@@ -62,3 +62,12 @@ CREATE TABLE IF NOT EXISTS `cert_revocation` (
     FOREIGN KEY (`cert_id`) REFERENCES `cert` (`id`) ON DELETE CASCADE,
   INDEX `idx_cert_id` (`cert_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- DROP TABLE IF EXISTS `cert_chain`;
+
+-- CREATE TABLE IF NOT EXISTS `cert_chain` (
+--   `id` INT UNSIGNED NOT NULL PRIMARY KEY,
+--   `parent_id` INT UNSIGNED NOT NULL,
+--   CONSTRAINT `fk_cert_chain_cert_id`
+--     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

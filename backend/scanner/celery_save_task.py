@@ -151,8 +151,8 @@ def batch_flush_results(min_batch_size=2000):
             if ct_cert is None:
                 # this is TLS scan result
                 peer_certs = result.get("ssl_result", {}).get("peer_certs", [])
-                for i, cert_der_str in enumerate(peer_certs):
-                    cert_der_bytes = base64.b64decode(cert_der_str)
+                for i, cert_der_b64_str in enumerate(peer_certs):
+                    cert_der_bytes = base64.b64decode(cert_der_b64_str)
                     cert_sha256 = get_sha256_hex_from_bytes(cert_der_bytes)
                     cert_data.append((cert_sha256, cert_der_bytes))
                     if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))

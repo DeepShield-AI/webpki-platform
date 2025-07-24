@@ -4,7 +4,7 @@ from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert
 from backend.logger.logger import primary_logger
-from backend.parser.pem_parser import ASN1Parser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 
 
 @celery_app.task
@@ -25,7 +25,7 @@ def cert_parse_from_row(row: list) -> str:
 def _cert_parse(cert_der: bytes) -> str:
 
     try:
-        parsed: PEMResult = ASN1Parser.parse_der_cert(cert_der)
+        parsed: ASN1Result = ASN1Parser.parse_der_cert(cert_der)
 
         # `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
         # `serial` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,

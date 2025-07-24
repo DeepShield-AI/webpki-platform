@@ -2,6 +2,7 @@
 import os, csv
 import json
 import redis
+import base64
 from backend.config.analyze_config import AnalyzeConfig
 from backend.logger.logger import primary_logger
 from backend.celery.celery_app import celery_app
@@ -123,7 +124,7 @@ def batch_flush_results(max_batch_size=2000):
                     cert_security_file = open(os.path.join(out_dir, "cert_security.json"), "a", encoding='utf-8', newline='')
 
                 json_result = json.dumps({
-                    "hash" : result.get("cert_hash", ""),
+                    "sha256" : result.get("sha256", ""),
                     "error_code" : result.get("error_code", ""),
                     "error_info" : result.get("error_info", "")
                 })
@@ -149,13 +150,14 @@ def batch_flush_results(max_batch_size=2000):
                 web_security_file.write(json_result + '\n')
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CA_PROFILE:
-                # primary_logger.debug(json.dumps(result.get("spki", "")))
+                primary_logger.debug(json.dumps(result.get("spki", "")))
 
                 ca_data.append((
                     result.get("ca_sha256", ""),
                     json.dumps(result.get("subject", "")),
-                    json.dumps(result.get("spki", "")),
-                    result.get("cert_sha256", ""),
+                    base64.b64decode(result.get("spki", "")),
+                    result.get("ski", ""),
+                    result.get("cert_id", ""),
                 ))
 
         except Exception as e:
@@ -199,8 +201,8 @@ def batch_flush_results(max_batch_size=2000):
             with ca_conn.cursor() as cursor:
                 # 1. 更新已有记录：追加 sha256 到 certs（如果还没有）
                 ca_data_update = [
-                    (cert_sha256, ca_sha256, cert_sha256)
-                    for ca_sha256, subject_json, spki_json, cert_sha256 in ca_data
+                    (cert_id, ca_sha256, str(cert_id))
+                    for ca_sha256, subject_json, spki, ski, cert_id in ca_data
                 ]
                 cursor.executemany("""
                     UPDATE ca
@@ -211,8 +213,8 @@ def batch_flush_results(max_batch_size=2000):
 
                 # 2. 插入新记录（如果不存在）
                 cursor.executemany("""
-                    INSERT IGNORE INTO ca (sha256, subject, spki, certs)
-                    VALUES (%s, %s, %s, JSON_ARRAY(%s))
+                    INSERT IGNORE INTO ca (sha256, subject, spki, ski, certs)
+                    VALUES (%s, %s, %s, %s, JSON_ARRAY(%s))
                 """, ca_data)
 
             ca_conn.commit()

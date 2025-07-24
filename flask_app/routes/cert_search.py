@@ -9,7 +9,8 @@ from flask_app.blueprint import base
 from flask_app.logger.logger import flask_logger    
 
 from backend.celery.celery_db_pool import engine_cert, engine_tls
-from backend.parser.pem_parser import ASN1Parser
+from backend.parser.asn1_parser import ASN1Parser
+from backend.analyzer.celery_cag_task import cag_add_cert_parse, cag_add_cert_chain
 from backend.analyzer.celery_cert_security_task import _cert_security_analyze
 from backend.analyzer.celery_cert_revocation_task import get_revocation_status_from_crl, get_revocation_status_from_ocsp, get_issuer
 
@@ -153,8 +154,8 @@ def get_cert_info(cert_id):
     if not row:
         return jsonify({'msg': 'No Such Cert', 'code': 404})
 
-    cert_parsed = ASN1Parser.parse_native_pretty_der(row[2])
-    analyze_result = _cert_security_analyze(row, "/")
+    cert_parsed = ASN1Parser.parse_der_native_pretty(row[2])
+    analyze_result = _cert_security_analyze(row[1], row[2])
 
     try:
         modulus = cert_parsed['tbs_certificate']['subject_public_key_info']['public_key']['modulus']
@@ -251,7 +252,7 @@ def get_cert_revoke_info(cert_id):
 
         print(rows)
         if not rows:
-            return jsonify({'msg': 'No Revoke Record Found', 'code': 404})
+            return jsonify({'msg': 'No Revoke Record Found', 'code': 200, "data": []})
 
         columns = [desc[0] for desc in cursor.description]
         result = [dict(zip(columns, row)) for row in rows]
@@ -287,7 +288,7 @@ def check_revoke(cert_id):
     elif type == '1':
 
         print("OCSP")
-        parsed: dict = ASN1Parser.parse_native_pretty_der(cert_der)
+        parsed: dict = ASN1Parser.parse_der_native_pretty(cert_der)
         extensions = parsed['tbs_certificate']["extensions"]
         def find_ext(name):
             if extensions:
@@ -308,3 +309,34 @@ def check_revoke(cert_id):
     print(res)
     conn.close()
     return jsonify({'msg': 'Success', 'code': 200, "data": res})
+
+
+@base.route('/cert/cert_retrieve/<cert_id>/get_cag', methods=['GET'])
+@login_required
+def get_cert_cag(cert_id):
+    graph_data = cag_add_cert_parse(cert_id, None)
+    graph_data = cag_add_cert_chain(cert_id, graph_data)
+    graph_data = deduplicate_graph_data(graph_data)
+    return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
+
+
+def deduplicate_graph_data(graph_data):
+    unique_nodes = {}
+    unique_links = {}
+
+    for node in graph_data.get("nodes", []):
+        # 假设 'id' 是节点唯一标识符
+        node_id = node["id"]
+        if node_id not in unique_nodes:
+            unique_nodes[node_id] = node
+
+    for link in graph_data.get("links", []):
+        # 以 source 和 target 的组合作为唯一标识
+        key = (link["source"], link["target"])
+        if key not in unique_links:
+            unique_links[key] = link
+
+    return {
+        "nodes": list(unique_nodes.values()),
+        "links": list(unique_links.values())
+    }

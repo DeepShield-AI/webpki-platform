@@ -1,9 +1,13 @@
 
+import json
 from flask import jsonify, request, Response
 from flask_login import login_required, current_user
 from flask_app.blueprint import base
-from flask_app.logger.logger import flask_logger    
+from flask_app.logger.logger import flask_logger
+from flask_app.routes.cert_search import json_default, deduplicate_graph_data
 from backend.celery.celery_db_pool import engine_ca
+from backend.parser.asn1_parser import ASN1Parser
+from backend.analyzer.celery_cag_task import cag_add_cert_parse, cag_add_cert_chain
 
 @base.route('/ca/ca_search/search', methods=['GET'])
 @login_required
@@ -107,5 +111,55 @@ def get_ca_info(ca_id):
 
         columns = [desc[0] for desc in cursor.description]
         result = dict(zip(columns, row))
+        print(ASN1Parser.parse_der_spki_native(result["spki"]))
 
-    return jsonify({'msg': 'Success', 'code': 200, "data": result})
+        result["subject"] = json.loads(result["subject"])
+        result["spki"] = ASN1Parser.parse_der_spki_native(result["spki"])
+
+        try:
+            modulus = result["spki"]['public_key']['modulus']
+            modulus = hex(modulus).upper().replace('0X', '')
+            result["spki"]['public_key']['modulus'] = modulus
+        except:
+            # probably be ec key
+            pass
+
+        result["certs"] = json.loads(result["certs"])
+
+    return Response(
+        json.dumps({
+            'msg': 'Success',
+            'code': 200,
+            'data': result,
+        }, default=json_default),
+        mimetype='application/json'
+    )
+
+
+@base.route('/ca/ca_retrieve/<ca_id>/get_cag', methods=['GET'])
+@login_required
+def get_ca_cag(ca_id):
+
+    conn = engine_ca.raw_connection()
+    with conn.cursor() as cursor:
+        query = """
+            SELECT * FROM ca
+            WHERE id = %s
+        """
+        cursor.execute(query, (ca_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            return jsonify({'msg': 'Can not find CA data', 'code': 404})
+
+    cert_ids = json.loads(row[5])
+    graph_data = {
+        "nodes": [],
+        "links": []
+    }
+    for cert_id in cert_ids:
+        graph_data = cag_add_cert_parse(cert_id, graph_data)
+        graph_data = cag_add_cert_chain(cert_id, graph_data)
+
+    graph_data = deduplicate_graph_data(graph_data)
+    return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})

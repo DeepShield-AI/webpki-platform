@@ -2,16 +2,16 @@
   <div class="app-container">
 
     <!-- FIRST PART CA -->
-    <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">CA 总览</h2>
+    <!-- <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">CA 总览</h2> -->
       
     <!-- totalCaNum  -->
-    <el-card shadow="always" style="text-align: center;">
+    <!-- <el-card shadow="always" style="text-align: center;">
       <div style="font-size: 32px; font-weight: bold; color: #409EFF;">{{ totalCaNum }}</div>
       <div style="font-size: 16px; color: #666;">总 CA 数量</div>
-    </el-card>
+    </el-card> -->
 
     <!-- caMarket -->
-    <el-card shadow="hover" style="margin-bottom: 20px; margin-top: 20px;">
+    <!-- <el-card shadow="hover" style="margin-bottom: 20px; margin-top: 20px;">
       <div slot="header">
         <strong>CA 市场占比</strong>
       </div>
@@ -22,7 +22,7 @@
       />
     </el-card>
 
-    <el-divider />
+    <el-divider /> -->
 
     <!-- SECOND PART HOST -->
     <h2 style="text-align: center; font-size: 36px; color: #303133; margin-bottom: 20px;">Web 总览</h2>
@@ -175,30 +175,30 @@ export default {
     getTotalNum(){
       this.loading = true;
 
-      getCaStats().then(response => {
-        const rawData = response.data;
+      // getCaStats().then(response => {
+      //   const rawData = response.data;
 
-        // 排序并提取前10
-        const entries = Object.entries(rawData).sort((a, b) => b[1] - a[1]);
-        const top10 = entries.slice(0, 10);
-        const other = entries.slice(10);
+      //   // 排序并提取前10
+      //   const entries = Object.entries(rawData).sort((a, b) => b[1] - a[1]);
+      //   const top10 = entries.slice(0, 10);
+      //   const other = entries.slice(10);
 
-        const otherCount = other.reduce((acc, [_, val]) => acc + val, 0);
+      //   const otherCount = other.reduce((acc, [_, val]) => acc + val, 0);
 
-        const pieData = top10.map(([name, value]) => ({ name, value }));
-        if (otherCount > 0) {
-          pieData.push({ name: 'Other', value: otherCount });
-        }
+      //   const pieData = top10.map(([name, value]) => ({ name, value }));
+      //   if (otherCount > 0) {
+      //     pieData.push({ name: 'Other', value: otherCount });
+      //   }
 
-        this.caMarket = pieData;
+      //   this.caMarket = pieData;
 
-        // 总量
-        this.totalCaNum = Object.keys(rawData).length;
-        this.loading = false;
-      }).catch(error => {
-        console.error("Failed to fetch CA stats:", error);
-        this.loading = false;
-      });
+      //   // 总量
+      //   this.totalCaNum = Object.keys(rawData).length;
+      //   this.loading = false;
+      // }).catch(error => {
+      //   console.error("Failed to fetch CA stats:", error);
+      //   this.loading = false;
+      // });
 
 
       // return jsonify({'msg': 'Success', 'code': 200, 'data': count})

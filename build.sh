@@ -70,6 +70,7 @@ echo -e "\n========== [4/4] Starting uWSGI =========="
 
 # TODO: check if there are already uwsgi running, and make it to the system service
 echo "➡ Starting uWSGI with uwsgi.ini..."
+mkdir -p /data/platform_log
 uwsgi --ini uwsgi.ini
 
 echo "✅ uWSGI started."

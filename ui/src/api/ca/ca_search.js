@@ -9,9 +9,16 @@ export function searchCa(query) {
   })
 }
 
-export function getCaInfo(caName) {
+export function getCaInfo(caId) {
   return request({
-    url: '/ca/ca_retrieve/' + caName,
+    url: '/ca/ca_retrieve/' + caId,
     method: 'get'
+  })
+}
+
+export function getCaCag(caId) {
+  return request({
+    url: '/ca/ca_retrieve/' + caId + '/get_cag',
+    method: 'get',
   })
 }

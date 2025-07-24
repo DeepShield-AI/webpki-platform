@@ -21,6 +21,13 @@
           </el-col>
         </el-row>
 
+        <el-row :gutter="20">
+          <el-col :sm="24" :lg="24" style="padding-left: 20px">
+            <h2>证书类别：{{ this.certType }} </h2>
+            <h2>(0 : LEAF, 1 : INTERMEDIATE, 2 : ROOT)</h2>
+          </el-col>
+        </el-row>
+
         <el-table
           v-if="refreshTable"
           v-loading="loading"
@@ -208,8 +215,7 @@
 </template>
 
 <script>
-import { getCertInfo, getCertDeployInfo, getCertRevocationRecords, checkRevoke } from "@/api/cert/cert_search";
-import { getSubCag } from "@/api/host/host_analysis";
+import { getCertInfo, getCertDeployInfo, getCertRevocationRecords, checkRevoke, getCertCag } from "@/api/cert/cert_search";
 import Treeselect from "@riophae/vue-treeselect";
 import "@riophae/vue-treeselect/dist/vue-treeselect.css";
 import RecursiveDict from '@/components/RecursiveDict';  // 路径根据你实际文件结构调整
@@ -230,6 +236,7 @@ export default {
       isExpandAll: true,
 
       activeTab: 'detail',
+      certType: 0,
       certData: {},
       certSecurity: [],
       certGraphData: {},
@@ -266,6 +273,7 @@ export default {
       getCertInfo(certId).then(response => {
         console.log(response.cert_data);
         this.certData = response.cert_data;
+        this.certType = response.cert_security.cert_type
 
         // 转换为表格需要的数组形式
         this.certSecurity = Object.keys(this.errorKeyInfo).map(code => {
@@ -290,11 +298,8 @@ export default {
     },
     getCag(certId){
       this.loading = true;
-      const query = {
-        "cert_sha256" : certId
-      };
       // return jsonify({'msg': 'Success', 'code': 200, "data": graph_data})
-      getSubCag(query).then(response => {
+      getCertCag(certId).then(response => {
         this.certGraphData = response.data;
         this.loading = false;
       });

@@ -149,14 +149,6 @@ class CertificatePolicyLookup():
 # a = CertificatePolicyLookup()
 # print(a.policy_look_up_dict)
 
-# convert base64 cert to PEM format
-def base64_to_pem(certificate_base64):
-    # 将 Base64 数据分割为每 64 个字符一行
-    formatted_certificate = "\n".join([certificate_base64[i:i+64] for i in range(0, len(certificate_base64), 64)])
-    # 添加 PEM 头和尾
-    pem_certificate = f"-----BEGIN CERTIFICATE-----\n{formatted_certificate}\n-----END CERTIFICATE-----"
-    return pem_certificate
-
 def read_multiple_pem_certs_from_file(pem_file):
     with open(pem_file, 'r') as f:
         cert_data = f.read()

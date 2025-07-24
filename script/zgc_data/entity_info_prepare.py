@@ -13,7 +13,7 @@ from queue import PriorityQueue, Queue
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from backend.analyzer.cert_analyze_chain import CertChainAnalyzer
-from backend.parser.pem_parser import ASN1Parser, PEMResult
+from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 from backend.config.analyze_config import ZLINT_PATH
 from backend.utils.cert import get_sha256_hex_from_str
 from backend.utils.json import custom_serializer
@@ -309,7 +309,7 @@ class Analyzer():
         # Step 1: check if has cert
         try:
             cert :str = cert_chain[0]
-            parsed : PEMResult = ASN1Parser.parse_pem_cert(cert)
+            parsed : ASN1Result = ASN1Parser.parse_pem_cert(cert)
             
             # Step 2: parse basic info
             subject_cn = parsed.subject_cn_list[0]
