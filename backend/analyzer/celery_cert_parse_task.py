@@ -45,6 +45,7 @@ def _cert_parse(cert_der: bytes) -> str:
             "ski" : parsed.ski,
             "not_valid_before" : parsed.not_before,
             "not_valid_after" : parsed.not_after,
+            "type" : parsed.cert_type
         }
 
     except Exception as e:

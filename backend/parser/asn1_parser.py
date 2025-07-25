@@ -10,6 +10,10 @@ from dataclasses import dataclass, asdict
 from backend.utils.cert import ordered_dict_to_dict, get_sha256_hex_from_str, get_sha256_hex_from_bytes
 from backend.utils.json import fix_large_ints_to_hex
 
+LEAF = 0
+INTER = 1
+ROOT = 2
+
 '''
     Keep the following infomation:
     tbs_certificate:
@@ -70,6 +74,7 @@ class ASN1Result():
     # for ca unique key
     ca_id_sha256 : str
     aki : str
+    cert_type : int
 
 
 class ASN1Parser():
@@ -143,19 +148,26 @@ class ASN1Parser():
         spki_sha256 = get_sha256_hex_from_bytes(der_spki)
 
         subject = cert['tbs_certificate']['subject']
+        issuer = cert['tbs_certificate']['issuer']
         der_subject = subject.dump()
         ca_id_sha256 = get_sha256_hex_from_bytes(der_subject + der_spki)
 
-        ski = b''
-        aki = b''
+        ski = ''
+        aki = ''
         policy = ''
         subject_cn_list = []
         extensions = cert['tbs_certificate']['extensions']
+        cert_type = LEAF
 
         for ext in extensions:
             ext_id = ext['extn_id'].native
 
-            if ext_id == 'subject_alt_name':
+            if ext_id == 'basic_constraints':
+                if ext["extn_value"].native["ca"]:
+                    if issuer == subject: cert_type = ROOT
+                    else: cert_type = INTER
+
+            elif ext_id == 'subject_alt_name':
                 try:
                     subject_cn_list = ext['extn_value'].native
                     subject_cn = cert['tbs_certificate']['subject'].native.get('common_name', None)
@@ -167,9 +179,9 @@ class ASN1Parser():
                     pass
 
             elif ext_id == 'key_identifier':
-                ski = ext['extn_value'].native   # this is base64 bytes
+                ski = ext['extn_value'].native.hex()   # this is base64 bytes
             elif ext_id == 'authority_key_identifier':
-                aki = ext['extn_value'].native['key_identifier']    # this is base64 bytes
+                aki = ext['extn_value'].native['key_identifier'].hex()    # this is base64 bytes
             elif ext_id == 'certificate_policies':
                 policy = ext['extn_value'].native[0].get('policy_identifier', None)
 
@@ -179,7 +191,7 @@ class ASN1Parser():
             subject_cn_list=subject_cn_list,
             subject=cert['tbs_certificate']['subject'].native,
             issuer=cert['tbs_certificate']['issuer'].native,
-            ski=ski.hex(),
+            ski=ski,
             spkisha256=spki_sha256,
 
             signature_algo=cert['tbs_certificate']['signature']['algorithm'].native,
@@ -198,7 +210,8 @@ class ASN1Parser():
             issuer_sha=get_sha256_hex_from_str(str(cert['tbs_certificate']['issuer'].native)),
 
             ca_id_sha256=ca_id_sha256,
-            aki=aki.hex()
+            aki=aki,
+            cert_type=cert_type
         )
 
         return pem_result

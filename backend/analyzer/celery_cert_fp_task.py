@@ -121,7 +121,7 @@ class ASN1StructFP:
                                     ASN1StructFP.fp_recursive(aia["access_method"], current_fp_raw, ASN1StructFP.OBJ_ID)
                                     ASN1StructFP.fp_recursive(aia["access_location"], current_fp_raw, ASN1StructFP.URL_DOMAIN)
                             elif extn_id == "crl_distribution_points":
-                                for crl in sorted(extn_val):
+                                for crl in extn_val:
                                     for url in sorted(crl["distribution_point"]):
                                         ASN1StructFP.fp_recursive(url, current_fp_raw, ASN1StructFP.URL_DOMAIN)
                                     if crl["reasons"]:

@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS `cert_search` (
   `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
   `not_valid_before` DATETIME,
   `not_valid_after` DATETIME,
+  `type` INT UNSIGNED NOT NULL,
   CONSTRAINT `fk_cert_search_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -50,6 +50,7 @@ def stream_by_id(conn, table_name, batch_size=1000, start_id=0):
         yield from rows # this asyc make sure the read does not cause too much memory
         last_id = rows[-1][0]
     cursor.close()
+    conn.close()
 
 # go through the cert table
 def stream_by_sha256(table_name, batch_size=1000, start_hash=""):
@@ -79,3 +80,4 @@ def stream_by_sha256(table_name, batch_size=1000, start_hash=""):
         yield from rows # this asyc make sure the read does not cause too much memory
         last_hash = rows[-1][0]  # 假设 sha256 是第一列
     cursor.close()
+    conn.close()

@@ -13,9 +13,18 @@ r = redis.Redis()
 
 # TODO: problem: inserted 2580, only got 2290 lines, need to know why?
 @celery_app.task
-def batch_flush_results(max_batch_size=2000):
+def batch_flush_results(min_batch_size=3000):
+
+    queue_len = r.llen('analyze_results_queue')
+    primary_logger.info(f"Current LLEN: {queue_len}")
+
+    if queue_len > 2 * min_batch_size:
+        batch_size = int(queue_len / 2)
+    else:
+        batch_size = min_batch_size
+
     results = []
-    for _ in range(max_batch_size):
+    for _ in range(batch_size):
         raw = r.lpop("analyze_results_queue")
         if raw:
             results.append(json.loads(raw))
@@ -70,7 +79,8 @@ def batch_flush_results(max_batch_size=2000):
                     result.get("spkisha256", ""),
                     result.get("ski", ""),
                     result.get("not_valid_before", ""),
-                    result.get("not_valid_after", "")
+                    result.get("not_valid_after", ""),
+                    result.get("type", "")
                 ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_REVOKE:
@@ -170,8 +180,8 @@ def batch_flush_results(max_batch_size=2000):
                     """
                     INSERT IGNORE INTO cert_search
                     (id, sha256, serial, subject_cn_list, subject, issuer,
-                    spkisha256, ski, not_valid_before, not_valid_after)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    spkisha256, ski, not_valid_before, not_valid_after, type)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     cert_parse_data
                 )
@@ -223,6 +233,7 @@ def batch_flush_results(max_batch_size=2000):
         primary_logger.error(f"[batch_flush_results] Error: {e}")
 
     cert_conn.close()
+    ca_conn.close()
 
     if cag_node_file: cag_node_file.close()
     if cag_edge_file: cag_edge_file.close()
