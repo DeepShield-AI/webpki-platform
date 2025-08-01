@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS `ca` (
   `parent` JSON,
   `child` JSON
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+DROP TABLE IF EXISTS `mozilla_root`;
+
+CREATE TABLE IF NOT EXISTS `mozilla_root` (
+  `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE PRIMARY KEY,  -- sha256 of subject and spki
+  `trust` BOOLEAN
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

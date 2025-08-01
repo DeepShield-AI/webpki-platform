@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS `cert_fp`;
 CREATE TABLE IF NOT EXISTS `cert_fp` (
   `id` INT UNSIGNED NOT NULL PRIMARY KEY,
   `cert_fp` JSON NOT NULL,
+  `cert_fp_sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   CONSTRAINT `fk_cert_fp_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -41,9 +42,11 @@ CREATE TABLE IF NOT EXISTS `cert_search` (
   `issuer` JSON,
   `spkisha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
+  `aki` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
   `not_valid_before` DATETIME,
   `not_valid_after` DATETIME,
   `type` INT UNSIGNED NOT NULL,
+  `trusted` BOOLEAN,
   CONSTRAINT `fk_cert_search_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -63,12 +66,3 @@ CREATE TABLE IF NOT EXISTS `cert_revocation` (
     FOREIGN KEY (`cert_id`) REFERENCES `cert` (`id`) ON DELETE CASCADE,
   INDEX `idx_cert_id` (`cert_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- DROP TABLE IF EXISTS `cert_chain`;
-
--- CREATE TABLE IF NOT EXISTS `cert_chain` (
---   `id` INT UNSIGNED NOT NULL PRIMARY KEY,
---   `parent_id` INT UNSIGNED NOT NULL,
---   CONSTRAINT `fk_cert_chain_cert_id`
---     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
--- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

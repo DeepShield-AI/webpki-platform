@@ -17,7 +17,8 @@ from backend.logger.logger import primary_logger
 from backend.parser.asn1_parser import ASN1Parser
 from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
-from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days
+from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days, get_sha256_hex_from_str
+
 
 @celery_app.task
 def build_all_from_table(cert_table: str) -> str:
@@ -27,10 +28,12 @@ def build_all_from_table(cert_table: str) -> str:
 
 @celery_app.task
 def build_cert_fp_from_row(row: list):
+    fp = _build_cert_fp(row[2])
     enqueue_result({
         "flag": AnalyzeConfig.TASK_CERT_FP,
         "id" : row[0],
-        "fp" : _build_cert_fp(row[2])
+        "fp" : fp,
+        "fp_sha256" : get_sha256_hex_from_str(str(fp))
     })
     return True
 

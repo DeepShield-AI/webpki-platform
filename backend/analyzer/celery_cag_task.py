@@ -5,7 +5,7 @@ from backend.analyzer.utils import stream_by_id
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_tls, engine_cert, engine_ca
 from backend.utils.domain import check_input_type
-from backend.utils.network import resolve_host_dns
+from backend.utils.cert import get_sha256_hex_from_bytes
 from backend.logger.logger import primary_logger
 from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 
@@ -227,6 +227,30 @@ def cag_add_cert_chain(cert_id, current_graph_data):
     current_issuer_cn = parsed.issuer.get("common_name") or parsed.issuer.get("organization_name")
     if parsed.subject == parsed.issuer:
         # loop until reach self-signed root
+        # check if the root is trusted by Mozilla
+        with ca_conn.cursor() as cursor:
+            query = """
+                SELECT * from mozilla_root
+                WHERE sha256 = %s
+            """
+            cursor.execute(query, (get_sha256_hex_from_bytes(cert_der),))
+            row = cursor.fetchone()
+
+        if row:
+            current_graph_data["nodes"].append({
+                "id" : "mozilla_root",
+                "name" : "Mozilla Root",
+                "type" : "trust_root"
+            })
+
+            current_graph_data["links"].append({
+                "type" : "e_cert_chain",
+                "source" : cert_id,
+                "target" : "mozilla_root"
+            })
+
+        cert_conn.close()
+        ca_conn.close()
         return current_graph_data
 
     parsed_raw = ASN1Parser.parse_der_raw(cert_der)

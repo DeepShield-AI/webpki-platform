@@ -64,7 +64,8 @@ def batch_flush_results(min_batch_size=3000):
             if result.get("flag", "") == AnalyzeConfig.TASK_CERT_FP:
                 cert_fp_data.append((
                     result.get("id", ""),
-                    json.dumps(result.get("fp", ""))
+                    json.dumps(result.get("fp", "")),
+                    result.get("fp_sha256", "")
                 ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_PARSE:
@@ -78,9 +79,11 @@ def batch_flush_results(min_batch_size=3000):
                     json.dumps(result.get("issuer", "")),
                     result.get("spkisha256", ""),
                     result.get("ski", ""),
+                    result.get("aki", ""),
                     result.get("not_valid_before", ""),
                     result.get("not_valid_after", ""),
-                    result.get("type", "")
+                    result.get("type", ""),
+                    result.get("trusted", "")
                 ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_REVOKE:
@@ -180,8 +183,8 @@ def batch_flush_results(min_batch_size=3000):
                     """
                     INSERT IGNORE INTO cert_search
                     (id, sha256, serial, subject_cn_list, subject, issuer,
-                    spkisha256, ski, not_valid_before, not_valid_after, type)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    spkisha256, ski, aki, not_valid_before, not_valid_after, type, trusted)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     cert_parse_data
                 )
@@ -202,7 +205,7 @@ def batch_flush_results(min_batch_size=3000):
         if cert_fp_data:
             with cert_conn.cursor() as cursor:
                 cursor.executemany(
-                    "INSERT IGNORE INTO cert_fp (id, cert_fp) VALUES (%s, %s)",
+                    "INSERT IGNORE INTO cert_fp (id, cert_fp, cert_fp_sha256) VALUES (%s, %s, %s)",
                     cert_fp_data
                 )
             cert_conn.commit()
