@@ -13,6 +13,7 @@ class AnalyzeConfig:
     TASK_WEB_SECURITY: int = field(init=False, default=0b100000) # for checking web tls deployment
 
     TASK_CA_PROFILE: int = field(init=False, default=0b1000000)  # for ca
+    TASK_CERT_TRUST: int = field(init=False, default=0b10000000)  # for checking cert trust
 
     # the output_dir if applies
     out_dir: str = r"out"

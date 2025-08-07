@@ -155,11 +155,11 @@ def batch_flush_results(min_batch_size=2000):
                     cert_der_bytes = base64.b64decode(cert_der_b64_str)
                     cert_sha256 = get_sha256_hex_from_bytes(cert_der_bytes)
                     cert_data.append((cert_sha256, cert_der_bytes))
-                    if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))
+                    # if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))
             else:
                 # this is CT scan result
                 cert_sha256 = get_sha256_hex_from_str(ct_cert)
-                cert_data.append((cert_sha256, ct_cert))
+                # cert_data.append((cert_sha256, ct_cert))
 
                 if result.get("is_ca_cert", False):
                     out_dir = result.get("out_dir", None)
@@ -175,13 +175,13 @@ def batch_flush_results(min_batch_size=2000):
                 )
             cert_conn.commit()
 
-        if ca_cert_data:
-            with cert_conn.cursor() as cursor:
-                cursor.executemany(
-                    "INSERT IGNORE INTO ca_cert (sha256, cert_der) VALUES (%s, %s)",
-                    ca_cert_data
-                )
-            cert_conn.commit()
+        # if ca_cert_data:
+        #     with cert_conn.cursor() as cursor:
+        #         cursor.executemany(
+        #             "INSERT IGNORE INTO ca_cert (sha256, cert_der) VALUES (%s, %s)",
+        #             ca_cert_data
+        #         )
+        #     cert_conn.commit()
 
         # --- Step 2: 批量写入 tlshandshake 表 ---
         tls_data = []

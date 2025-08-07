@@ -4,6 +4,8 @@
 '''
     Reference "https://github.com/zzma/asn1-fingerprint"
 '''
+import time
+import redis
 import hashlib
 import base64
 from datetime import datetime
@@ -19,11 +21,16 @@ from backend.utils.exception import *
 from backend.utils.type import sort_dict_by_key, sort_list_by_key
 from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days, get_sha256_hex_from_str
 
+r = redis.Redis()
 
 @celery_app.task
 def build_all_from_table(cert_table: str) -> str:
     for row in stream_by_id(engine_cert.raw_connection(), cert_table):
         build_cert_fp_from_row.delay(row)
+
+        while True:
+            if r.llen('celery') <= 10000: break
+            time.sleep(1)
 
 
 @celery_app.task
@@ -58,14 +65,18 @@ class ASN1StructFP:
     @staticmethod
     def build_fp(der_bytes: bytes) -> tuple[str, str]:
 
-        parsed_cert = ASN1Parser.parse_der_native(der_bytes)
-        if type(parsed_cert) != OrderedDict:
-            primary_logger.error("Certificate should be passed in OrderDict type")
-            return ""
+        try:
+            parsed_cert = ASN1Parser.parse_der_native(der_bytes)
+            if type(parsed_cert) != OrderedDict:
+                primary_logger.error("Certificate should be passed in OrderDict type")
+                return []
 
-        fp_raw = []
-        ASN1StructFP.fp_recursive(parsed_cert["tbs_certificate"], fp_raw)
-        return fp_raw
+            fp_raw = []
+            ASN1StructFP.fp_recursive(parsed_cert["tbs_certificate"], fp_raw)
+            return fp_raw
+        except Exception as e:
+            primary_logger.error(e)
+            return []
 
     @staticmethod
     def fp_recursive(obj: any, current_fp_raw: list, obj_type: int = None) -> None:

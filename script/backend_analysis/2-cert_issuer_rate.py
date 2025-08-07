@@ -1,160 +1,57 @@
 
-import sys
-sys.path.append(r"/root/pki-internet-platform")
-
-import os
 import json
-import signal
-import threading
-import subprocess
+from collections import defaultdict
+from backend.analyzer.utils import stream_by_id
+from backend.celery.celery_db_pool import engine_cert
 
-from datetime import datetime, timezone
-from queue import PriorityQueue, Queue
-from rich.progress import Progress, BarColumn, TextColumn, TimeRemainingColumn
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from sqlalchemy.dialects.mysql import insert
+# tot_num = 0
+# ca_issuer_rate = defaultdict(int)
 
-from backend import db, app
-from backend.parser.asn1_parser import ASN1Parser, ASN1Result
-from backend.utils.cert import get_sha256_hex_from_str
-from backend.utils.type import ScanType, ScanStatusType
-from backend.utils.json import custom_serializer
-from backend.utils.network import resolve_host_dns
-from backend.logger.logger import primary_logger
+# for row in stream_by_id(engine_cert.raw_connection(), "cert_search"):
+#     issuer = row[5]
+#     if issuer:
+#         issuer = json.loads(issuer)
+#         # print(type(issuer), issuer)
 
-class Analyzer():
+#         if isinstance(issuer, dict):
+#             cn = issuer.get("common_name")
+#             ca_issuer_rate[str(cn)] += 1
+#             tot_num += 1
 
-    def __init__(
-            self,
-            input_file : str = r"/data/self_scan_data/CN_GOV_20241201/CN_GOV_20241201_0_100000",
-            output_file : str = r"/data/self_scan_data/CN_GOV_20241201/CN_GOV_20241201_result"
-        ) -> None:
+# for k, v in ca_issuer_rate.items():
+#     ca_issuer_rate[k] = v / tot_num
 
-        self.input_file = input_file
-        self.output_file = output_file
-        self.data_queue = Queue()
-        self.data = {}
-        
-        # Crtl+C and other signals
-        self.crtl_c_event = threading.Event()
+# with open("out.json", "w") as f:
+#     json.dump(ca_issuer_rate, f, indent=2)
 
-        self.data_save_thread = threading.Thread(target=self.save_results)
-        self.data_save_thread.start()
 
-    def analyze(self):
-        if os.path.isfile(self.input_file):
-            with open(self.input_file, "r", encoding='utf-8') as file:
-                print(f"Reading file: {self.input_file}")
 
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    for line in file:
-                        # Check if there is signals
-                        if self.crtl_c_event.is_set():
-                            primary_logger.info("Ctrl + C detected, stoping allocating threads to the thread pool")
-                            break
+with open("out.json", "r") as f:
+    my_dict = json.load(f)
 
-                        json_obj = json.loads(line.strip())
-                        executor.submit(self.analyze_single, json_obj)
-                        # self.analyze_single(json_obj)
+top_100_keys = [k for k, v in sorted(my_dict.items(), key=lambda item: item[1], reverse=True)[:100]]
 
-                    # 等待所有线程完成
-                    executor.shutdown(wait=True)
-                    primary_logger.info("All threads finished.")
+for key in top_100_keys:
+    print(key, my_dict[key])
 
-        # Wait for all elements in queue to be handled
-        self.data_queue.join()
-
-        # Send the poison pill to stop the saver thread
-        self.data_queue.put(None)
-        self.data_save_thread.join()
-
-        # my_logger.info(f"{self.data}")
-        with open(self.output_file, "w", encoding='utf-8') as file:
-            json.dump(self.data, file, indent=4, default=custom_serializer)
-
-        total_certs = len(list(self.data["sha_set"]))
-        primary_logger.info(f"Result for {self.input_file}:")
-        primary_logger.info(f"Total certs included: {total_certs}:")
-
-        top_5_pairs = sorted(self.data["count"].items(), key=lambda item: item[1], reverse=True)[:5]
-        for l in top_5_pairs:
-            primary_logger.info(f"{l}")
-
-        top_5_country = sorted(self.data["count_country"].items(), key=lambda item: item[1], reverse=True)[:5]
-        for l in top_5_country:
-            primary_logger.info(f"{l}")
-
-    def analyze_single(self, json_obj):
-        domain = json_obj["destination_host"]
-        cert_chain = json_obj["cert_chain"]
-
-        try:
-            sha256 = get_sha256_hex_from_str(cert_chain[0])
-        except IndexError:
-            return
-
-        parsed : ASN1Result = ASN1Parser.parse_pem_cert(cert_chain[0])
-        self.data_queue.put({
-            "sha256" : sha256,
-            "issuer" : parsed.issuer_org,
-            "country" : parsed.issuer_country
-        })
-
-    def save_results(self):
-        self.data["sha_set"] = set()
-        self.data["count"] = {}
-        self.data["count_country"] = {}
-
-        while True:
-            entry = self.data_queue.get()
-
-            if entry is None:  # Poison pill to shut down the thread
-                print("Poision detected")
-                self.data_queue.task_done()
-                return
-
-            if entry["sha256"] in self.data["sha_set"]:
-                self.data_queue.task_done()
-                continue
-            self.data["sha_set"].add(entry["sha256"])
-
-            if entry["issuer"] not in self.data["count"]:
-                self.data["count"][entry["issuer"]] = 0
-            self.data["count"][entry["issuer"]] += 1
-
-            if entry["country"] not in self.data["count_country"]:
-                self.data["count_country"][entry["country"]] = 0
-            self.data["count_country"][entry["country"]] += 1
-
-            self.data_queue.task_done()
-
-if __name__ == "__main__":
-
-    def signal_handler(sig, frame, analyzer : Analyzer):
-        primary_logger.warning("Ctrl+C detected")
-        analyzer.crtl_c_event.set()
-        sys.exit(0)
-
-    analyzer = Analyzer(
-        input_file = r"/data/self_scan_data/CN_EDU_20241201/CN_EDU_20241201_0_100000",
-        output_file = r"/data/self_scan_data/CN_EDU_20241201/CN_EDU_20241201_result_2"
-    )
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    primary_logger.info("Crtl+C signal handler attached!")
-    analyzer.analyze()
-
-    analyzer = Analyzer(
-        input_file = r"/data/self_scan_data/CN_GOV_20241201/CN_GOV_20241201_0_100000",
-        output_file = r"/data/self_scan_data/CN_GOV_20241201/CN_GOV_20241201_result_2"
-    )
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    primary_logger.info("Crtl+C signal handler attached!")
-    analyzer.analyze()
-
-    analyzer = Analyzer(
-        input_file = r"/data/self_scan_data/CN_SOE_20241201/CN_SOE_20241201_0_100000",
-        output_file = r"/data/self_scan_data/CN_SOE_20241201/CN_SOE_20241201_result_2"
-    )
-    signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, analyzer))
-    primary_logger.info("Crtl+C signal handler attached!")
-    analyzer.analyze()
+'''
+CA 公司	原始占比总和
+Let’s Encrypt（含 R11、R10、E5、E6、R3 等）	0.3224
+私有 / 自签 / 设备证书（如 kubernetes、Traefik、TP-LINK、FortiGate、localhost 等）	0.1497
+Amazon（含 M01～M04）	0.0615
+Sectigo / Comodo 系列（含 Sectigo、COMODO、Encryption Everywhere、GoGetSSL、cPanel）	0.0607
+DigiCert 系列（含 DigiCert、RapidSSL、Thawte、GeoTrust）	0.0391
+Unknown / None	0.0269
+GoDaddy / Starfield	0.0198
+Microsoft Azure 系	0.0196
+GlobalSign（含 AlphaSSL）	0.0113
+TrustAsia / WoTrus / sslTrus	0.0108
+ZeroSSL	0.0087
+HydrantID	0.0033
+Entrust	0.0029
+Certum	0.0024
+GÉANT	0.0022
+JPRS	0.0020
+Google Trust Services (GTS)	0.0007
+Cybertrust Japan	0.0007
+'''

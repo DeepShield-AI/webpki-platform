@@ -1,4 +1,6 @@
 
+import time
+import redis
 import json
 from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.config.analyze_config import AnalyzeConfig
@@ -15,20 +17,37 @@ from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519, dsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 
+r = redis.Redis()
+
 @celery_app.task
 def build_all_from_table() -> str:
     for row in stream_by_id(engine_cert.raw_connection(), "cert"):
         cert_parse_from_row.delay(row)
+
+        while True:
+            if r.llen('celery') <= 10000: break
+            time.sleep(1)
+
     return True
 
 
 @celery_app.task
 def cert_parse_from_row(row: list) -> str:
     parse_result = _cert_parse(row[2])
-    trusted = check_cert_trusted(row[2])
     parse_result["id"] = row[0]
-    parse_result["trusted"] = trusted
     enqueue_result(parse_result)
+
+    # add for ca here to avoid overlook
+    cert_type = parse_result.get("type", None)
+    if cert_type and cert_type != 0:
+        enqueue_result({
+            "flag" : AnalyzeConfig.TASK_CA_PROFILE,
+            "ca_sha256" : parse_result["ca_id_sha256"],
+            "subject" : parse_result["subject"],
+            "spki" : parse_result["spki"],
+            "ski" : parse_result["ski"],
+            "cert_id" : row[0]
+        })
     return True
 
 
@@ -56,7 +75,10 @@ def _cert_parse(cert_der: bytes) -> str:
             "aki" : parsed.aki,
             "not_valid_before" : parsed.not_before,
             "not_valid_after" : parsed.not_after,
-            "type" : parsed.cert_type
+            "type" : parsed.cert_type,
+
+            "ca_id_sha256" : parsed.ca_id_sha256,
+            "spki" : parsed.spki
         }
 
     except Exception as e:

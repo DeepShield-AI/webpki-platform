@@ -179,9 +179,13 @@ class ASN1Parser():
                     pass
 
             elif ext_id == 'key_identifier':
-                ski = ext['extn_value'].native.hex()   # this is base64 bytes
+                key_identifier = ext['extn_value'].native
+                if key_identifier:
+                    ski = key_identifier.hex()   # this is base64 bytes
             elif ext_id == 'authority_key_identifier':
-                aki = ext['extn_value'].native['key_identifier'].hex()    # this is base64 bytes
+                key_identifier = ext['extn_value'].native['key_identifier']
+                if key_identifier:
+                    aki = key_identifier.hex()    # this is base64 bytes
             elif ext_id == 'certificate_policies':
                 policy = ext['extn_value'].native[0].get('policy_identifier', None)
 

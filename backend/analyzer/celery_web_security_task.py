@@ -1,5 +1,7 @@
 
 import os
+import time
+import redis
 import json
 import tempfile
 import subprocess
@@ -23,11 +25,17 @@ accepted_cipher_list = [
     "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256"
 ]
 
+r = redis.Redis()
 
 @celery_app.task
 def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake"):
+    for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake_old"):
         web_security_analyze_from_row.delay(row, output_dir)
+
+        while True:
+            if r.llen('celery') <= 10000: break
+            time.sleep(1)
+
     return True
 
 
@@ -40,6 +48,7 @@ def web_security_analyze_from_row(row: list, output_dir: str) -> str:
         row[-3],
         json.loads(row[-2])
     )
+    analysis_result["id"] = row[0]
     analysis_result["out_dir"] = output_dir
     enqueue_result(analysis_result)
     return True
@@ -186,6 +195,7 @@ def _web_security_analyze(
 
     except Exception as e:
         primary_logger.error(e)
+        pass
 
     finally:
         return {

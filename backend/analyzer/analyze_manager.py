@@ -7,6 +7,7 @@ from backend.analyzer.celery_save_task import batch_flush_results
 from backend.analyzer.celery_cag_task import build_all_from_table as build_cag
 from backend.analyzer.celery_cert_fp_task import build_all_from_table as build_cert_fp
 from backend.analyzer.celery_cert_parse_task import build_all_from_table as build_cert_parse
+from backend.analyzer.celery_cert_trust_task import build_all_from_table as build_cert_trust
 from backend.analyzer.celery_cert_security_task import build_all_from_table as build_cert_security
 from backend.analyzer.celery_web_security_task import build_all_from_table as build_web_security
 from backend.analyzer.celery_ca_profile_task import build_all_from_table as build_ca_profile
@@ -53,7 +54,8 @@ class AnalyzeManager():
             build_web_security.delay(self.config.out_dir)
         if self.config.task_flag & AnalyzeConfig.TASK_CA_PROFILE:
             build_ca_profile.delay()
-
-        while True:
-            pass
+        if self.config.task_flag & AnalyzeConfig.TASK_CERT_TRUST:
+            build_cert_trust.delay()
+        # while True:
+        #     pass
         

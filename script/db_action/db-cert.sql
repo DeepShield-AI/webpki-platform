@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS `cert_search` (
   `not_valid_before` DATETIME,
   `not_valid_after` DATETIME,
   `type` INT UNSIGNED NOT NULL,
-  `trusted` BOOLEAN,
+  -- `trusted` BOOLEAN,
   CONSTRAINT `fk_cert_search_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -66,3 +66,21 @@ CREATE TABLE IF NOT EXISTS `cert_revocation` (
     FOREIGN KEY (`cert_id`) REFERENCES `cert` (`id`) ON DELETE CASCADE,
   INDEX `idx_cert_id` (`cert_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `cert_security`;
+
+CREATE TABLE IF NOT EXISTS `cert_security` (
+  `id` INT UNSIGNED NOT NULL PRIMARY KEY,
+  `error_code` JSON,
+  CONSTRAINT `fk_cert_security_cert_id`
+    FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+DROP TABLE IF EXISTS `cert_trust`;
+
+CREATE TABLE IF NOT EXISTS `cert_trust` (
+  `id` INT UNSIGNED NOT NULL PRIMARY KEY,
+  `mozilla_trust` BOOLEAN,
+  CONSTRAINT `fk_cert_trust_cert_id`
+    FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

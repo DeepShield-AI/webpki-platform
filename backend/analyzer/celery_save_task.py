@@ -6,7 +6,7 @@ import base64
 from backend.config.analyze_config import AnalyzeConfig
 from backend.logger.logger import primary_logger
 from backend.celery.celery_app import celery_app
-from backend.celery.celery_db_pool import engine_cert, engine_ca
+from backend.celery.celery_db_pool import engine_cert, engine_ca, engine_tls
 
 r = redis.Redis()
 
@@ -35,6 +35,7 @@ def batch_flush_results(min_batch_size=3000):
 
     # cert parse data
     cert_parse_data = []
+    cert_trust_data = []
 
     # cert asn1 fp
     cert_fp_data = []
@@ -48,9 +49,12 @@ def batch_flush_results(min_batch_size=3000):
 
     # cert_security
     cert_security_file = None
+    cert_security_data = []
 
     # web-security
     web_security_file = None
+    web_security_data = []
+    tls_conn = engine_tls.raw_connection()
 
     # ca info
     ca_data = []
@@ -83,7 +87,14 @@ def batch_flush_results(min_batch_size=3000):
                     result.get("not_valid_before", ""),
                     result.get("not_valid_after", ""),
                     result.get("type", ""),
-                    result.get("trusted", "")
+                    # result.get("trusted", "")
+                ))
+
+            elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_TRUST:
+
+                cert_trust_data.append((
+                    result.get("id", ""),
+                    result.get("mozilla_trust", "")
                 ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_REVOKE:
@@ -129,41 +140,51 @@ def batch_flush_results(min_batch_size=3000):
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CERT_SECURITY:
 
-                out_dir = result.get("out_dir", "/data/default_out")
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
+                # out_dir = result.get("out_dir", "/data/default_out")
+                # if not os.path.exists(out_dir):
+                #     os.makedirs(out_dir)
 
-                if not cert_security_file:
-                    cert_security_file = open(os.path.join(out_dir, "cert_security.json"), "a", encoding='utf-8', newline='')
+                # if not cert_security_file:
+                #     cert_security_file = open(os.path.join(out_dir, "cert_security.json"), "a", encoding='utf-8', newline='')
 
-                json_result = json.dumps({
-                    "sha256" : result.get("sha256", ""),
-                    "error_code" : result.get("error_code", ""),
-                    "error_info" : result.get("error_info", "")
-                })
-                cert_security_file.write(json_result + '\n')
+                # json_result = json.dumps({
+                #     "sha256" : result.get("sha256", ""),
+                #     "error_code" : result.get("error_code", ""),
+                #     "error_info" : result.get("error_info", "")
+                # })
+                # cert_security_file.write(json_result + '\n')
+
+                cert_security_data.append((
+                    result.get("id", ""),
+                    json.dumps(result.get("error_code", ""))
+                ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_WEB_SECURITY:
 
-                out_dir = result.get("out_dir", "/data/default_out")
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
+                # out_dir = result.get("out_dir", "/data/default_out")
+                # if not os.path.exists(out_dir):
+                #     os.makedirs(out_dir)
 
-                if not web_security_file:
-                    web_security_file = open(os.path.join(out_dir, "web_security.json"), "a", encoding='utf-8', newline='')
+                # if not web_security_file:
+                #     web_security_file = open(os.path.join(out_dir, "web_security.json"), "a", encoding='utf-8', newline='')
 
-                json_result = json.dumps({
-                    "domain" : result.get("domain", ""),
-                    "ip" : result.get("ip", ""),
-                    "tls_version" : result.get("tls_version", ""),
-                    "tls_cipher" : result.get("tls_cipher", ""),
-                    "cert_hash_list" : result.get("cert_hash_list", ""),
-                    "error_code" : result.get("error_code", "")
-                })
-                web_security_file.write(json_result + '\n')
+                # json_result = json.dumps({
+                #     "domain" : result.get("domain", ""),
+                #     "ip" : result.get("ip", ""),
+                #     "tls_version" : result.get("tls_version", ""),
+                #     "tls_cipher" : result.get("tls_cipher", ""),
+                #     "cert_hash_list" : result.get("cert_hash_list", ""),
+                #     "error_code" : result.get("error_code", "")
+                # })
+                # web_security_file.write(json_result + '\n')
+
+                web_security_data.append((
+                    result.get("id", ""),
+                    json.dumps(result.get("error_code", ""))
+                ))
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CA_PROFILE:
-                primary_logger.debug(json.dumps(result.get("spki", "")))
+                # primary_logger.debug(json.dumps(result.get("spki", "")))
 
                 ca_data.append((
                     result.get("ca_sha256", ""),
@@ -183,10 +204,22 @@ def batch_flush_results(min_batch_size=3000):
                     """
                     INSERT IGNORE INTO cert_search
                     (id, sha256, serial, subject_cn_list, subject, issuer,
-                    spkisha256, ski, aki, not_valid_before, not_valid_after, type, trusted)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    spkisha256, ski, aki, not_valid_before, not_valid_after, type)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     cert_parse_data
+                )
+            cert_conn.commit()
+
+        if cert_trust_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    """
+                    INSERT IGNORE INTO cert_trust
+                    (id, mozilla_trust)
+                    VALUES (%s, %s)
+                    """,
+                    cert_trust_data
                 )
             cert_conn.commit()
 
@@ -201,6 +234,22 @@ def batch_flush_results(min_batch_size=3000):
                     cert_revoke_data
                 )
             cert_conn.commit()
+
+        if cert_security_data:
+            with cert_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO cert_security (id, error_code) VALUES (%s, %s)",
+                    cert_security_data
+                )
+            cert_conn.commit()
+
+        if web_security_data:
+            with tls_conn.cursor() as cursor:
+                cursor.executemany(
+                    "INSERT IGNORE INTO web_security (id, error_code) VALUES (%s, %s)",
+                    web_security_data
+                )
+            tls_conn.commit()
 
         if cert_fp_data:
             with cert_conn.cursor() as cursor:
@@ -237,6 +286,7 @@ def batch_flush_results(min_batch_size=3000):
 
     cert_conn.close()
     ca_conn.close()
+    tls_conn.close()
 
     if cag_node_file: cag_node_file.close()
     if cag_edge_file: cag_edge_file.close()

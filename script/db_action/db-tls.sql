@@ -19,3 +19,17 @@ CREATE TABLE IF NOT EXISTS `tlshandshake` (
     `error` TEXT,                            -- 错误信息
     INDEX `idx_host_ip` (`destination_host`, `destination_ip`)  -- 添加常用字段的复合索引
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `web_security`;
+
+CREATE TABLE IF NOT EXISTS `web_security` (
+  `id` BIGINT NOT NULL PRIMARY KEY,
+  `error_code` JSON
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- CREATE TABLE IF NOT EXISTS `web_security` (
+--   `id` BIGINT NOT NULL PRIMARY KEY,
+--   `error_code` JSON,
+--   CONSTRAINT `fk_web_security_id`
+--     FOREIGN KEY (`id`) REFERENCES `tlshandshake` (`id`) ON DELETE CASCADE
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
