@@ -20,15 +20,15 @@ from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 # Depreacted
 # #########
 @celery_app.task
-def build_all_from_table(output_dir: str) -> str:
+def build_all_from_table(start_id=0) -> str:
 
     # 目前 CAG 由两个部分组成
     # 1. 证书中的内容（包括 密钥 和 CA）
     # 2. TLS 扫描中的内容
     for row in stream_by_id(engine_cert.raw_connection(), "cert"):
-        cag_cert_from_row.delay(row, output_dir)
+        cag_cert_from_row.delay(row)
     for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake"):
-        cag_tls_from_row.delay(row, output_dir)
+        cag_tls_from_row.delay(row)
     return True
 
 @celery_app.task

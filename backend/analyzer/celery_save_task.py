@@ -114,17 +114,17 @@ def batch_flush_results(min_batch_size=3000):
 
             elif result.get("flag", "") == AnalyzeConfig.TASK_CAG:
 
-                out_dir = result.get("out_dir", "/data/default_out")
-                if not os.path.exists(out_dir):
-                    os.makedirs(out_dir)
+                # out_dir = result.get("out_dir", "/data/default_out")
+                # if not os.path.exists(out_dir):
+                #     os.makedirs(out_dir)
 
-                if not cag_node_file:
-                    cag_node_file = open(os.path.join(out_dir, "cag_node.csv"), "a", encoding='utf-8', newline='')
-                    cag_node_file_writer = csv.writer(cag_node_file)
+                # if not cag_node_file:
+                #     cag_node_file = open(os.path.join(out_dir, "cag_node.csv"), "a", encoding='utf-8', newline='')
+                #     cag_node_file_writer = csv.writer(cag_node_file)
 
-                if not cag_edge_file:
-                    cag_edge_file = open(os.path.join(out_dir, "cag_edge.csv"), "a", encoding='utf-8', newline='')
-                    cag_edge_file_writer = csv.writer(cag_edge_file)
+                # if not cag_edge_file:
+                #     cag_edge_file = open(os.path.join(out_dir, "cag_edge.csv"), "a", encoding='utf-8', newline='')
+                #     cag_edge_file_writer = csv.writer(cag_edge_file)
 
                 if result.get("cag_type", "") == "node":
                     id = result.get("id", "")

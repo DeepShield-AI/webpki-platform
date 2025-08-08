@@ -28,9 +28,9 @@ accepted_cipher_list = [
 r = redis.Redis()
 
 @celery_app.task
-def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake_old"):
-        web_security_analyze_from_row.delay(row, output_dir)
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake", start_id=start_id):
+        web_security_analyze_from_row.delay(row)
 
         while True:
             if r.llen('celery') <= 10000: break
@@ -40,16 +40,16 @@ def build_all_from_table(output_dir: str) -> str:
 
 
 @celery_app.task
-def web_security_analyze_from_row(row: list, output_dir: str) -> str:
+def web_security_analyze_from_row(row: list) -> str:
     analysis_result = _web_security_analyze(
         row[1],
         row[2],
+        row[-5],
         row[-4],
         row[-3],
         json.loads(row[-2])
     )
     analysis_result["id"] = row[0]
-    analysis_result["out_dir"] = output_dir
     enqueue_result(analysis_result)
     return True
 
@@ -59,7 +59,8 @@ def _web_security_analyze(
         ip : str,
         tls_version : str,
         tls_cipher : str,
-        cert_sha256_list : list
+        leaf_sha256 : str,
+        chain_sha256_list : list
     ) -> str:
 
     host: str = domain if domain else ip
@@ -68,7 +69,7 @@ def _web_security_analyze(
     try:
         # 1. check for https deployment
         # print(tls_version, tls_cipher, cert_sha256_list)
-        if not tls_version and not tls_cipher and not cert_sha256_list:
+        if not tls_version and not tls_cipher and not leaf_sha256:
             error_code.add("no_https")
             raise Exception("No TLS info avaliable")
 
@@ -84,28 +85,36 @@ def _web_security_analyze(
         if tls_cipher not in accepted_cipher_list:
             error_code.add("weak_tls_cipher")
 
-        assert(cert_sha256_list)
+        assert(leaf_sha256)
         conn = engine_cert.raw_connection()
         cursor = conn.cursor()
 
-        placeholders = ','.join(['%s'] * len(cert_sha256_list))
-        query = f"""
+        sql = """
             SELECT * FROM cert
-            WHERE sha256 IN ({placeholders})
+            WHERE sha256 = %s
         """
-        cursor.execute(query, cert_sha256_list)
-        all_rows = cursor.fetchall()
-
-        # 用 dict 映射 cert_hash 到结果
-        hash_to_row = {r[1]: r[2] for r in all_rows}  # 假设 cert_hash 是第一列
-        cursor.close()
-
-        leaf_cert_der: bytes = hash_to_row[cert_sha256_list[0]]
+        cursor.execute(sql, (leaf_sha256,))  # 注意 tuple 格式
+        row = cursor.fetchone()
+        if not row: raise Exception("No TLS info avaliable")
+        leaf_cert_der: bytes = row[2]
 
         try:
             parsed_leaf: ASN1Result = ASN1Parser.parse_der_cert(leaf_cert_der)
         except Exception:
             raise ParseError
+
+        placeholders = ','.join(['%s'] * len(chain_sha256_list))
+        if placeholders:
+            query = f"""
+                SELECT * FROM cert
+                WHERE sha256 IN ({placeholders})
+            """
+            cursor.execute(query, chain_sha256_list)
+            all_rows = cursor.fetchall()
+
+            # 用 dict 映射 cert_hash 到结果
+            hash_to_row = {r[1]: r[2] for r in all_rows}  # 假设 cert_hash 是第一列
+        cursor.close()
 
         # 4. hostname mismatch
         if host not in parsed_leaf.subject_cn_list:
@@ -125,7 +134,7 @@ def _web_security_analyze(
 
         # 7. check for chain success
         ca_subject_sha_set = set()
-        for ca_cert_hash in cert_sha256_list[1:]:
+        for ca_cert_hash in chain_sha256_list:
             ca_cert_der = hash_to_row[ca_cert_hash]
             parsed_ca: ASN1Result = ASN1Parser.parse_der_cert(ca_cert_der)
             ca_subject_sha_set.add(parsed_ca.subject_sha)
@@ -134,60 +143,60 @@ def _web_security_analyze(
             error_code.add("chain_not_verified")
 
         # 8. check sig and encrypt alg
-        with tempfile.NamedTemporaryFile(suffix=".der", delete=False) as temp_cert_file:
-            temp_cert_file.write(leaf_cert_der)  # ← 写入原始 DER 二进制
-            temp_cert_path = temp_cert_file.name
+        # with tempfile.NamedTemporaryFile(suffix=".der", delete=False) as temp_cert_file:
+        #     temp_cert_file.write(leaf_cert_der)  # ← 写入原始 DER 二进制
+        #     temp_cert_path = temp_cert_file.name
 
-        try:
-            result = subprocess.run(
-                [
-                    ZLINT_PATH,
-                    "-includeNames=e_rsa_mod_less_than_2048_bits,e_dsa_shorter_than_2048_bits",
-                    temp_cert_path
-                    # "-includeNames=e_rsa_mod_less_than_2048_bits,w_rsa_mod_factors_smaller_than_752,e_dsa_shorter_than_2048_bits,e_old_sub_cert_rsa_mod_less_than_1024_bits"
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+        # try:
+        #     result = subprocess.run(
+        #         [
+        #             ZLINT_PATH,
+        #             "-includeNames=e_rsa_mod_less_than_2048_bits,e_dsa_shorter_than_2048_bits",
+        #             temp_cert_path
+        #             # "-includeNames=e_rsa_mod_less_than_2048_bits,w_rsa_mod_factors_smaller_than_752,e_dsa_shorter_than_2048_bits,e_old_sub_cert_rsa_mod_less_than_1024_bits"
+        #         ],
+        #         stdout=subprocess.PIPE,
+        #         stderr=subprocess.PIPE,
+        #         text=True
+        #     )
 
-            if result.returncode != 0:
-                raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
+        #     if result.returncode != 0:
+        #         raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
 
-            zlint_output = json.loads(result.stdout)
-            for name, result in zlint_output.items():
-                if result["result"] in ["warn", "error", "fatal"]:
-                    error_code.add("weak_cipher")
+        #     zlint_output = json.loads(result.stdout)
+        #     for name, result in zlint_output.items():
+        #         if result["result"] in ["warn", "error", "fatal"]:
+        #             error_code.add("weak_cipher")
 
-            # next
-            result = subprocess.run(
-                [
-                    ZLINT_PATH,
-                    "-includeNames=e_sub_cert_or_sub_ca_using_sha1,e_signature_algorithm_not_supported",
-                    temp_cert_path
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+        #     # next
+        #     result = subprocess.run(
+        #         [
+        #             ZLINT_PATH,
+        #             "-includeNames=e_sub_cert_or_sub_ca_using_sha1,e_signature_algorithm_not_supported",
+        #             temp_cert_path
+        #         ],
+        #         stdout=subprocess.PIPE,
+        #         stderr=subprocess.PIPE,
+        #         text=True
+        #     )
 
-            if result.returncode != 0:
-                raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
+        #     if result.returncode != 0:
+        #         raise RuntimeError(f"Zlint error: {result.stderr.strip()}")
 
-            zlint_output = json.loads(result.stdout)
-            for name, result in zlint_output.items():
-                if result["result"] in ["warn", "error", "fatal"]:
-                    error_code.add("weak_hash")
+        #     zlint_output = json.loads(result.stdout)
+        #     for name, result in zlint_output.items():
+        #         if result["result"] in ["warn", "error", "fatal"]:
+        #             error_code.add("weak_hash")
 
-        except RuntimeError as e:
-            primary_logger.error(e)
-            error_code.add("cert_broke")
+        # except RuntimeError as e:
+        #     primary_logger.error(e)
+        #     error_code.add("cert_broke")
 
-        finally:
-            try:
-                os.unlink(temp_cert_path)
-            except OSError:
-                pass
+        # finally:
+        #     try:
+        #         os.unlink(temp_cert_path)
+        #     except OSError:
+        #         pass
 
     except ParseError as e:
         primary_logger.error(e)
@@ -204,6 +213,6 @@ def _web_security_analyze(
             "ip" : ip,
             "tls_version" : tls_version,
             "tls_cipher" : tls_cipher,
-            "cert_hash_list" : cert_sha256_list,
+            "cert_hash_list" : chain_sha256_list,
             "error_code" : list(error_code)
         }

@@ -19,9 +19,9 @@ from backend.parser.asn1_parser import ASN1Parser
 r = redis.Redis()
 
 @celery_app.task
-def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), "cert"):
-        cert_security_analyze.delay(row, output_dir)
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "cert", start_id=start_id):
+        cert_security_analyze_from_row.delay(row)
 
         while True:
             if r.llen('celery') <= 10000: break
@@ -31,11 +31,10 @@ def build_all_from_table(output_dir: str) -> str:
 
 
 @celery_app.task
-def cert_security_analyze(row: list, output_dir: str) -> str:
+def cert_security_analyze_from_row(row: list) -> str:
     analysis_result = _cert_security_analyze(row[1], row[2])
     analysis_result["id"] = row[0]
     analysis_result["sha256"] = row[1]
-    analysis_result["out_dir"] = output_dir
     enqueue_result(analysis_result)
     return True
 

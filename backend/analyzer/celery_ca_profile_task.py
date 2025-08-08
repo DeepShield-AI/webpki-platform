@@ -7,8 +7,8 @@ from backend.logger.logger import primary_logger
 from backend.parser.asn1_parser import ASN1Parser, ASN1Result
 
 @celery_app.task
-def build_all_from_table() -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), "ca_cert"):
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "ca_cert", start_id=start_id):
         ca_info_from_row.delay(row)
     return True
 
@@ -42,8 +42,7 @@ def _ca_info(cert_der: bytes) -> str:
             "ca_sha256" : parsed.ca_id_sha256,
             "subject" : parsed.subject,
             "spki" : parsed.spki,
-            "ski" : parsed.ski,
-            "cert_id" : row[0]
+            "ski" : parsed.ski
         }
 
     except Exception as e:

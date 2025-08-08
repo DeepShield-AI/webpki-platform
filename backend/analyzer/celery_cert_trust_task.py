@@ -20,8 +20,8 @@ from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 r = redis.Redis()
 
 @celery_app.task
-def build_all_from_table() -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), "cert"):
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "cert", start_id=start_id):
         cert_trust_from_row.delay(row)
 
         while True:

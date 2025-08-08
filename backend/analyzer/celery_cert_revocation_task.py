@@ -90,14 +90,14 @@ def cleanup_crl_cache():
 
 
 @celery_app.task
-def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), "cert"):
-        analyze_cert_revocation_from_row.delay(row, output_dir)
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "cert", start_id=start_id):
+        analyze_cert_revocation_from_row.delay(row)
     return True
 
 
 @celery_app.task
-def analyze_cert_revocation_from_row(row: list, output_dir: str) -> str:
+def analyze_cert_revocation_from_row(row: list) -> str:
     _analyze_cert_revocation(row[0], row[2])
 
 

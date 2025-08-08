@@ -24,8 +24,8 @@ from backend.utils.cert import CertificatePolicyLookup, utc_time_diff_in_days, g
 r = redis.Redis()
 
 @celery_app.task
-def build_all_from_table(cert_table: str) -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), cert_table):
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "cert", start_id=start_id):
         build_cert_fp_from_row.delay(row)
 
         while True:

@@ -31,3 +31,5 @@ class AnalyzeConfig:
     # max_tasks_parallel limits the maximum number of concurrent tasks.
     max_tasks_parallel: int = 100
 
+    start_id: int = 0
+

@@ -134,8 +134,9 @@ def batch_flush_results(min_batch_size=2000):
         if raw:
             results.append(json.loads(raw))
 
-    primary_logger.debug(f"Insert batch with len {len(results)}")
+    primary_logger.info(f"Insert batch with len {len(results)}")
     if not results:
+        primary_logger.warning("No Results")
         return
 
     cert_conn = engine_cert.raw_connection()
@@ -158,6 +159,7 @@ def batch_flush_results(min_batch_size=2000):
                     # if i > 0: ca_cert_data.append((cert_sha256, cert_der_bytes))
             else:
                 # this is CT scan result
+                # primary_logger.info("CT")
                 cert_sha256 = get_sha256_hex_from_str(ct_cert)
                 # cert_data.append((cert_sha256, ct_cert))
 

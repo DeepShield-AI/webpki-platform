@@ -41,21 +41,21 @@ class AnalyzeManager():
 
         # check flags
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_FP:
-            build_cert_fp.delay(self.config.cert_table)
+            build_cert_fp.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_PARSE:
-            build_cert_parse.delay()
+            build_cert_parse.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_REVOKE:
-            build_cert_revocation.delay(self.config.out_dir)
+            build_cert_revocation.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CAG:
-            build_cag.delay(self.config.out_dir)
+            build_cag.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_SECURITY:
-            build_cert_security.delay(self.config.out_dir)
+            build_cert_security.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_WEB_SECURITY:
-            build_web_security.delay(self.config.out_dir)
+            build_web_security.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CA_PROFILE:
-            build_ca_profile.delay()
+            build_ca_profile.delay(self.config.start_id)
         if self.config.task_flag & AnalyzeConfig.TASK_CERT_TRUST:
-            build_cert_trust.delay()
+            build_cert_trust.delay(self.config.start_id)
         # while True:
         #     pass
         
