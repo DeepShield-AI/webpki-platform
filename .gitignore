@@ -21,6 +21,7 @@ script/task_launch/out
 script/*/*.txt
 script/*/*.png
 script/*/*.csv
+script/*/*.json
 script/*/*/*.txt
 script/*/*/*.png
 script/*/*/*.csv

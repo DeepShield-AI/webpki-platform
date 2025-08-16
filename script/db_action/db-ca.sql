@@ -11,17 +11,19 @@ CREATE TABLE IF NOT EXISTS `ca` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,  -- sha256 of subject and spki
   `subject` JSON,
+  `subject_sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,  -- sha256 of subject
   `spki` MEDIUMBLOB,
   `ski` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
   `certs` JSON,   -- list of owned certs with same sha256, with cert_id in it
   `issued_certs` INT,
   `parent` JSON,
-  `child` JSON
+  `child` JSON,
+  INDEX `idx_subject_sha256` (`subject_sha256`)  -- 新增索引
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP TABLE IF EXISTS `mozilla_root`;
 
 CREATE TABLE IF NOT EXISTS `mozilla_root` (
-  `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE PRIMARY KEY,  -- sha256 of subject and spki
+  `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE PRIMARY KEY,
   `trust` BOOLEAN
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

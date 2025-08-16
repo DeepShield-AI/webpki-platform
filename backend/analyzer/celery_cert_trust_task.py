@@ -2,13 +2,14 @@
 import time
 import redis
 import json
+from collections import OrderedDict
 from backend.analyzer.utils import enqueue_result, stream_by_id
 from backend.config.analyze_config import AnalyzeConfig
 from backend.celery.celery_app import celery_app
 from backend.celery.celery_db_pool import engine_cert, engine_ca
 from backend.logger.logger import primary_logger
 from backend.parser.asn1_parser import ASN1Parser, ASN1Result
-from backend.utils.cert import get_sha256_hex_from_bytes
+from backend.utils.cert import get_sha256_hex_from_bytes, get_sha256_hex_from_str
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
@@ -37,12 +38,13 @@ def cert_trust_from_row(row: list) -> str:
     enqueue_result({
         "flag" : AnalyzeConfig.TASK_CERT_TRUST,
         "id" : row[0],
+        "sha256" : row[1],
         "mozilla_trust" : mozilla_trust
     })
     return True
 
 
-def check_cert_trusted(cert_der : bytes) -> bool:
+def check_cert_trusted(cert_der : bytes) -> int:
 
     roots = find_all_possible_roots(cert_der)
     ca_conn = engine_ca.raw_connection()
@@ -57,10 +59,11 @@ def check_cert_trusted(cert_der : bytes) -> bool:
             row = cursor.fetchone()
             if row:
                 ca_conn.close()
-                return True
+                return 0
 
     ca_conn.close()
-    return False
+    error_code = 1 if roots else 2
+    return error_code
 
 
 def find_all_possible_roots(cert_der) -> list:
@@ -105,27 +108,28 @@ def find_all_possible_roots(cert_der) -> list:
         with ca_conn.cursor() as cursor:
             query = """
                 SELECT * FROM ca
-                WHERE JSON_CONTAINS(subject, CAST(%s AS JSON))
-                AND JSON_CONTAINS(CAST(%s AS JSON), subject)
+                WHERE subject_sha256=%s;
             """
-            cursor.execute(query, (json.dumps(parsed.issuer), json.dumps(parsed.issuer)))
+            cursor.execute(query, (reorder_issuer_and_sha256(parsed.issuer)[1], ))
             rows = cursor.fetchall()
 
         if not rows:
-            primary_logger.warning(f"未在数据库中找到 issuer: {parsed.issuer}")
+            primary_logger.warning(f"未在数据库中找到 issuer: {reorder_issuer_and_sha256(parsed.issuer)[0]}")
+            primary_logger.warning(f"未在数据库中找到 subject_sha256: {reorder_issuer_and_sha256(parsed.issuer)[1]}")
             continue
 
         for row in rows:
-            issuer_spki_der_bytes = row[3]
-            issuer_ski = row[4]
-            issuer_cert_ids = json.loads(row[5])
+            issuer_spki_der_bytes = row[4]
+            issuer_ski = row[5]
+            issuer_cert_ids = json.loads(row[6])
+            issuer_cert_ids = [x for x in issuer_cert_ids if x]
 
             # 如果有 AKI/SKI 信息，先过滤掉不匹配的
             if issuer_ski and parsed.aki:
                 if issuer_ski != parsed.aki:
                     continue
 
-            issuer_spki_der_bytes = row[3]
+            issuer_spki_der_bytes = row[4]
             issuer_public_key = serialization.load_der_public_key(
                 issuer_spki_der_bytes,
                 backend=default_backend()
@@ -206,3 +210,15 @@ def get_hash_algorithm(signature_algo: str):
         return hashes.SHA224()
     else:
         raise ValueError(f"Unsupported or unknown signature algorithm: {signature_algo}")
+
+
+def reorder_issuer_and_sha256(issuer_dict):
+    keys_order = ["common_name", "country_name", "organization_name", "organizational_unit_name"]
+
+    ordered = OrderedDict()
+    for k in keys_order:
+        if k in issuer_dict:
+            ordered[k] = issuer_dict[k]
+
+    issuer_json_str = json.dumps(ordered, separators=(', ', ': '), ensure_ascii=False)
+    return issuer_json_str, get_sha256_hex_from_str(issuer_json_str)

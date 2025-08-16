@@ -94,6 +94,7 @@ def batch_flush_results(min_batch_size=3000):
 
                 cert_trust_data.append((
                     result.get("id", ""),
+                    result.get("sha256", ""),
                     result.get("mozilla_trust", "")
                 ))
 
@@ -216,8 +217,8 @@ def batch_flush_results(min_batch_size=3000):
                 cursor.executemany(
                     """
                     INSERT IGNORE INTO cert_trust
-                    (id, mozilla_trust)
-                    VALUES (%s, %s)
+                    (id, sha256, mozilla_trust)
+                    VALUES (%s, %s, %s)
                     """,
                     cert_trust_data
                 )

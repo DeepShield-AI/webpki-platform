@@ -6,7 +6,7 @@ if __name__ == "__main__":
     test_config = AnalyzeConfig(
         out_dir=r"/root/tianyu/pki-internet-platform/data/frontend_result/cert_security_out",
         task_flag=AnalyzeConfig.TASK_CERT_PARSE,
-        start_id=16105955
+        start_id=16653317
     )
     manager = AnalyzeManager(test_config)
     manager.start()

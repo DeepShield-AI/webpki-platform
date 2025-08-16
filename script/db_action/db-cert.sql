@@ -81,7 +81,7 @@ DROP TABLE IF EXISTS `cert_trust`;
 CREATE TABLE IF NOT EXISTS `cert_trust` (
   `id` INT UNSIGNED NOT NULL PRIMARY KEY,
   `sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
-  `mozilla_trust` BOOLEAN,
+  `mozilla_trust` INT,
   CONSTRAINT `fk_cert_trust_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
