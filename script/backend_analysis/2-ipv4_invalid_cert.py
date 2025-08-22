@@ -34,7 +34,7 @@ for row in stream_by_id(engine_tls.raw_connection(), "tlshandshake", start_id=20
     row = cursor.fetchone()
 
     if row:
-        if int(row[-1]) == 0:
+        if int(row[-1]) != 0:
             # 取 /8 网段（IP 第一个八位）
             first_octet = ip.split('.')[0]
             count_by_slash8[first_octet] += 1
@@ -52,7 +52,7 @@ for slash8, count in sorted(count_by_slash8.items(), key=lambda x: int(x[0])):
     print(f"{slash8}.x.x.x\t{count}")
 
 # 如果需要保存为 JSON
-with open("2-slash8_count.json", "w", encoding="utf-8") as out:
+with open("2-slash8_count-invalid.json", "w", encoding="utf-8") as out:
     json.dump(count_by_slash8, out, ensure_ascii=False, indent=2)
 
 # 打印 /16 统计结果
@@ -61,6 +61,6 @@ for slash16, count in sorted(count_by_slash16.items(), key=lambda x: (int(x[0].s
     print(f"{slash16}.x.x\t{count}")
 
 # 保存为 JSON
-with open("2-slash16_count.json", "w", encoding="utf-8") as out:
+with open("2-slash16_count-invalid.json", "w", encoding="utf-8") as out:
     json.dump(count_by_slash16, out, ensure_ascii=False, indent=2)
 

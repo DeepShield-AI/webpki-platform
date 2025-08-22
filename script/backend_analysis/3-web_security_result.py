@@ -14,6 +14,7 @@ cert_error = 0
 hostname_mismatch = 0
 expired_certs = 0
 self_signed_certs = 0
+invalid_cert = 0
 cert_broke = 0
 
 for row in stream_by_id(engine_tls.raw_connection(), "web_security"):
@@ -31,7 +32,7 @@ for row in stream_by_id(engine_tls.raw_connection(), "web_security"):
     if 'no_weak_tls_cipher' in error_code_list:
         weak_tls_cipher += 1
 
-    if 'hostname_mismatch' in error_code_list or 'expired_certs' in error_code_list or 'self_signed_certs' in error_code_list or 'cert_broke' in error_code_list:
+    if 'hostname_mismatch' in error_code_list or 'expired_certs' in error_code_list or 'self_signed_certs' in error_code_list or 'invalid_cert' in error_code_list or 'cert_broke' in error_code_list:
         cert_error += 1
     if 'hostname_mismatch' in error_code_list:
         hostname_mismatch += 1
@@ -39,6 +40,8 @@ for row in stream_by_id(engine_tls.raw_connection(), "web_security"):
         expired_certs += 1
     if 'self_signed_certs' in error_code_list:
         self_signed_certs += 1
+    if 'invalid_cert' in error_code_list:
+        invalid_cert += 1
     if 'cert_broke' in error_code_list:
         cert_broke += 1
 
@@ -53,6 +56,7 @@ print(cert_error)
 print(hostname_mismatch)
 print(expired_certs)
 print(self_signed_certs)
+print(invalid_cert)
 print(cert_broke)
 
 # 56530751
