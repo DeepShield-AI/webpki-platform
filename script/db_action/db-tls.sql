@@ -14,7 +14,22 @@ CREATE TABLE IF NOT EXISTS `tlshandshake` (
     `jarm_hash` VARCHAR(128),                -- JARM哈希
     `tls_version` VARCHAR(64),               -- TLS版本
     `tls_cipher` VARCHAR(128),               -- TLS密码套件
-    `cert_sha256_list` JSON,                 -- 证书哈希列表（JSON格式）
+    `leaf_sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
+    `chain_sha256` JSON,                     -- 证书哈希列表（JSON格式）
     `error` TEXT,                            -- 错误信息
     INDEX `idx_host_ip` (`destination_host`, `destination_ip`)  -- 添加常用字段的复合索引
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `web_security`;
+
+CREATE TABLE IF NOT EXISTS `web_security` (
+  `id` BIGINT NOT NULL PRIMARY KEY,
+  `error_code` JSON
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- CREATE TABLE IF NOT EXISTS `web_security` (
+--   `id` BIGINT NOT NULL PRIMARY KEY,
+--   `error_code` JSON,
+--   CONSTRAINT `fk_web_security_id`
+--     FOREIGN KEY (`id`) REFERENCES `tlshandshake` (`id`) ON DELETE CASCADE
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

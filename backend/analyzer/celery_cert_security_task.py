@@ -1,4 +1,6 @@
 
+import time
+import redis
 import os
 import json
 import tempfile
@@ -14,19 +16,25 @@ from backend.config.path_config import ZLINT_PATH, ROOT_DIR
 from backend.logger.logger import primary_logger
 from backend.parser.asn1_parser import ASN1Parser
 
+r = redis.Redis()
+
 @celery_app.task
-def build_all_from_table(output_dir: str) -> str:
-    for row in stream_by_id(engine_cert.raw_connection(), "cert"):
-        cert_security_analyze.delay(row, output_dir)
+def build_all_from_table(start_id=0) -> str:
+    for row in stream_by_id(engine_cert.raw_connection(), "cert", start_id=start_id):
+        cert_security_analyze_from_row.delay(row)
+
+        while True:
+            if r.llen('celery') <= 10000: break
+            time.sleep(1)
+
     return True
 
 
 @celery_app.task
-def cert_security_analyze(row: list, output_dir: str) -> str:
+def cert_security_analyze_from_row(row: list) -> str:
     analysis_result = _cert_security_analyze(row[1], row[2])
     analysis_result["id"] = row[0]
     analysis_result["sha256"] = row[1]
-    analysis_result["out_dir"] = output_dir
     enqueue_result(analysis_result)
     return True
 
@@ -148,17 +156,17 @@ def _cert_security_analyze(sha256: str, cert_der: str) -> str:
             error_code.add("self_signed")
 
         # 5. if cert is deployed on any ip that is in abuseipdb or drop
-        if cert_type == LEAF:
-            ips = find_ip_by_cert_sha256(sha256)
-            filtered_ips = filter_abuse_ip(ips)
-            if filtered_ips:
-                error_code.add("abuse_ip")
-                error_info["abuse_ip"] = filtered_ips
+        # if cert_type == LEAF:
+        #     ips = find_ip_by_cert_sha256(sha256)
+        #     filtered_ips = filter_abuse_ip(ips)
+        #     if filtered_ips:
+        #         error_code.add("abuse_ip")
+        #         error_info["abuse_ip"] = filtered_ips
 
-            filtered_ips = filter_drop_ip(ips)
-            if filtered_ips:
-                error_code.add("DROP")
-                error_info["DROP"] = filtered_ips
+        #     filtered_ips = filter_drop_ip(ips)
+        #     if filtered_ips:
+        #         error_code.add("DROP")
+        #         error_info["DROP"] = filtered_ips
 
         # 6 version
         version = parsed['tbs_certificate']['version']
@@ -236,7 +244,7 @@ def find_ip_by_cert_sha256(cert_sha256):
     conn = engine_tls.raw_connection()
     cursor = conn.cursor()
     query = f"""
-        SELECT * FROM tlshandshake
+        SELECT * FROM tlshandshake_old
         WHERE JSON_CONTAINS (cert_sha256_list, %s)
         LIMIT 200
     """

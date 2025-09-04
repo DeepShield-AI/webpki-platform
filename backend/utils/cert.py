@@ -9,13 +9,19 @@ import hashlib
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from collections import OrderedDict
-from cryptography.x509 import load_pem_x509_certificate
+from cryptography.x509 import load_pem_x509_certificate, load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519
 from cryptography.hazmat.primitives import hashes as primitives_hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import rsa, ec, ed25519, dsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import (
@@ -161,17 +167,32 @@ def read_multiple_pem_certs_from_file(pem_file):
             pem_list.append(cert)
     return pem_list
 
-def is_issuer(cert_to_check_pem : str, issuer_cert_pem : str):
+
+def check_server_trusted(leaf_cert_der, ca_store, use_mozilla_root_store=True):
+
+    current_leaf = leaf_cert_der
+
+    while not is_self_signed(current_leaf):
+
+        for ca_cert in ca_store:
+            if is_issuer(current_leaf, ca_cert):
+                pass
+
+
+def is_self_signed():
+    pass
+
+def is_issuer(cert_to_check_der : bytes, issuer_cert_der : bytes):
     """
         验证 cert_to_check 是否由 issuer_cert 颁发，并验证签名。
-        :param cert_to_check_pem: 目标证书的 PEM 编码
-        :param issuer_cert_pem: 颁发者证书的 PEM 编码
+        :param cert_to_check_der: 目标证书的 DER 编码
+        :param issuer_cert_der: 颁发者证书的 DER 编码
         :return: 如果 issuer_cert 是 cert_to_check 的颁发者，并且签名验证通过，则返回 True，否则返回 False
     """
     # 加载目标证书和颁发者证书
     try:
-        cert_to_check = load_pem_x509_certificate(cert_to_check_pem.encode('utf-8'), default_backend())
-        issuer_cert = load_pem_x509_certificate(issuer_cert_pem.encode('utf-8'), default_backend())
+        cert_to_check = load_der_x509_certificate(cert_to_check_der, default_backend())
+        issuer_cert = load_der_x509_certificate(issuer_cert_der, default_backend())
     except Exception as e:
         return False
     
@@ -180,38 +201,50 @@ def is_issuer(cert_to_check_pem : str, issuer_cert_pem : str):
         return False
     
     # 使用颁发者证书的公钥来验证目标证书的签名
+
     try:
         # 获取颁发者证书的公钥
         issuer_public_key = issuer_cert.public_key()
-        
-        # 针对不同的签名算法执行相应的验证
+        signature_bytes = cert_to_check.signature,  # 目标证书的签名
+        tbs_bytes = cert_to_check.tbs_certificate_bytes,  # 目标证书的签名前部分（tbs_certificate）
+        hash_algo = get_hash_algorithm(str(cert_to_check.signature_hash_algorithm))
+
+        # 如果有 AKI/SKI 信息，先过滤掉不匹配的
+        # if issuer_ski and parsed.aki:
+        #     if issuer_ski != parsed.aki:
+        #         continue
+
         if isinstance(issuer_public_key, rsa.RSAPublicKey):
-            # RSA 签名验证
             issuer_public_key.verify(
-                cert_to_check.signature,  # 目标证书的签名
-                cert_to_check.tbs_certificate_bytes,  # 目标证书的签名前部分（tbs_certificate）
-                padding.PKCS1v15(),  # 使用 PKCS1v15 填充（适用于 RSA）
-                hashes.SHA256()  # 使用 SHA256 哈希算法
+                signature_bytes,
+                tbs_bytes,
+                padding.PKCS1v15(),
+                hash_algo
             )
-        
+
         elif isinstance(issuer_public_key, ec.EllipticCurvePublicKey):
-            # ECDSA 签名验证
             issuer_public_key.verify(
-                cert_to_check.signature,  # 目标证书的签名
-                cert_to_check.tbs_certificate_bytes,  # 目标证书的签名前部分（tbs_certificate）
-                ec.ECDSA(hashes.SHA256())  # 使用 ECDSA 和 SHA256 哈希算法
+                signature_bytes,
+                tbs_bytes,
+                ec.ECDSA(hash_algo)
             )
-        
+
         elif isinstance(issuer_public_key, ed25519.Ed25519PublicKey):
-            # ED25519 签名验证
             issuer_public_key.verify(
-                cert_to_check.signature,  # 目标证书的签名
-                cert_to_check.tbs_certificate_bytes  # 目标证书的签名前部分（tbs_certificate）
+                signature_bytes,
+                tbs_bytes
             )
-        
+
+        elif isinstance(issuer_public_key, dsa.DSAPublicKey):
+            issuer_public_key.verify(
+                signature_bytes,
+                tbs_bytes,
+                hash_algo
+            )
+
         else:
-            raise ValueError("不支持的公钥类型")
-        
+            raise ValueError(f"不支持的公钥类型: {type(issuer_public_key)}")
+
         # 如果没有异常，返回 True
         return True
     
@@ -219,3 +252,22 @@ def is_issuer(cert_to_check_pem : str, issuer_cert_pem : str):
         # 验证失败，返回 False
         print(f"签名验证失败: {e}")
         return False
+
+
+def get_hash_algorithm(signature_algo: str):
+    algo = signature_algo.lower()
+
+    if "sha256" in algo:
+        return hashes.SHA256()
+    elif "sha384" in algo:
+        return hashes.SHA384()
+    elif "sha512" in algo:
+        return hashes.SHA512()
+    elif "sha1" in algo:
+        return hashes.SHA1()  # 不推荐，已过时但仍有老证书使用
+    elif "md5" in algo:
+        return hashes.MD5()   # 非常不安全，仅用于兼容分析
+    elif "sha224" in algo:
+        return hashes.SHA224()
+    else:
+        raise ValueError(f"Unsupported or unknown signature algorithm: {signature_algo}")

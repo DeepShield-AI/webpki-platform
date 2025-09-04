@@ -8,5 +8,5 @@ with open(test_cert_path, 'r') as f:
     data = f.read()
 
     pem_parser = ASN1Parser()
-    cert = pem_parser.parse_pem_native_pretty(data)
+    cert = pem_parser.parse_pem_cert(data)
     pprint(cert)
