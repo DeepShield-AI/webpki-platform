@@ -85,3 +85,11 @@ CREATE TABLE IF NOT EXISTS `cert_trust` (
   CONSTRAINT `fk_cert_trust_cert_id`
     FOREIGN KEY (`id`) REFERENCES `cert` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+DROP TABLE IF EXISTS `cert_subject_cn`;
+
+CREATE TABLE IF NOT EXISTS `cert_subject_cn` (
+  `id` BIGINT NOT NULL,         -- 对应原表 certs.id
+  `cn` VARCHAR(2000) NOT NULL,   -- 拆出来的每个域名
+  INDEX `idx_cn` (cn(100))      -- 前缀索引，加速 LIKE 查询
+);

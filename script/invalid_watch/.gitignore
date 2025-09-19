@@ -1,0 +1,8 @@
+
+fraudulent_cert/*.txt
+fraudulent_cert/*.csv
+fraudulent_cert/*.json
+
+iot_device_cert/*.txt
+iot_device_cert/*.csv
+iot_device_cert/*.json
