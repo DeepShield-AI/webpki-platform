@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `tlshandshake` (
     `leaf_sha256` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin,
     `chain_sha256` JSON,                     -- 证书哈希列表（JSON格式）
     `error` TEXT,                            -- 错误信息
+    INDEX `idx_leaf_sha256` (`leaf_sha256`), -- 新增证书哈希索引
     INDEX `idx_host_ip` (`destination_host`, `destination_ip`)  -- 添加常用字段的复合索引
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
